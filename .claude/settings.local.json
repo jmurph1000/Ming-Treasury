@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(cd /c/Projects/gusto-treasury/backend && node dist/index.js 2>&1)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(sleep 1 && cd /c/Projects/gusto-treasury/backend && node dist/index.js 2>&1)",
+      "Bash(echo Login OK, token obtained:*)",
+      "Bash(echo === Step 3: Submit Payment for Approval ===:*)",
+      "Bash(echo === Step 1: Login ===:*)",
+      "Bash(cd /c/Projects/gusto-treasury/frontend && npm run dev 2>&1)",
+      "Bash(sleep 1 && cd /c/Projects/gusto-treasury/frontend && npm run dev 2>&1)",
+      "Bash(cd:*)",
+      "Bash(cd /c/Projects/gusto-treasury && git add .gitignore .env.example .claude/ artifact.html backend/src/ backend/package.json backend/tsconfig.json backend/tests/ database/ docker-compose.yml frontend/src/ frontend/package.json frontend/tsconfig.json frontend/next.config.mjs frontend/tailwind.config.ts frontend/postcss.config.mjs frontend/public/ package.json package-lock.json 2>&1)",
+      "Bash(ls:*)"
+    ]
+  }
+}
