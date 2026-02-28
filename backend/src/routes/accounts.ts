@@ -11,20 +11,244 @@ import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 
 const router = Router();
 
+// ──────────────────────────────────────────────────────────
+// SPECIFIC routes MUST come before the /:id wildcard routes
+// ──────────────────────────────────────────────────────────
+
+/**
+ * POST /api/accounts/bulk-upload
+ * Bulk create accounts from Excel data (admin only)
+ */
+router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const admin = req.user!;
+    const { accounts } = req.body;
+
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'accounts array is required and must not be empty',
+      });
+      return;
+    }
+
+    if (accounts.length > 10) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'Maximum 10 accounts can be uploaded at a time',
+      });
+      return;
+    }
+
+    // Validate each row
+    for (let i = 0; i < accounts.length; i++) {
+      const acct = accounts[i];
+      if (!acct.bankName || !acct.description || !acct.lastFour) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: bankName, description, and lastFour are all required`,
+        });
+        return;
+      }
+      if (!/^\d{4}$/.test(acct.lastFour)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: lastFour must be exactly 4 digits`,
+        });
+        return;
+      }
+    }
+
+    const created = [];
+    for (const acct of accounts) {
+      const accountNumberEncrypted = encryptAccountNumber('XXXX' + acct.lastFour);
+      const routingNumberEncrypted = encryptRoutingNumber('000000000');
+
+      const { rows } = await query(
+        `INSERT INTO accounts (
+          name, bank_name, account_number_encrypted, routing_number_encrypted,
+          account_type, currency, dual_control_required
+        ) VALUES ($1, $2, $3, $4, 'checking', 'USD', 1)
+        RETURNING id, name, bank_name, account_type, currency, daily_limit,
+                  dual_control_required, dual_control_threshold, dual_control_mode, is_active`,
+        [acct.description, acct.bankName, accountNumberEncrypted, routingNumberEncrypted]
+      );
+
+      created.push(rows[0]);
+
+      await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.ACCOUNT_CREATED, {
+        tableName: 'accounts',
+        recordId: rows[0].id,
+        newValues: {
+          name: acct.description,
+          bankName: acct.bankName,
+          source: 'excel_upload',
+        },
+      });
+    }
+
+    res.status(HTTP_STATUS.CREATED).json({
+      success: true,
+      data: created,
+      message: `${created.length} account(s) created successfully`,
+    });
+  } catch (error) {
+    logger.error('Error bulk uploading accounts', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to bulk upload accounts',
+    });
+  }
+});
+
+/**
+ * GET /api/accounts/user/:userId/access
+ * Get account IDs assigned to a user (admin only)
+ */
+router.get('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await query<{ account_id: string }>(
+      'SELECT account_id FROM user_account_access WHERE user_id = $1',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: { accountIds: rows.map(r => r.account_id) },
+    });
+  } catch (error) {
+    logger.error('Error getting user account access', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to get user account access',
+    });
+  }
+});
+
+/**
+ * PUT /api/accounts/user/:userId/access
+ * Set account access for a user (admin only)
+ */
+router.put('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const admin = req.user!;
+    const { accountIds } = req.body;
+
+    if (!Array.isArray(accountIds)) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'accountIds must be an array',
+      });
+      return;
+    }
+
+    // Get old assignments for audit
+    const { rows: oldAccess } = await query<{ account_id: string }>(
+      'SELECT account_id FROM user_account_access WHERE user_id = $1',
+      [userId]
+    );
+
+    // Delete existing assignments
+    await query('DELETE FROM user_account_access WHERE user_id = $1', [userId]);
+
+    // Insert new assignments
+    for (const accountId of accountIds) {
+      await query(
+        'INSERT INTO user_account_access (user_id, account_id, created_by) VALUES ($1, $2, $3)',
+        [userId, accountId, admin.id]
+      );
+    }
+
+    await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
+      tableName: 'user_account_access',
+      recordId: userId,
+      oldValues: { accountIds: oldAccess.map(r => r.account_id) },
+      newValues: { accountIds },
+    });
+
+    res.json({
+      success: true,
+      message: 'Account access updated',
+      data: { accountIds },
+    });
+  } catch (error) {
+    logger.error('Error updating user account access', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to update user account access',
+    });
+  }
+});
+
+// ──────────────────────────────────────────────────────────
+// Generic routes (/:id wildcard) MUST come after specific routes
+// ──────────────────────────────────────────────────────────
+
 /**
  * GET /api/accounts
  * List all bank accounts
  */
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { rows } = await query(
-      `SELECT id, name, bank_name, account_type, currency, daily_limit,
-              dual_control_required, dual_control_threshold, dual_control_mode,
-              is_active, created_at
-       FROM accounts
-       WHERE is_active = true
-       ORDER BY name`
-    );
+    const user = req.user!;
+    const restrictedRoles = ['ap_staff', 'ap_manager', 'sr_ap_manager'];
+
+    let rows;
+    if (restrictedRoles.includes(user.role)) {
+      // Check if user has specific account assignments
+      const { rows: accessRows } = await query<{ account_id: string }>(
+        'SELECT account_id FROM user_account_access WHERE user_id = $1',
+        [user.id]
+      );
+
+      if (accessRows.length > 0) {
+        // User has specific assignments — filter to those accounts
+        const placeholders = accessRows.map((_, i) => `$${i + 1}`).join(', ');
+        const accountIds = accessRows.map(r => r.account_id);
+        const result = await query(
+          `SELECT id, name, bank_name, account_type, currency, daily_limit,
+                  dual_control_required, dual_control_threshold, dual_control_mode,
+                  is_active, created_at
+           FROM accounts
+           WHERE is_active = true AND id IN (${placeholders})
+           ORDER BY name`,
+          accountIds
+        );
+        rows = result.rows;
+      } else {
+        // No assignments — show all (backwards compatible)
+        const result = await query(
+          `SELECT id, name, bank_name, account_type, currency, daily_limit,
+                  dual_control_required, dual_control_threshold, dual_control_mode,
+                  is_active, created_at
+           FROM accounts
+           WHERE is_active = true
+           ORDER BY name`
+        );
+        rows = result.rows;
+      }
+    } else {
+      // Treasury/CFO/admin see all accounts
+      const result = await query(
+        `SELECT id, name, bank_name, account_type, currency, daily_limit,
+                dual_control_required, dual_control_threshold, dual_control_mode,
+                is_active, created_at
+         FROM accounts
+         WHERE is_active = true
+         ORDER BY name`
+      );
+      rows = result.rows;
+    }
 
     res.json({
       success: true,

@@ -92,6 +92,13 @@ export function initializeSchema() {
       usd_equivalent REAL NOT NULL,
       account_id TEXT NOT NULL REFERENCES accounts(id),
       payment_type TEXT NOT NULL CHECK (payment_type IN ('ach', 'wire', 'check', 'internal')),
+      funding_type TEXT NOT NULL DEFAULT 'external' CHECK (funding_type IN ('internal', 'external')),
+      destination_account_id TEXT REFERENCES accounts(id),
+      ext_bank_name TEXT,
+      ext_routing_number TEXT,
+      ext_bank_account TEXT,
+      ext_recipient_address TEXT,
+      ext_special_instructions TEXT,
       status TEXT DEFAULT 'draft' CHECK (status IN (
         'draft', 'pending_approval', 'approved', 'rejected', 'returned',
         'ready_to_execute', 'pending_confirmation', 'executed', 'bank_rejected', 'cancelled'
@@ -342,7 +349,19 @@ export function initializeSchema() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    -- User-account access restrictions
+    CREATE TABLE IF NOT EXISTS user_account_access (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, account_id)
+    );
+
     -- Create indexes
+    CREATE INDEX IF NOT EXISTS idx_uaa_user ON user_account_access(user_id);
+    CREATE INDEX IF NOT EXISTS idx_uaa_account ON user_account_access(account_id);
     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
     CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
@@ -397,6 +416,7 @@ export function seedData() {
       ['user-003', 'maria.rodriguez@gusto.com', 'Maria Rodriguez', 'sr_ap_manager', 'active', 'Accounts Payable', 'Senior AP Manager', 500000],
       ['user-004', 'linda.kim@gusto.com', 'Linda Kim', 'treasury', 'active', 'Treasury', 'Treasury Manager', null],
       ['user-005', 'diego.torres@gusto.com', 'Diego Torres', 'admin', 'active', 'Finance', 'CFO / Administrator', null],
+      ['user-006', 'ming.huey@gusto.com', 'Ming Huey', 'treasury', 'active', 'Treasury', 'Treasury Manager', null],
     ];
 
     const insertUser = db.prepare(`

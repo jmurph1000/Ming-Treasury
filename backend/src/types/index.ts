@@ -35,6 +35,7 @@ export interface AuthenticatedRequest extends Request {
 // PAYMENT TYPES
 // =====================================================
 export type PaymentType = 'ach' | 'wire' | 'check' | 'internal';
+export type FundingType = 'internal' | 'external';
 export type PaymentStatus =
   | 'draft'
   | 'pending_approval'
@@ -61,6 +62,13 @@ export interface Payment {
   usdEquivalent: number;
   accountId: string;
   paymentType: PaymentType;
+  fundingType?: FundingType;
+  destinationAccountId?: string;
+  extBankName?: string;
+  extRoutingNumber?: string;
+  extBankAccount?: string;
+  extRecipientAddress?: string;
+  extSpecialInstructions?: string;
   status: PaymentStatus;
   businessJustification: string;
   requestedDate: Date;
@@ -93,6 +101,13 @@ export interface CreatePaymentDTO {
   currency: Currency;
   accountId: string;
   paymentType: PaymentType;
+  fundingType: FundingType;
+  destinationAccountId?: string;
+  extBankName?: string;
+  extRoutingNumber?: string;
+  extBankAccount?: string;
+  extRecipientAddress?: string;
+  extSpecialInstructions?: string;
   businessJustification: string;
   requestedDate: string;
   isRecurring?: boolean;
@@ -406,6 +421,13 @@ export interface PaymentRow {
   usd_equivalent: number;
   account_id: string;
   payment_type: string;
+  funding_type?: string;
+  destination_account_id?: string;
+  ext_bank_name?: string;
+  ext_routing_number?: string;
+  ext_bank_account?: string;
+  ext_recipient_address?: string;
+  ext_special_instructions?: string;
   status: string;
   business_justification: string;
   requested_date: Date;

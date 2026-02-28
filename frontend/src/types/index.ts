@@ -18,6 +18,7 @@ export interface User {
 
 // Payment types
 export type PaymentType = 'ach' | 'wire' | 'check' | 'internal';
+export type FundingType = 'internal' | 'external';
 export type PaymentStatus =
   | 'draft'
   | 'pending_approval'
@@ -46,6 +47,14 @@ export interface Payment {
   account_id: string;
   account_name?: string;
   payment_type: PaymentType;
+  funding_type?: FundingType;
+  destination_account_id?: string;
+  destination_account_name?: string;
+  ext_bank_name?: string;
+  ext_routing_number?: string;
+  ext_bank_account?: string;
+  ext_recipient_address?: string;
+  ext_special_instructions?: string;
   status: PaymentStatus;
   business_justification: string;
   requested_date: string;
@@ -73,6 +82,13 @@ export interface CreatePaymentData {
   currency: Currency;
   accountId: string;
   paymentType: PaymentType;
+  fundingType: FundingType;
+  destinationAccountId?: string;
+  extBankName?: string;
+  extRoutingNumber?: string;
+  extBankAccount?: string;
+  extRecipientAddress?: string;
+  extSpecialInstructions?: string;
   businessJustification: string;
   requestedDate: string;
   isRecurring?: boolean;

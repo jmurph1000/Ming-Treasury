@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SUPPORTED_CURRENCIES, PAYMENT_TYPES, VALIDATION } from '../config/constants.js';
+import { SUPPORTED_CURRENCIES, PAYMENT_TYPES, FUNDING_TYPES, VALIDATION } from '../config/constants.js';
 
 // =====================================================
 // BASE SCHEMAS
@@ -18,6 +18,11 @@ export const paymentTypeSchema = z.enum([
   PAYMENT_TYPES.INTERNAL,
 ]);
 
+export const fundingTypeSchema = z.enum([
+  FUNDING_TYPES.INTERNAL,
+  FUNDING_TYPES.EXTERNAL,
+]);
+
 export const dateSchema = z.string().refine(
   (val) => !isNaN(Date.parse(val)),
   { message: 'Invalid date format' }
@@ -34,6 +39,13 @@ export const createPaymentSchema = z.object({
   currency: currencySchema.default('USD'),
   accountId: uuidSchema,
   paymentType: paymentTypeSchema,
+  fundingType: fundingTypeSchema,
+  destinationAccountId: uuidSchema.optional(),
+  extBankName: z.string().max(30).optional(),
+  extRoutingNumber: z.string().max(30).optional(),
+  extBankAccount: z.string().max(30).optional(),
+  extRecipientAddress: z.string().max(30).optional(),
+  extSpecialInstructions: z.string().max(30).optional(),
   businessJustification: z
     .string()
     .min(

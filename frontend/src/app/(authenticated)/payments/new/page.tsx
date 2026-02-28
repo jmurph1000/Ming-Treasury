@@ -7,7 +7,7 @@ import { useCreatePayment, useSubmitPayment, useCheckDuplicates } from '@/hooks/
 import { useAuth, usePaymentLimit } from '@/hooks/useAuth';
 import { accountsApi, payeesApi, templatesApi, calendarApi } from '@/lib/api';
 import { formatCurrency, debounce } from '@/lib/utils';
-import { CURRENCIES, PAYMENT_TYPES, RECURRING_FREQUENCIES, VALIDATION, ROUTES } from '@/lib/constants';
+import { CURRENCIES, PAYMENT_TYPES, FUNDING_TYPES, RECURRING_FREQUENCIES, VALIDATION, ROUTES } from '@/lib/constants';
 import { ArrowLeft, AlertTriangle, Calendar, Upload, Save, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -23,6 +23,13 @@ export default function NewPaymentPage() {
     currency: 'USD' as const,
     accountId: '',
     paymentType: 'ach' as const,
+    fundingType: 'external' as const,
+    destinationAccountId: '',
+    extBankName: '',
+    extRoutingNumber: '',
+    extBankAccount: '',
+    extRecipientAddress: '',
+    extSpecialInstructions: '',
     businessJustification: '',
     requestedDate: '',
     isRecurring: false,
@@ -93,7 +100,22 @@ export default function NewPaymentPage() {
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) {
     const { name, value, type } = e.target;
     const newValue = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    setFormData((prev) => ({ ...prev, [name]: newValue }));
+    setFormData((prev) => {
+      const updated = { ...prev, [name]: newValue };
+      // Clear irrelevant fields when funding type changes
+      if (name === 'fundingType') {
+        if (value === 'internal') {
+          updated.extBankName = '';
+          updated.extRoutingNumber = '';
+          updated.extBankAccount = '';
+          updated.extRecipientAddress = '';
+          updated.extSpecialInstructions = '';
+        } else {
+          updated.destinationAccountId = '';
+        }
+      }
+      return updated;
+    });
     setErrors((prev) => ({ ...prev, [name]: '' }));
   }
 
@@ -145,6 +167,25 @@ export default function NewPaymentPage() {
       newErrors.accountId = 'Source account is required';
     }
 
+    if (formData.fundingType === 'internal' && !formData.destinationAccountId) {
+      newErrors.destinationAccountId = 'Destination account is required for internal funding';
+    }
+
+    if (formData.fundingType === 'external') {
+      if (!formData.extBankName) {
+        newErrors.extBankName = 'Bank name is required';
+      }
+      if (!formData.extRoutingNumber) {
+        newErrors.extRoutingNumber = 'Routing number is required';
+      }
+      if (!formData.extBankAccount) {
+        newErrors.extBankAccount = 'Bank account is required';
+      }
+      if (!formData.extRecipientAddress) {
+        newErrors.extRecipientAddress = 'Recipient address is required';
+      }
+    }
+
     if (!formData.businessJustification || formData.businessJustification.length < VALIDATION.MIN_JUSTIFICATION_LENGTH) {
       newErrors.businessJustification = `Justification must be at least ${VALIDATION.MIN_JUSTIFICATION_LENGTH} characters`;
     }
@@ -172,6 +213,13 @@ export default function NewPaymentPage() {
         currency: formData.currency,
         accountId: formData.accountId,
         paymentType: formData.paymentType,
+        fundingType: formData.fundingType,
+        destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
+        extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
+        extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
+        extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
+        extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
+        extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
         businessJustification: formData.businessJustification,
         requestedDate: formData.requestedDate,
         isRecurring: formData.isRecurring,
@@ -198,6 +246,13 @@ export default function NewPaymentPage() {
         currency: formData.currency,
         accountId: formData.accountId,
         paymentType: formData.paymentType,
+        fundingType: formData.fundingType,
+        destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
+        extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
+        extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
+        extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
+        extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
+        extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
         businessJustification: formData.businessJustification,
         requestedDate: formData.requestedDate,
         isRecurring: formData.isRecurring,
@@ -245,6 +300,143 @@ export default function NewPaymentPage() {
               <p className="text-yellow-700 text-sm mt-1">
                 A similar payment to this payee for this amount was made in the last 90 days.
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Funding Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Funding Type *
+          </label>
+          <select
+            name="fundingType"
+            value={formData.fundingType}
+            onChange={handleInputChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            {FUNDING_TYPES.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Internal Funding: Destination Account */}
+        {formData.fundingType === 'internal' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Destination Account *
+            </label>
+            <select
+              name="destinationAccountId"
+              value={formData.destinationAccountId}
+              onChange={handleInputChange}
+              className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                errors.destinationAccountId ? 'border-red-500' : 'border-gray-300'
+              }`}
+            >
+              <option value="">Select destination account...</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.bank_name})
+                </option>
+              ))}
+            </select>
+            {errors.destinationAccountId && (
+              <p className="text-red-500 text-sm mt-1">{errors.destinationAccountId}</p>
+            )}
+          </div>
+        )}
+
+        {/* External Funding: Third-Party Bank Details */}
+        {formData.fundingType === 'external' && (
+          <div className="border border-gray-200 rounded-md p-4 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-800">Third-Party Bank Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bank Name *
+                </label>
+                <input
+                  type="text"
+                  name="extBankName"
+                  value={formData.extBankName}
+                  onChange={handleInputChange}
+                  maxLength={30}
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.extBankName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Bank name"
+                />
+                {errors.extBankName && <p className="text-red-500 text-sm mt-1">{errors.extBankName}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Routing Number *
+                </label>
+                <input
+                  type="text"
+                  name="extRoutingNumber"
+                  value={formData.extRoutingNumber}
+                  onChange={handleInputChange}
+                  maxLength={30}
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.extRoutingNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Routing number"
+                />
+                {errors.extRoutingNumber && <p className="text-red-500 text-sm mt-1">{errors.extRoutingNumber}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Bank Account *
+                </label>
+                <input
+                  type="text"
+                  name="extBankAccount"
+                  value={formData.extBankAccount}
+                  onChange={handleInputChange}
+                  maxLength={30}
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.extBankAccount ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Account number"
+                />
+                {errors.extBankAccount && <p className="text-red-500 text-sm mt-1">{errors.extBankAccount}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient Address *
+                </label>
+                <input
+                  type="text"
+                  name="extRecipientAddress"
+                  value={formData.extRecipientAddress}
+                  onChange={handleInputChange}
+                  maxLength={30}
+                  className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+                    errors.extRecipientAddress ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="Recipient address"
+                />
+                {errors.extRecipientAddress && <p className="text-red-500 text-sm mt-1">{errors.extRecipientAddress}</p>}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Special Instructions
+              </label>
+              <input
+                type="text"
+                name="extSpecialInstructions"
+                value={formData.extSpecialInstructions}
+                onChange={handleInputChange}
+                maxLength={30}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Optional special instructions"
+              />
             </div>
           </div>
         )}

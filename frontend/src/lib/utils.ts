@@ -75,7 +75,7 @@ export function getStatusLabel(status: string): string {
     returned: 'Returned for Info',
     ready_to_execute: 'Ready to Execute',
     pending_confirmation: 'Awaiting Confirmation',
-    executed: 'Executed',
+    executed: 'Completed',
     bank_rejected: 'Bank Rejected',
     cancelled: 'Cancelled',
   };
@@ -88,6 +88,14 @@ export function getPaymentTypeLabel(type: string): string {
     wire: 'Wire',
     check: 'Check',
     internal: 'Internal Transfer',
+  };
+  return labels[type] || type;
+}
+
+export function getFundingTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    internal: 'Internal Funding (Gusto to Gusto)',
+    external: 'External Funding (Gusto to Third Party)',
   };
   return labels[type] || type;
 }

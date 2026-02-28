@@ -138,7 +138,10 @@ export default function ExecutionPage() {
         <div className="lg:col-span-1">
           {selectedPayment ? (
             <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Execute Payment</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Execute Payment</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Confirm that this payment has been manually executed in the bank portal
+              </p>
 
               {/* Bank Details */}
               <div className="space-y-3 mb-6">
@@ -226,7 +229,7 @@ export default function ExecutionPage() {
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    Confirm
+                    Confirm Payment Sent
                   </button>
                 </div>
 

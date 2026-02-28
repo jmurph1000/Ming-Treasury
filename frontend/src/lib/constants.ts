@@ -15,6 +15,11 @@ export const PAYMENT_TYPES = [
   { value: 'internal', label: 'Internal Transfer', description: 'Transfer between Gusto accounts' },
 ] as const;
 
+export const FUNDING_TYPES = [
+  { value: 'internal', label: 'Internal Funding (Gusto to Gusto)' },
+  { value: 'external', label: 'External Funding (Gusto to Third Party)' },
+] as const;
+
 export const PAYMENT_STATUSES = [
   { value: 'draft', label: 'Draft' },
   { value: 'pending_approval', label: 'Pending Approval' },
@@ -23,7 +28,7 @@ export const PAYMENT_STATUSES = [
   { value: 'returned', label: 'Returned for Info' },
   { value: 'ready_to_execute', label: 'Ready to Execute' },
   { value: 'pending_confirmation', label: 'Awaiting Confirmation' },
-  { value: 'executed', label: 'Executed' },
+  { value: 'executed', label: 'Completed' },
   { value: 'bank_rejected', label: 'Bank Rejected' },
   { value: 'cancelled', label: 'Cancelled' },
 ] as const;
@@ -80,6 +85,7 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   CALENDAR: '/calendar',
   REPORTS: '/reports',
+  TREASURY_REPORTS: '/reports/treasury',
   GUIDE: '/guide',
   ADMIN: '/admin',
   ADMIN_USERS: '/admin/users',
@@ -88,6 +94,7 @@ export const ROUTES = {
   ADMIN_CHAINS: '/admin/chains',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_GUIDE: '/admin/guide',
+  ADMIN_NOTIFICATIONS: '/admin/notifications',
 } as const;
 
 export const VALIDATION = {

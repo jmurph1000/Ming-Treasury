@@ -45,6 +45,11 @@ export const PAYMENT_TYPES = {
   INTERNAL: 'internal',
 } as const;
 
+export const FUNDING_TYPES = {
+  INTERNAL: 'internal',
+  EXTERNAL: 'external',
+} as const;
+
 export const PAYMENT_STATUSES = {
   DRAFT: 'draft',
   PENDING_APPROVAL: 'pending_approval',

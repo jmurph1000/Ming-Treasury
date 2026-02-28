@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountsApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
@@ -15,7 +15,10 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Upload,
+  FileSpreadsheet,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface Account {
   id: string;
@@ -39,10 +42,97 @@ const ACCOUNT_TYPES = [
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
 
+interface ParsedRow {
+  bankName: string;
+  description: string;
+  lastFour: string;
+}
+
 export default function BankAccountsPage() {
   const queryClient = useQueryClient();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showSuccess = useCallback((message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(null), 8000);
+  }, []);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { header: 'A', defval: '' });
+
+        const rows: ParsedRow[] = [];
+        const maxRows = Math.min(json.length, 10);
+        for (let i = 0; i < maxRows; i++) {
+          const row = json[i];
+          const bankName = String(row['A'] || '').trim();
+          const description = String(row['B'] || '').trim();
+          const lastFour = String(row['C'] || '').trim();
+          if (bankName || description || lastFour) {
+            rows.push({ bankName, description, lastFour });
+          }
+        }
+
+        if (rows.length === 0) {
+          setUploadError('No valid data found in the spreadsheet. Expected columns A (Bank Name), B (Account Description), C (Last 4 Digits).');
+          return;
+        }
+
+        // Validate last 4 digits
+        for (let i = 0; i < rows.length; i++) {
+          if (!rows[i].bankName) {
+            setUploadError(`Row ${i + 1}: Bank Name (column A) is required`);
+            return;
+          }
+          if (!rows[i].description) {
+            setUploadError(`Row ${i + 1}: Account Description (column B) is required`);
+            return;
+          }
+          if (!/^\d{4}$/.test(rows[i].lastFour)) {
+            setUploadError(`Row ${i + 1}: Last 4 Digits (column C) must be exactly 4 digits`);
+            return;
+          }
+        }
+
+        setParsedRows(rows);
+        setShowUploadModal(true);
+      } catch {
+        setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx or .xls file.');
+      }
+    };
+    reader.readAsBinaryString(file);
+    // Reset the input so the same file can be re-selected
+    e.target.value = '';
+  }, []);
+
+  const bulkUploadMutation = useMutation({
+    mutationFn: (accounts: ParsedRow[]) => accountsApi.bulkUpload(accounts),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      const count = data?.data?.length || parsedRows.length;
+      showSuccess(`${count} new account(s) added successfully`);
+      setShowUploadModal(false);
+      setParsedRows([]);
+    },
+    onError: (error: any) => {
+      setUploadError(error.message || 'Failed to upload accounts');
+    },
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['accounts'],
@@ -70,6 +160,22 @@ export default function BankAccountsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Success Notification */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-300">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 shadow-lg flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+            <p className="text-green-800 font-medium">{successMessage}</p>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="ml-2 text-green-600 hover:text-green-800"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -78,13 +184,29 @@ export default function BankAccountsPage() {
             Configure source bank accounts and dual control settings
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-5 w-5" />
-          Add Account
-        </button>
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Upload className="h-5 w-5" />
+            Upload from Excel
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-5 w-5" />
+            Add Account
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -217,6 +339,93 @@ export default function BankAccountsPage() {
           </p>
         </div>
       </div>
+
+      {/* UPLOAD FROM EXCEL MODAL */}
+      {showUploadModal && parsedRows.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Upload Accounts from Excel</h2>
+                  <p className="text-sm text-gray-500">{parsedRows.length} account(s) found</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowUploadModal(false); setParsedRows([]); setUploadError(null); }}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {uploadError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                {uploadError}
+              </div>
+            )}
+
+            {/* Preview Table */}
+            <div className="border rounded-lg overflow-hidden mb-4">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bank Name (Col A)</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account Description (Col B)</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last 4 Digits (Col C)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {parsedRows.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
+                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{row.bankName}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{row.description}</td>
+                      <td className="px-4 py-2 text-sm font-mono text-gray-900">••••{row.lastFour}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-700">
+              Accounts will be created as <strong>Checking / USD</strong> with dual control enabled.
+              You can edit individual settings after upload.
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => { setShowUploadModal(false); setParsedRows([]); setUploadError(null); }}
+                className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => bulkUploadMutation.mutate(parsedRows)}
+                disabled={bulkUploadMutation.isPending}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {bulkUploadMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload {parsedRows.length} Account{parsedRows.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ADD / EDIT ACCOUNT MODAL */}
       {(showAddModal || editingAccount) && (

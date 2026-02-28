@@ -23,10 +23,11 @@ export async function runTokenCleanupJob(): Promise<void> {
       logger.info(`Token cleanup: ${oldSessions} old sessions removed`);
     }
 
-    // Clean up old notifications (older than 90 days and sent)
+    // Clean up old notifications (older than 90 days and sent), but preserve payment summaries
     const { rowCount: oldNotifications } = await query(`
       DELETE FROM notifications
       WHERE status = 'sent' AND created_at < datetime('now', '-90 days')
+      AND type != 'pending_payments_summary'
     `);
 
     if (oldNotifications > 0) {

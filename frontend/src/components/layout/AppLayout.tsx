@@ -76,6 +76,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       show: canApprove,
     },
     {
+      name: 'Treasury Reports',
+      href: ROUTES.TREASURY_REPORTS,
+      icon: FileText,
+      show: canExecute || user?.role === 'cfo',
+    },
+    {
       name: 'Admin',
       href: ROUTES.ADMIN,
       icon: Settings,

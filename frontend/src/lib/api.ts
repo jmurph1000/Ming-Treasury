@@ -287,6 +287,21 @@ export const accountsApi = {
 
   delete: (id: string) =>
     fetchApi<void>(`/api/accounts/${id}`, { method: 'DELETE' }),
+
+  bulkUpload: (accounts: Array<{ bankName: string; description: string; lastFour: string }>) =>
+    fetchApi<Account[]>('/api/accounts/bulk-upload', {
+      method: 'POST',
+      body: JSON.stringify({ accounts }),
+    }),
+
+  getUserAccess: (userId: string) =>
+    fetchApi<{ accountIds: string[] }>(`/api/accounts/user/${userId}/access`),
+
+  updateUserAccess: (userId: string, accountIds: string[]) =>
+    fetchApi<{ accountIds: string[] }>(`/api/accounts/user/${userId}/access`, {
+      method: 'PUT',
+      body: JSON.stringify({ accountIds }),
+    }),
 };
 
 // Payees
@@ -460,6 +475,34 @@ export const reportsApi = {
 
   pushToSheets: () =>
     fetchApi<void>('/api/reports/sheets', { method: 'POST' }),
+};
+
+// Treasury Reports
+export const treasuryReportsApi = {
+  daily: (date: string) =>
+    fetchApi<any[]>(`/api/reports/treasury/daily?date=${date}`),
+
+  weekly: (startDate: string) =>
+    fetchApi<Record<string, any[]>>(`/api/reports/treasury/weekly?startDate=${startDate}`),
+
+  lifetime: (params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) searchParams.set(key, String(value));
+      });
+    }
+    return fetchApi<any[]>(`/api/reports/treasury/lifetime?${searchParams}`);
+  },
+};
+
+// Notifications
+export const notificationsApi = {
+  summaries: () =>
+    fetchApi<any[]>('/api/notifications/summaries'),
+
+  runSummaryNow: () =>
+    fetchApi<{ message: string }>('/api/notifications/summaries/run', { method: 'POST' }),
 };
 
 // Admin

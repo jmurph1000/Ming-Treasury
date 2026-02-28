@@ -26,6 +26,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import calendarRoutes from './routes/calendar.js';
 import reportRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
+import notificationRoutes from './routes/notifications.js';
 
 export function createApp(): Express {
   const app = express();
@@ -106,6 +107,7 @@ export function createApp(): Express {
   app.use('/api/calendar', authenticate, calendarRoutes);
   app.use('/api/reports', authenticate, reportRoutes);
   app.use('/api/admin', authenticate, adminRoutes);
+  app.use('/api/notifications', authenticate, notificationRoutes);
 
   // 404 handler
   app.use((req: Request, res: Response) => {

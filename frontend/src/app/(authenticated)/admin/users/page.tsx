@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi } from '@/lib/api';
+import { usersApi, accountsApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import {
   Users,
@@ -88,6 +88,7 @@ export default function UserManagementPage() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [manageAccountsUser, setManageAccountsUser] = useState<User | null>(null);
 
   // Auto-hide success message after 5 seconds
   const showSuccess = (message: string) => {
@@ -303,6 +304,15 @@ export default function UserManagementPage() {
                               >
                                 Edit User
                               </button>
+                              <button
+                                onClick={() => {
+                                  setManageAccountsUser(user);
+                                  setShowUserMenu(null);
+                                }}
+                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                              >
+                                Manage Accounts
+                              </button>
                               {user.status === 'active' ? (
                                 <button
                                   onClick={() => {
@@ -344,6 +354,155 @@ export default function UserManagementPage() {
           onSuccess={(name: string) => showSuccess(`User ${name} has been added successfully`)}
         />
       )}
+
+      {/* Manage Accounts Modal */}
+      {manageAccountsUser && (
+        <ManageAccountsModal
+          user={manageAccountsUser}
+          onClose={() => setManageAccountsUser(null)}
+          onSuccess={(name: string) => showSuccess(`Account access updated for ${name}`)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Manage Accounts Modal Component
+function ManageAccountsModal({ user, onClose, onSuccess }: { user: User; onClose: () => void; onSuccess: (name: string) => void }) {
+  const queryClient = useQueryClient();
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Fetch all active accounts
+  const { data: accountsData, isLoading: accountsLoading } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => accountsApi.list(),
+  });
+
+  // Fetch user's current account access
+  const { data: accessData, isLoading: accessLoading } = useQuery({
+    queryKey: ['user-account-access', user.id],
+    queryFn: () => accountsApi.getUserAccess(user.id),
+  });
+
+  const accounts = (accountsData?.data || []) as Array<{ id: string; name: string; bank_name: string; account_type: string; currency: string }>;
+
+  // Initialize selected accounts from current access
+  useEffect(() => {
+    if (accessData?.data && !isInitialized) {
+      setSelectedAccountIds(accessData.data.accountIds || []);
+      setIsInitialized(true);
+    }
+  }, [accessData, isInitialized]);
+
+  const saveMutation = useMutation({
+    mutationFn: () => accountsApi.updateUserAccess(user.id, selectedAccountIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-account-access', user.id] });
+      onSuccess(user.name);
+      onClose();
+    },
+  });
+
+  const toggleAccount = (accountId: string) => {
+    setSelectedAccountIds(prev =>
+      prev.includes(accountId)
+        ? prev.filter(id => id !== accountId)
+        : [...prev, accountId]
+    );
+  };
+
+  const isLoading = accountsLoading || accessLoading;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">{user.name} — Account Access</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Select which bank accounts this user can access
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : accounts.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No active accounts found.</p>
+          ) : (
+            <div className="space-y-2">
+              {accounts.map((account) => (
+                <label
+                  key={account.id}
+                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedAccountIds.includes(account.id)
+                      ? 'border-primary bg-primary/5'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedAccountIds.includes(account.id)}
+                    onChange={() => toggleAccount(account.id)}
+                    className="h-4 w-4 text-primary focus:ring-primary rounded"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{account.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {account.bank_name} — {account.account_type} — {account.currency}
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
+
+          {selectedAccountIds.length === 0 && !isLoading && (
+            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+              No accounts assigned — this user will see all accounts by default.
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
+          <div className="text-sm text-gray-500">
+            {selectedAccountIds.length} of {accounts.length} account(s) selected
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Save Access
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

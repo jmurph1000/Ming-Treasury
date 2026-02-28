@@ -102,9 +102,34 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const { rows } = await query<PaymentRow & { requester_name: string; account_name: string }>(baseQuery, params);
 
+    // Add waiting_on info for pending payments
+    const paymentIds = rows.filter(p => p.status === 'pending_approval').map(p => p.id);
+    const waitingOnMap: Record<string, { role: string; name: string | null }> = {};
+    if (paymentIds.length > 0) {
+      for (const pid of paymentIds) {
+        const { rows: waitRows } = await query<{ approver_role: string; approver_name: string | null }>(
+          `SELECT pa.approver_role, u.name as approver_name
+           FROM payment_approvals pa
+           LEFT JOIN users u ON pa.approver_id = u.id
+           JOIN payments p ON p.id = pa.payment_id
+           WHERE pa.payment_id = $1 AND pa.action = 'pending' AND pa.step_number = p.current_approval_step
+           LIMIT 1`,
+          [pid]
+        );
+        if (waitRows.length > 0) {
+          waitingOnMap[pid] = { role: waitRows[0].approver_role, name: waitRows[0].approver_name };
+        }
+      }
+    }
+
+    const enrichedRows = rows.map(row => ({
+      ...row,
+      waiting_on: waitingOnMap[row.id] || null,
+    }));
+
     res.json({
       success: true,
-      data: rows,
+      data: enrichedRows,
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
   } catch (error) {
@@ -171,10 +196,12 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
     const { rows } = await query<PaymentRow>(
       `INSERT INTO payments (
         requester_id, payee_id, payee_name, amount, currency, fx_rate, usd_equivalent,
-        account_id, payment_type, business_justification, requested_date,
+        account_id, payment_type, funding_type,
+        destination_account_id, ext_bank_name, ext_routing_number, ext_bank_account, ext_recipient_address, ext_special_instructions,
+        business_justification, requested_date,
         is_recurring, recurring_frequency, recurring_end_date, template_id,
         is_duplicate_flagged, duplicate_reference_id, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'draft')
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, 'draft')
       RETURNING *`,
       [
         user.id,
@@ -186,6 +213,13 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
         usdEquivalent,
         data.accountId,
         data.paymentType,
+        data.fundingType,
+        data.destinationAccountId || null,
+        data.extBankName || null,
+        data.extRoutingNumber || null,
+        data.extBankAccount || null,
+        data.extRecipientAddress || null,
+        data.extSpecialInstructions || null,
         data.businessJustification,
         data.requestedDate,
         data.isRecurring ? 1 : 0,
@@ -236,13 +270,15 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const user = req.user!;
 
-    const { rows } = await query<PaymentRow & { requester_name: string; account_name: string }>(
+    const { rows } = await query<PaymentRow & { requester_name: string; account_name: string; destination_account_name: string }>(
       `SELECT p.*,
               u.name as requester_name, u.email as requester_email,
-              a.name as account_name, a.bank_name
+              a.name as account_name, a.bank_name,
+              da.name as destination_account_name
        FROM payments p
        LEFT JOIN users u ON p.requester_id = u.id
        LEFT JOIN accounts a ON p.account_id = a.id
+       LEFT JOIN accounts da ON p.destination_account_id = da.id
        WHERE p.id = $1`,
       [id]
     );
@@ -285,9 +321,25 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       [id]
     );
 
+    // Compute waiting_on for pending payments
+    let waiting_on: { role: string; name: string | null } | null = null;
+    if (payment.status === 'pending_approval' && payment.current_approval_step) {
+      const { rows: waitRows } = await query<{ approver_role: string; approver_name: string | null }>(
+        `SELECT pa.approver_role, u.name as approver_name
+         FROM payment_approvals pa
+         LEFT JOIN users u ON pa.approver_id = u.id
+         WHERE pa.payment_id = $1 AND pa.action = 'pending' AND pa.step_number = $2
+         LIMIT 1`,
+        [id, payment.current_approval_step]
+      );
+      if (waitRows.length > 0) {
+        waiting_on = { role: waitRows[0].approver_role, name: waitRows[0].approver_name };
+      }
+    }
+
     res.json({
       success: true,
-      data: { ...payment, approvals, comments },
+      data: { ...payment, approvals, comments, waiting_on },
     });
   } catch (error) {
     logger.error('Error getting payment', { error: (error as Error).message });

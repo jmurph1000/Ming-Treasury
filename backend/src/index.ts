@@ -4,6 +4,7 @@ import { logger } from './utils/logger.js';
 import cron from 'node-cron';
 import { runEscalationJob } from './jobs/escalationJob.js';
 import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
+import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -124,6 +125,18 @@ function scheduleJobs(): void {
     // TODO: Implement scheduled reports
   }, {
     timezone: 'America/Los_Angeles',
+  });
+
+  // Pending payments summary email - daily at 5 PM ET
+  cron.schedule('0 17 * * *', async () => {
+    logger.debug('Running pending payments summary job');
+    try {
+      await runPendingPaymentsSummaryJob();
+    } catch (error) {
+      logger.error('Pending payments summary job failed', { error: (error as Error).message });
+    }
+  }, {
+    timezone: 'America/New_York',
   });
 
   logger.info('Background jobs scheduled');

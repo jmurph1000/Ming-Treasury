@@ -15,7 +15,22 @@
       "Bash(sleep 1 && cd /c/Projects/gusto-treasury/frontend && npm run dev 2>&1)",
       "Bash(cd:*)",
       "Bash(cd /c/Projects/gusto-treasury && git add .gitignore .env.example .claude/ artifact.html backend/src/ backend/package.json backend/tsconfig.json backend/tests/ database/ docker-compose.yml frontend/src/ frontend/package.json frontend/tsconfig.json frontend/next.config.mjs frontend/tailwind.config.ts frontend/postcss.config.mjs frontend/public/ package.json package-lock.json 2>&1)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(xargs -r kill)",
+      "Bash(lsof -ti:3000)",
+      "Bash(sleep 2:*)",
+      "Bash(cd \"c:/Projects/gusto-treasury/frontend\" && npm run dev 2>&1)",
+      "Bash(cd c:/Projects/gusto-treasury/backend && npx tsc --noEmit 2>&1)",
+      "Bash(true:*)",
+      "Bash(cd c:/Projects/gusto-treasury/backend && npx tsx -e \"\nconst Database = require\\('better-sqlite3'\\);\nconst db = new Database\\('./treasury.db'\\);\nconst rows = db.prepare\\(\\\\\"SELECT id, created_at FROM notifications WHERE type = 'pending_payments_summary' ORDER BY created_at DESC\\\\\"\\).all\\(\\);\nconsole.log\\('Existing records:', rows.length\\);\nrows.forEach\\(r => console.log\\(r.id, r.created_at\\)\\);\nif \\(rows.length > 1\\) {\n  const keep = rows[0].id;\n  const deleteIds = rows.slice\\(1\\).map\\(r => r.id\\);\n  for \\(const id of deleteIds\\) {\n    db.prepare\\('DELETE FROM notifications WHERE id = ?'\\).run\\(id\\);\n    console.log\\('Deleted duplicate:', id\\);\n  }\n}\ndb.close\\(\\);\n\" 2>&1)",
+      "Bash(cd c:/Projects/gusto-treasury/backend && node -e \"\nconst Database = require\\('better-sqlite3'\\);\nconst db = new Database\\('./treasury.db'\\);\nconst rows = db.prepare\\(\\\\\"SELECT id, created_at FROM notifications WHERE type = 'pending_payments_summary' ORDER BY created_at DESC\\\\\"\\).all\\(\\);\nconsole.log\\('Existing records:', rows.length\\);\nrows.forEach\\(r => console.log\\(r.id, r.created_at\\)\\);\nif \\(rows.length > 1\\) {\n  const keep = rows[0].id;\n  const deleteIds = rows.slice\\(1\\).map\\(r => r.id\\);\n  for \\(const id of deleteIds\\) {\n    db.prepare\\('DELETE FROM notifications WHERE id = ?'\\).run\\(id\\);\n    console.log\\('Deleted duplicate:', id\\);\n  }\n}\ndb.close\\(\\);\n\" 2>&1)",
+      "Bash(cd c:/Projects/gusto-treasury/backend && npx tsx -e \"\nimport { runPendingPaymentsSummaryJob } from './src/jobs/pendingPaymentsSummaryJob.js';\nawait runPendingPaymentsSummaryJob\\(\\);\nconsole.log\\('Done'\\);\nprocess.exit\\(0\\);\n\" 2>&1)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(cd c:/Projects/gusto-treasury && npm run dev:backend 2>&1)",
+      "Bash(cd c:/Projects/gusto-treasury && npm run dev:frontend 2>&1)",
+      "Bash(wc:*)"
     ]
   }
 }

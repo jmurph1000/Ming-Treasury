@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
-import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen } from 'lucide-react';
+import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen, Bell } from 'lucide-react';
 
 const adminSections = [
   {
@@ -46,6 +46,13 @@ const adminSections = [
     href: ROUTES.ADMIN_GUIDE,
     icon: BookOpen,
     color: 'bg-indigo-500',
+  },
+  {
+    name: 'Pending Payment Notifications',
+    description: 'View daily pending payment summary emails sent to the team',
+    href: ROUTES.ADMIN_NOTIFICATIONS,
+    icon: Bell,
+    color: 'bg-yellow-500',
   },
 ];
 
