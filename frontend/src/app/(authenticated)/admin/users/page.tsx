@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi, accountsApi } from '@/lib/api';
+import { usersApi, accountsApi, groupsApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import {
   Users,
@@ -522,6 +522,22 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   const [employeeName, setEmployeeName] = useState('');
   const [employeeTitle, setEmployeeTitle] = useState('');
   const [employeeDepartment, setEmployeeDepartment] = useState('');
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+
+  // Fetch groups for assignment
+  const { data: groupsData } = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => groupsApi.list(),
+  });
+  const allGroups = (groupsData?.data || []) as Array<{ id: string; name: string; slug: string; description: string }>;
+
+  // Fetch accounts for assignment
+  const { data: accountsData } = useQuery({
+    queryKey: ['accounts'],
+    queryFn: () => accountsApi.list(),
+  });
+  const allAccounts = (accountsData?.data || []) as Array<{ id: string; name: string; bank_name: string; account_type: string; currency: string }>;
 
   // Auto-generate name from email
   const getNameFromEmail = (emailAddr: string) => {
@@ -582,6 +598,8 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
         payment_limit: selectedRole === 'ap_staff' ? 50000 :
                        selectedRole === 'ap_manager' ? 250000 :
                        selectedRole === 'sr_ap_manager' ? 500000 : undefined,
+        groupIds: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
+        accountIds: selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
       };
 
       if (devMode) {
@@ -600,6 +618,9 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      if (selectedGroupIds.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
+      }
       onSuccess(displayName);
       onClose();
     },
@@ -643,9 +664,9 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
-                {!email.endsWith('@gusto.com') && email.length > 0 && (
+                {email.length > 0 && !email.includes('@') && (
                   <p className="text-sm text-amber-600 mt-1">
-                    Only @gusto.com email addresses are allowed
+                    Please enter a valid email address
                   </p>
                 )}
               </div>
@@ -781,6 +802,86 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                   ))}
                 </div>
               </div>
+
+              {/* Group Assignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assign to Groups <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {allGroups.map((group) => (
+                    <label
+                      key={group.id}
+                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedGroupIds.includes(group.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedGroupIds.includes(group.id)}
+                        onChange={() => {
+                          setSelectedGroupIds(prev =>
+                            prev.includes(group.id)
+                              ? prev.filter(id => id !== group.id)
+                              : [...prev, group.id]
+                          );
+                        }}
+                        className="h-4 w-4 text-primary focus:ring-primary rounded"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{group.name}</p>
+                        {group.description && (
+                          <p className="text-xs text-gray-500">{group.description}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Account Access Assignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Account Access <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Select which bank accounts this user can access for payments. If none selected, the user will see all accounts by default.
+                </p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {allAccounts.map((account) => (
+                    <label
+                      key={account.id}
+                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        selectedAccountIds.includes(account.id)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedAccountIds.includes(account.id)}
+                        onChange={() => {
+                          setSelectedAccountIds(prev =>
+                            prev.includes(account.id)
+                              ? prev.filter(id => id !== account.id)
+                              : [...prev, account.id]
+                          );
+                        }}
+                        className="h-4 w-4 text-primary focus:ring-primary rounded"
+                      />
+                      <Building2 className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{account.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {account.bank_name} &bull; {account.account_type} &bull; {account.currency}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -826,6 +927,22 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                   <p className="text-sm text-gray-500">Department</p>
                   <p className="font-medium">{displayDepartment}</p>
                 </div>
+                <div className="px-4 py-3">
+                  <p className="text-sm text-gray-500">Groups</p>
+                  <p className="font-medium">
+                    {selectedGroupIds.length > 0
+                      ? allGroups.filter(g => selectedGroupIds.includes(g.id)).map(g => g.name).join(', ')
+                      : 'None'}
+                  </p>
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-sm text-gray-500">Account Access</p>
+                  <p className="font-medium">
+                    {selectedAccountIds.length > 0
+                      ? allAccounts.filter(a => selectedAccountIds.includes(a.id)).map(a => a.name).join(', ')
+                      : 'All accounts (default)'}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -854,7 +971,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
             {currentStep === 1 && (
               <button
                 onClick={handleStep1Continue}
-                disabled={!email.endsWith('@gusto.com') || isVerifying}
+                disabled={!email.includes('@') || isVerifying}
                 className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {isVerifying ? (

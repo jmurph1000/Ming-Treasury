@@ -23,6 +23,35 @@ router.get('/summaries', hasRole('admin', 'treasury', 'cfo'), async (req: Authen
   }
 });
 
+// GET /api/notifications/permissions-reports — daily user permissions reports
+router.get('/permissions-reports', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, type, subject, body, template_data, status, created_at
+       FROM notifications
+       WHERE type = 'user_permissions_report'
+       ORDER BY created_at DESC
+       LIMIT 90`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Failed to fetch permissions reports', { error: (error as Error).message });
+    res.status(500).json({ success: false, message: 'Failed to fetch permissions reports' });
+  }
+});
+
+// POST /api/notifications/permissions-reports/run — manually trigger the permissions report
+router.post('/permissions-reports/run', hasRole('admin', 'treasury'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { runUserPermissionsReportJob } = await import('../jobs/userPermissionsReportJob.js');
+    await runUserPermissionsReportJob();
+    res.json({ success: true, message: 'User permissions report generated' });
+  } catch (error) {
+    logger.error('Failed to run permissions report manually', { error: (error as Error).message });
+    res.status(500).json({ success: false, message: 'Failed to run permissions report' });
+  }
+});
+
 // POST /api/notifications/summaries/run — manually trigger the daily summary job
 router.post('/summaries/run', hasRole('admin', 'treasury'), async (req: AuthenticatedRequest, res: Response) => {
   try {

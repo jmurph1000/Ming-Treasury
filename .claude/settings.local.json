@@ -30,7 +30,11 @@
       "Bash(cat:*)",
       "Bash(cd c:/Projects/gusto-treasury && npm run dev:backend 2>&1)",
       "Bash(cd c:/Projects/gusto-treasury && npm run dev:frontend 2>&1)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(cd c:/Projects/gusto-treasury && git remote add origin https://github.com/jmurph1000/treasury-payment-portal.git 2>&1)",
+      "Bash(cd c:/Projects/gusto-treasury && git push -u origin master:main 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

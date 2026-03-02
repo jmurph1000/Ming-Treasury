@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ROUTES } from '@/lib/constants';
-import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen, Bell } from 'lucide-react';
+import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen, Bell, ClipboardList, UsersRound } from 'lucide-react';
 
 const adminSections = [
   {
@@ -53,6 +53,20 @@ const adminSections = [
     href: ROUTES.ADMIN_NOTIFICATIONS,
     icon: Bell,
     color: 'bg-yellow-500',
+  },
+  {
+    name: 'User Permissions Report',
+    description: 'Daily snapshot of all users and their system access permissions',
+    href: ROUTES.ADMIN_PERMISSIONS,
+    icon: ClipboardList,
+    color: 'bg-teal-500',
+  },
+  {
+    name: 'Groups',
+    description: 'Manage department groups, members, and account assignments',
+    href: ROUTES.ADMIN_GROUPS,
+    icon: UsersRound,
+    color: 'bg-cyan-500',
   },
 ];
 

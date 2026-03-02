@@ -445,51 +445,121 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    // Find matching routing rule
-    const { rows: rules } = await query<RoutingRuleRow>(
-      `SELECT * FROM routing_rules WHERE is_active = 1 ORDER BY priority LIMIT 50`
+    // --- Group-level approval flow override ---
+    // Check if the requester belongs to a group with override_approval_flow = 1
+    let groupOverrideUsed = false;
+    let groupOverrideName: string | null = null;
+    let chain: ApprovalChainRow[] = [];
+
+    const { rows: userGroups } = await query<{ group_id: string; group_name: string; approval_trigger_mode: string }>(
+      `SELECT g.id AS group_id, g.name AS group_name, g.approval_trigger_mode
+       FROM group_members gm
+       JOIN groups g ON g.id = gm.group_id
+       WHERE gm.user_id = $1 AND g.override_approval_flow = 1
+       ORDER BY g.name
+       LIMIT 1`,
+      [payment.requester_id]
     );
 
-    let matchedRule: RoutingRuleRow | null = null;
-    for (const rule of rules) {
-      let matches = false;
-      switch (rule.trigger_type) {
-        case 'account':
-          matches = rule.account_id === payment.account_id;
-          break;
-        case 'payment_type':
-          matches = rule.payment_type === payment.payment_type;
-          break;
-        case 'amount_range':
-          matches =
-            (rule.min_amount === null || payment.usd_equivalent >= rule.min_amount) &&
-            (rule.max_amount === null || payment.usd_equivalent <= rule.max_amount);
-          break;
-        default:
-          break;
+    if (userGroups.length > 0) {
+      const grp = userGroups[0];
+      // Find matching tier based on payment amount
+      let tierQuery: string;
+      let tierParams: any[];
+
+      if (grp.approval_trigger_mode === 'flat') {
+        tierQuery = `SELECT * FROM group_approval_tiers WHERE group_id = $1 ORDER BY sort_order LIMIT 1`;
+        tierParams = [grp.group_id];
+      } else {
+        tierQuery = `SELECT * FROM group_approval_tiers
+                     WHERE group_id = $1
+                       AND (min_amount IS NULL OR min_amount <= $2)
+                       AND (max_amount IS NULL OR max_amount >= $2)
+                     ORDER BY sort_order LIMIT 1`;
+        tierParams = [grp.group_id, payment.usd_equivalent];
       }
-      if (matches) { matchedRule = rule; break; }
+
+      const { rows: tiers } = await query(tierQuery, tierParams);
+
+      if (tiers.length > 0) {
+        const tier = tiers[0];
+        const { rows: steps } = await query(
+          `SELECT * FROM group_approval_steps WHERE tier_id = $1 ORDER BY step`,
+          [tier.id]
+        );
+
+        if (steps.length > 0) {
+          // Build the approval chain from group steps
+          chain = steps.map((s: any) => ({
+            id: s.id,
+            rule_id: `group-override-${grp.group_id}`,
+            step: s.step,
+            approver_role: s.approver_mode === 'role' ? s.approver_role : s.approver_role || 'ap_manager',
+            specific_approver_id: s.approver_mode === 'specific_user' ? s.specific_approver_id : null,
+          } as ApprovalChainRow));
+          groupOverrideUsed = true;
+          groupOverrideName = `${grp.group_name} Group Override`;
+          logger.info('Using group approval flow override', {
+            paymentId: id,
+            groupId: grp.group_id,
+            groupName: grp.group_name,
+            tierLabel: tier.label,
+            steps: steps.length,
+          });
+        }
+      }
     }
 
-    // If no rule matched, use a default 1-step approval
-    if (!matchedRule) {
-      logger.warn('No routing rule matched, using default approval', { paymentId: id });
-    }
+    // --- Fall through to global routing rules if no group override matched ---
+    let matchedRule: RoutingRuleRow | null = null;
 
-    // Get approval chain
-    let chain: ApprovalChainRow[] = [];
-    if (matchedRule) {
-      const { rows } = await query<ApprovalChainRow>(
-        `SELECT * FROM approval_chains WHERE rule_id = $1 ORDER BY step`,
-        [matchedRule.id]
+    if (!groupOverrideUsed) {
+      // Find matching routing rule
+      const { rows: rules } = await query<RoutingRuleRow>(
+        `SELECT * FROM routing_rules WHERE is_active = 1 ORDER BY priority LIMIT 50`
       );
-      chain = rows;
+
+      for (const rule of rules) {
+        let matches = false;
+        switch (rule.trigger_type) {
+          case 'account':
+            matches = rule.account_id === payment.account_id;
+            break;
+          case 'payment_type':
+            matches = rule.payment_type === payment.payment_type;
+            break;
+          case 'amount_range':
+            matches =
+              (rule.min_amount === null || payment.usd_equivalent >= rule.min_amount) &&
+              (rule.max_amount === null || payment.usd_equivalent <= rule.max_amount);
+            break;
+          default:
+            break;
+        }
+        if (matches) { matchedRule = rule; break; }
+      }
+
+      // If no rule matched, use a default 1-step approval
+      if (!matchedRule) {
+        logger.warn('No routing rule matched, using default approval', { paymentId: id });
+      }
+
+      // Get approval chain
+      if (matchedRule) {
+        const { rows } = await query<ApprovalChainRow>(
+          `SELECT * FROM approval_chains WHERE rule_id = $1 ORDER BY step`,
+          [matchedRule.id]
+        );
+        chain = rows;
+      }
+
+      // If chain is empty, create a default single-step approval
+      if (chain.length === 0) {
+        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'ap_manager', approver_id: null } as ApprovalChainRow];
+      }
     }
 
-    // If chain is empty, create a default single-step approval
-    if (chain.length === 0) {
-      chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'ap_manager', approver_id: null } as ApprovalChainRow];
-    }
+    const routingRuleId = groupOverrideUsed ? null : (matchedRule?.id || null);
 
     // Update payment status using SQLite query (no PostgreSQL pool needed)
     await query(
@@ -501,17 +571,21 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
            submitted_at = datetime('now'),
            updated_at = datetime('now')
        WHERE id = $1`,
-      [id, matchedRule?.id || null, chain.length]
+      [id, routingRuleId, chain.length]
     );
 
     // Create approval records for each step
     for (const step of chain) {
-      // Find the approver user by role
-      const { rows: approverUsers } = await query<{ id: string }>(
-        `SELECT id FROM users WHERE role = $1 AND status = 'active' LIMIT 1`,
-        [step.approver_role]
-      );
-      const approverId = approverUsers.length > 0 ? approverUsers[0].id : null;
+      let approverId: string | null = (step as any).specific_approver_id || null;
+
+      if (!approverId) {
+        // Find the approver user by role
+        const { rows: approverUsers } = await query<{ id: string }>(
+          `SELECT id FROM users WHERE role = $1 AND status = 'active' LIMIT 1`,
+          [step.approver_role]
+        );
+        approverId = approverUsers.length > 0 ? approverUsers[0].id : null;
+      }
 
       await query(
         `INSERT INTO payment_approvals (payment_id, approver_id, approver_role, step_number, action, notified_at)
@@ -520,13 +594,18 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       );
     }
 
+    const routingRuleName = groupOverrideUsed
+      ? groupOverrideName!
+      : (matchedRule?.name || 'Default Approval');
+
     // Log audit entry
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_SUBMITTED, {
       tableName: 'payments',
       recordId: id,
       newValues: {
         status: 'pending_approval',
-        routingRuleId: matchedRule?.id,
+        routingRuleId: routingRuleId,
+        groupOverride: groupOverrideUsed ? groupOverrideName : undefined,
         totalApprovalSteps: chain.length,
       },
     });
@@ -535,7 +614,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       success: true,
       message: 'Payment submitted for approval',
       data: {
-        routingRule: matchedRule?.name || 'Default Approval',
+        routingRule: routingRuleName,
         approvalSteps: chain.length,
       },
     });

@@ -349,7 +349,69 @@ export function initializeSchema() {
       updated_at TEXT DEFAULT (datetime('now'))
     );
 
-    -- User-account access restrictions
+    -- Groups
+    CREATE TABLE IF NOT EXISTS groups (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      name TEXT NOT NULL UNIQUE,
+      slug TEXT NOT NULL UNIQUE,
+      description TEXT,
+      override_approval_flow INTEGER DEFAULT 0,
+      approval_trigger_mode TEXT DEFAULT 'flat' CHECK (approval_trigger_mode IN ('flat', 'amount_threshold')),
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Group approval tiers (amount ranges or single "All Payments" tier for flat mode)
+    CREATE TABLE IF NOT EXISTS group_approval_tiers (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      min_amount REAL,
+      max_amount REAL,
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_gat_group ON group_approval_tiers(group_id);
+
+    -- Group approval steps (1-2 steps per tier)
+    CREATE TABLE IF NOT EXISTS group_approval_steps (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      tier_id TEXT NOT NULL REFERENCES group_approval_tiers(id) ON DELETE CASCADE,
+      step INTEGER NOT NULL CHECK (step IN (1, 2)),
+      approver_mode TEXT NOT NULL CHECK (approver_mode IN ('role', 'specific_user')),
+      approver_role TEXT,
+      specific_approver_id TEXT REFERENCES users(id),
+      escalation_hours INTEGER DEFAULT 24,
+      UNIQUE(tier_id, step)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gas_tier ON group_approval_steps(tier_id);
+
+    -- Group members
+    CREATE TABLE IF NOT EXISTS group_members (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      added_by TEXT REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(group_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_gm_group ON group_members(group_id);
+    CREATE INDEX IF NOT EXISTS idx_gm_user ON group_members(user_id);
+
+    -- Group account access (which accounts a group can pay from/to)
+    CREATE TABLE IF NOT EXISTS group_accounts (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      direction TEXT NOT NULL CHECK (direction IN ('from', 'to', 'both')),
+      funding_type TEXT NOT NULL DEFAULT 'both' CHECK (funding_type IN ('internal', 'external', 'both')),
+      added_by TEXT REFERENCES users(id),
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(group_id, account_id, direction)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ga_group ON group_accounts(group_id);
+    CREATE INDEX IF NOT EXISTS idx_ga_account ON group_accounts(account_id);
+
+    -- User-account access restrictions (legacy per-user)
     CREATE TABLE IF NOT EXISTS user_account_access (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       user_id TEXT NOT NULL REFERENCES users(id),
@@ -382,6 +444,10 @@ export function initializeSchema() {
       WHERE id = NEW.id;
     END;
   `);
+
+  // Safe ALTER TABLE for existing databases that lack the new columns
+  try { db.exec(`ALTER TABLE groups ADD COLUMN override_approval_flow INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE groups ADD COLUMN approval_trigger_mode TEXT DEFAULT 'flat'`); } catch (_) { /* column already exists */ }
 
   logger.info('SQLite schema initialized');
 }
@@ -509,6 +575,58 @@ export function seedData() {
 
     for (const fx of fxRates) {
       insertFx.run(...fx);
+    }
+
+    // Create default groups
+    const groups = [
+      ['grp-treasury', 'Treasury', 'treasury', 'Treasury team — portal administrators with full access'],
+      ['grp-payroll', 'Payroll', 'payroll', 'Payroll team — manages payroll-related payments'],
+      ['grp-ap', 'Accounts Payable', 'accounts-payable', 'AP team — handles vendor and bill payments'],
+      ['grp-accounting', 'Accounting', 'accounting', 'Accounting team — general ledger and reconciliation'],
+      ['grp-payops', 'Payment Ops / Platform Accounting', 'payment-ops', 'Payment operations and platform accounting team'],
+      ['grp-other', 'Other', 'other', 'Users not assigned to a specific department group'],
+    ];
+
+    const insertGroup = db.prepare(`
+      INSERT INTO groups (id, name, slug, description) VALUES (?, ?, ?, ?)
+    `);
+    for (const group of groups) {
+      insertGroup.run(...group);
+    }
+
+    // Assign seed users to groups
+    const groupMembers = [
+      ['grp-treasury', 'user-004'],  // Linda Kim → Treasury
+      ['grp-treasury', 'user-006'],  // Ming Huey → Treasury
+      ['grp-treasury', 'admin-001'], // John Murphy → Treasury
+      ['grp-ap', 'user-001'],        // Sarah Chen → AP
+      ['grp-ap', 'user-002'],        // James Park → AP
+      ['grp-ap', 'user-003'],        // Maria Rodriguez → AP
+    ];
+
+    const insertGroupMember = db.prepare(`
+      INSERT INTO group_members (group_id, user_id) VALUES (?, ?)
+    `);
+    for (const gm of groupMembers) {
+      insertGroupMember.run(...gm);
+    }
+
+    // Assign accounts to groups
+    const groupAccounts = [
+      ['grp-treasury', 'acct-001', 'both', 'both'],   // Treasury → Main Operating (all)
+      ['grp-treasury', 'acct-002', 'both', 'both'],   // Treasury → Payroll (all)
+      ['grp-treasury', 'acct-003', 'both', 'both'],   // Treasury → Wire Transfer (all)
+      ['grp-treasury', 'acct-004', 'both', 'both'],   // Treasury → International (all)
+      ['grp-payroll', 'acct-002', 'from', 'internal'], // Payroll → Payroll Account (from, internal)
+      ['grp-ap', 'acct-001', 'from', 'external'],     // AP → Main Operating (from, external)
+      ['grp-ap', 'acct-003', 'from', 'external'],     // AP → Wire Transfer (from, external)
+    ];
+
+    const insertGroupAccount = db.prepare(`
+      INSERT INTO group_accounts (group_id, account_id, direction, funding_type) VALUES (?, ?, ?, ?)
+    `);
+    for (const ga of groupAccounts) {
+      insertGroupAccount.run(...ga);
     }
 
     // Seed user guide document

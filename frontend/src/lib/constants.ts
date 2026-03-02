@@ -95,6 +95,8 @@ export const ROUTES = {
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_GUIDE: '/admin/guide',
   ADMIN_NOTIFICATIONS: '/admin/notifications',
+  ADMIN_PERMISSIONS: '/admin/permissions',
+  ADMIN_GROUPS: '/admin/groups',
 } as const;
 
 export const VALIDATION = {

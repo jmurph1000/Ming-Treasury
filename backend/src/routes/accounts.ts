@@ -1,9 +1,12 @@
 import { Router, Response } from 'express';
 import { query } from '../config/sqlite.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { validate, createAccountSchema, updateAccountSchema } from '../utils/validators.js';
+import { validate, createAccountSchema, updateAccountSchema, ValidationError } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { adminOnly, hasRole } from '../middleware/rbac.js';
+
+// Allow admin, treasury, and cfo to manage accounts
+const canManageAccounts = hasRole('admin', 'treasury', 'cfo');
 import { encryptAccountNumber, encryptRoutingNumber, decryptAccountNumber, decryptRoutingNumber } from '../services/encryptionService.js';
 import { maskAccountNumber, maskRoutingNumber } from '../utils/masks.js';
 import { logger } from '../utils/logger.js';
@@ -74,7 +77,7 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
           account_type, currency, dual_control_required
         ) VALUES ($1, $2, $3, $4, 'checking', 'USD', 1)
         RETURNING id, name, bank_name, account_type, currency, daily_limit,
-                  dual_control_required, dual_control_threshold, dual_control_mode, is_active`,
+                  dual_control_required, dual_control_threshold, dual_control_mode, is_active, created_at`,
         [acct.description, acct.bankName, accountNumberEncrypted, routingNumberEncrypted]
       );
 
@@ -205,24 +208,38 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 
     let rows;
     if (restrictedRoles.includes(user.role)) {
-      // Check if user has specific account assignments
+      // Check direct user-account assignments
       const { rows: accessRows } = await query<{ account_id: string }>(
         'SELECT account_id FROM user_account_access WHERE user_id = $1',
         [user.id]
       );
 
-      if (accessRows.length > 0) {
-        // User has specific assignments — filter to those accounts
-        const placeholders = accessRows.map((_, i) => `$${i + 1}`).join(', ');
-        const accountIds = accessRows.map(r => r.account_id);
+      // Check group-based account assignments
+      const { rows: groupAccessRows } = await query<{ account_id: string }>(
+        `SELECT DISTINCT ga.account_id
+         FROM group_members gm
+         JOIN group_accounts ga ON ga.group_id = gm.group_id
+         WHERE gm.user_id = $1`,
+        [user.id]
+      );
+
+      // Merge both sets of account IDs
+      const allAccountIds = new Set<string>([
+        ...accessRows.map(r => r.account_id),
+        ...groupAccessRows.map(r => r.account_id),
+      ]);
+
+      if (allAccountIds.size > 0) {
+        const idsArray = Array.from(allAccountIds);
+        const placeholders = idsArray.map((_, i) => `$${i + 1}`).join(', ');
         const result = await query(
           `SELECT id, name, bank_name, account_type, currency, daily_limit,
                   dual_control_required, dual_control_threshold, dual_control_mode,
                   is_active, created_at
            FROM accounts
-           WHERE is_active = true AND id IN (${placeholders})
+           WHERE is_active = 1 AND id IN (${placeholders})
            ORDER BY name`,
-          accountIds
+          idsArray
         );
         rows = result.rows;
       } else {
@@ -232,7 +249,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
                   dual_control_required, dual_control_threshold, dual_control_mode,
                   is_active, created_at
            FROM accounts
-           WHERE is_active = true
+           WHERE is_active = 1
            ORDER BY name`
         );
         rows = result.rows;
@@ -331,9 +348,9 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
 /**
  * POST /api/accounts
- * Create a new bank account (admin only)
+ * Create a new bank account
  */
-router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', canManageAccounts, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = validate(createAccountSchema, req.body);
     const admin = req.user!;
@@ -346,10 +363,11 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
       `INSERT INTO accounts (
         name, bank_name, account_number_encrypted, routing_number_encrypted,
         account_type, currency, daily_limit, dual_control_required,
-        dual_control_threshold, dual_control_mode
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        dual_control_threshold, dual_control_mode, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 1)
       RETURNING id, name, bank_name, account_type, currency, daily_limit,
-                dual_control_required, dual_control_threshold, dual_control_mode`,
+                dual_control_required, dual_control_threshold, dual_control_mode,
+                is_active, created_at`,
       [
         data.name,
         data.bankName,
@@ -358,7 +376,7 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
         data.accountType,
         data.currency,
         data.dailyLimit || null,
-        data.dualControlRequired,
+        data.dualControlRequired ? 1 : 0,
         data.dualControlThreshold || null,
         data.dualControlMode,
       ]
@@ -371,7 +389,6 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
         name: data.name,
         bankName: data.bankName,
         accountType: data.accountType,
-        // Don't log account numbers
       },
     });
 
@@ -380,6 +397,15 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
       data: rows[0],
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: error.errors.map(e => e.message).join('; '),
+        details: error.errors,
+      });
+      return;
+    }
     logger.error('Error creating account', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
@@ -391,9 +417,9 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
 
 /**
  * PUT /api/accounts/:id
- * Update account settings (admin only)
+ * Update account settings
  */
-router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/:id', canManageAccounts, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = validate(updateAccountSchema, req.body);
@@ -418,7 +444,12 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       if (value !== undefined) {
         const snakeKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         updates.push(`${snakeKey} = $${paramIndex++}`);
-        values.push(value);
+        // Convert boolean to integer for SQLite
+        if (typeof value === 'boolean') {
+          values.push(value ? 1 : 0);
+        } else {
+          values.push(value);
+        }
       }
     });
 
@@ -432,7 +463,8 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       `UPDATE accounts SET ${updates.join(', ')}, updated_at = datetime('now')
        WHERE id = $${paramIndex}
        RETURNING id, name, bank_name, account_type, currency, daily_limit,
-                 dual_control_required, dual_control_threshold, dual_control_mode`,
+                 dual_control_required, dual_control_threshold, dual_control_mode,
+                 is_active, created_at`,
       values
     );
 
@@ -448,6 +480,15 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       data: rows[0],
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: error.errors.map(e => e.message).join('; '),
+        details: error.errors,
+      });
+      return;
+    }
     logger.error('Error updating account', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,
@@ -459,9 +500,9 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
 
 /**
  * DELETE /api/accounts/:id
- * Deactivate an account (admin only)
+ * Deactivate an account
  */
-router.delete('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id', canManageAccounts, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const admin = req.user!;
@@ -484,7 +525,7 @@ router.delete('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response
     }
 
     await query(
-      "UPDATE accounts SET is_active = false, updated_at = datetime('now') WHERE id = $1",
+      "UPDATE accounts SET is_active = 0, updated_at = datetime('now') WHERE id = $1",
       [id]
     );
 

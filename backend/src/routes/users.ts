@@ -289,14 +289,14 @@ router.post('/create-direct', adminOnly, async (req: AuthenticatedRequest, res: 
       return;
     }
 
-    const { email, name, role, department, title, payment_limit } = req.body;
+    const { email, name, role, department, title, payment_limit, groupIds, accountIds } = req.body;
     const admin = req.user!;
 
-    if (!email || !email.endsWith('@gusto.com')) {
+    if (!email || !email.includes('@')) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'Valid @gusto.com email required',
+        message: 'Valid email address required',
       });
       return;
     }
@@ -320,13 +320,33 @@ router.post('/create-direct', adminOnly, async (req: AuthenticatedRequest, res: 
       [email.toLowerCase(), name, role || 'ap_staff', department, title, payment_limit]
     );
 
+    // Add user to selected groups if provided
+    if (Array.isArray(groupIds) && groupIds.length > 0) {
+      for (const gid of groupIds) {
+        await query(
+          'INSERT OR IGNORE INTO group_members (group_id, user_id, added_by) VALUES ($1, $2, $3)',
+          [gid, rows[0].id, admin.id]
+        );
+      }
+    }
+
+    // Add user account access if provided
+    if (Array.isArray(accountIds) && accountIds.length > 0) {
+      for (const aid of accountIds) {
+        await query(
+          'INSERT OR IGNORE INTO user_account_access (user_id, account_id, created_by) VALUES ($1, $2, $3)',
+          [rows[0].id, aid, admin.id]
+        );
+      }
+    }
+
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_CREATED, {
       tableName: 'users',
       recordId: rows[0].id,
-      newValues: rows[0],
+      newValues: { ...rows[0], groupIds, accountIds },
     });
 
-    logger.info('DEV MODE: User created directly without manager approval', { email, role });
+    logger.info('DEV MODE: User created directly without manager approval', { email, role, groupIds, accountIds });
 
     res.status(HTTP_STATUS.CREATED).json({
       success: true,

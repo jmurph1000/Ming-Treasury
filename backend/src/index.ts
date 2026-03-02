@@ -5,6 +5,7 @@ import cron from 'node-cron';
 import { runEscalationJob } from './jobs/escalationJob.js';
 import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
 import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
+import { runUserPermissionsReportJob } from './jobs/userPermissionsReportJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -125,6 +126,18 @@ function scheduleJobs(): void {
     // TODO: Implement scheduled reports
   }, {
     timezone: 'America/Los_Angeles',
+  });
+
+  // User permissions report - daily at 6 AM ET
+  cron.schedule('0 6 * * *', async () => {
+    logger.debug('Running user permissions report job');
+    try {
+      await runUserPermissionsReportJob();
+    } catch (error) {
+      logger.error('User permissions report job failed', { error: (error as Error).message });
+    }
+  }, {
+    timezone: 'America/New_York',
   });
 
   // Pending payments summary email - daily at 5 PM ET

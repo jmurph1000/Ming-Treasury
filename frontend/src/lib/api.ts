@@ -234,7 +234,7 @@ export const usersApi = {
       }
     ),
 
-  createDirect: (data: { email: string; name: string; role: string; department?: string; title?: string; payment_limit?: number }) =>
+  createDirect: (data: { email: string; name: string; role: string; department?: string; title?: string; payment_limit?: number; groupIds?: string[]; accountIds?: string[] }) =>
     fetchApi<User>('/api/users/create-direct', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -503,6 +503,87 @@ export const notificationsApi = {
 
   runSummaryNow: () =>
     fetchApi<{ message: string }>('/api/notifications/summaries/run', { method: 'POST' }),
+
+  permissionsReports: () =>
+    fetchApi<any[]>('/api/notifications/permissions-reports'),
+
+  runPermissionsReportNow: () =>
+    fetchApi<{ message: string }>('/api/notifications/permissions-reports/run', { method: 'POST' }),
+};
+
+// Groups
+export const groupsApi = {
+  list: () =>
+    fetchApi<any[]>('/api/groups'),
+
+  get: (id: string) =>
+    fetchApi<any>(`/api/groups/${id}`),
+
+  addMember: (groupId: string, userId: string) =>
+    fetchApi<void>(`/api/groups/${groupId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ userId }),
+    }),
+
+  removeMember: (groupId: string, userId: string) =>
+    fetchApi<void>(`/api/groups/${groupId}/members/${userId}`, {
+      method: 'DELETE',
+    }),
+
+  updateAccounts: (groupId: string, accounts: Array<{ accountId: string; direction: string; fundingType: string }>) =>
+    fetchApi<void>(`/api/groups/${groupId}/accounts`, {
+      method: 'PUT',
+      body: JSON.stringify({ accounts }),
+    }),
+
+  userMemberships: (userId: string) =>
+    fetchApi<any[]>(`/api/groups/user/${userId}/memberships`),
+
+  getApprovalFlow: (groupId: string) =>
+    fetchApi<{
+      overrideApprovalFlow: boolean;
+      approvalTriggerMode: 'flat' | 'amount_threshold';
+      tiers: Array<{
+        id: string;
+        group_id: string;
+        label: string;
+        min_amount: number | null;
+        max_amount: number | null;
+        sort_order: number;
+        steps: Array<{
+          id: string;
+          tier_id: string;
+          step: number;
+          approver_mode: 'role' | 'specific_user';
+          approver_role: string | null;
+          specific_approver_id: string | null;
+          approver_name: string | null;
+          approver_email: string | null;
+          escalation_hours: number;
+        }>;
+      }>;
+    }>(`/api/groups/${groupId}/approval-flow`),
+
+  updateApprovalFlow: (groupId: string, data: {
+    overrideApprovalFlow: boolean;
+    approvalTriggerMode: 'flat' | 'amount_threshold';
+    tiers: Array<{
+      label: string;
+      minAmount: number | null;
+      maxAmount: number | null;
+      steps: Array<{
+        step: number;
+        approverMode: 'role' | 'specific_user';
+        approverRole?: string;
+        specificApproverId?: string;
+        escalationHours?: number;
+      }>;
+    }>;
+  }) =>
+    fetchApi<void>(`/api/groups/${groupId}/approval-flow`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
 };
 
 // Admin
