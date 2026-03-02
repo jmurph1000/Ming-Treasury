@@ -10,6 +10,9 @@ const SALT_LENGTH = 32; // 256 bits
 // Encryption key from environment (should be 32 bytes base64 encoded)
 let encryptionKey: Buffer | null = null;
 
+// Deterministic dev key (only used when no valid ENCRYPTION_KEY is configured)
+const DEV_KEY = crypto.createHash('sha256').update('treasury-dev-key-not-for-production').digest();
+
 /**
  * Initialize the encryption key from environment
  */
@@ -17,14 +20,24 @@ function getEncryptionKey(): Buffer {
   if (!encryptionKey) {
     const keyBase64 = process.env.ENCRYPTION_KEY;
 
-    if (!keyBase64) {
-      throw new Error('ENCRYPTION_KEY environment variable is not set');
+    if (!keyBase64 || keyBase64.startsWith('your-')) {
+      // Development fallback — use a deterministic key so account creation works locally
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('ENCRYPTION_KEY environment variable is not set');
+      }
+      logger.warn('Using development encryption key — do NOT use in production');
+      encryptionKey = DEV_KEY;
+      return encryptionKey;
     }
 
     encryptionKey = Buffer.from(keyBase64, 'base64');
 
     if (encryptionKey.length !== 32) {
-      throw new Error('ENCRYPTION_KEY must be 32 bytes (256 bits) when decoded');
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('ENCRYPTION_KEY must be 32 bytes (256 bits) when decoded');
+      }
+      logger.warn('ENCRYPTION_KEY is not 32 bytes, falling back to dev key');
+      encryptionKey = DEV_KEY;
     }
   }
 
@@ -83,30 +96,36 @@ export function decrypt(encryptedData: Buffer): string {
 
 /**
  * Encrypt an account number for database storage
+ * Returns a base64 string suitable for TEXT columns
  */
-export function encryptAccountNumber(accountNumber: string): Buffer {
-  return encrypt(accountNumber);
+export function encryptAccountNumber(accountNumber: string): string {
+  return encrypt(accountNumber).toString('base64');
 }
 
 /**
  * Decrypt an account number from database storage
+ * Accepts both Buffer (BLOB) and base64 string (TEXT) inputs
  */
-export function decryptAccountNumber(encryptedData: Buffer): string {
-  return decrypt(encryptedData);
+export function decryptAccountNumber(encryptedData: Buffer | string): string {
+  const buf = typeof encryptedData === 'string' ? Buffer.from(encryptedData, 'base64') : encryptedData;
+  return decrypt(buf);
 }
 
 /**
  * Encrypt a routing number for database storage
+ * Returns a base64 string suitable for TEXT columns
  */
-export function encryptRoutingNumber(routingNumber: string): Buffer {
-  return encrypt(routingNumber);
+export function encryptRoutingNumber(routingNumber: string): string {
+  return encrypt(routingNumber).toString('base64');
 }
 
 /**
  * Decrypt a routing number from database storage
+ * Accepts both Buffer (BLOB) and base64 string (TEXT) inputs
  */
-export function decryptRoutingNumber(encryptedData: Buffer): string {
-  return decrypt(encryptedData);
+export function decryptRoutingNumber(encryptedData: Buffer | string): string {
+  const buf = typeof encryptedData === 'string' ? Buffer.from(encryptedData, 'base64') : encryptedData;
+  return decrypt(buf);
 }
 
 /**

@@ -66,7 +66,7 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
       }
     }
 
-    const created = [];
+    const created: any[] = [];
     for (const acct of accounts) {
       const accountNumberEncrypted = encryptAccountNumber('XXXX' + acct.lastFour);
       const routingNumberEncrypted = encryptRoutingNumber('000000000');
