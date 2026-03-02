@@ -5,8 +5,8 @@ import { validate, createAccountSchema, updateAccountSchema, ValidationError } f
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { adminOnly, hasRole } from '../middleware/rbac.js';
 
-// Allow admin, treasury, and cfo to manage accounts
-const canManageAccounts = hasRole('admin', 'treasury', 'cfo');
+// Allow admin to manage accounts
+const canManageAccounts = hasRole('admin');
 import { encryptAccountNumber, encryptRoutingNumber, decryptAccountNumber, decryptRoutingNumber } from '../services/encryptionService.js';
 import { maskAccountNumber, maskRoutingNumber } from '../utils/masks.js';
 import { logger } from '../utils/logger.js';
@@ -204,7 +204,7 @@ router.put('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, 
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
-    const restrictedRoles = ['ap_staff', 'ap_manager', 'sr_ap_manager'];
+    const restrictedRoles = ['staff', 'manager', 'sr_manager'];
 
     let rows;
     if (restrictedRoles.includes(user.role)) {
@@ -255,7 +255,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
         rows = result.rows;
       }
     } else {
-      // Treasury/CFO/admin see all accounts
+      // Admin sees all accounts
       const result = await query(
         `SELECT id, name, bank_name, account_type, currency, daily_limit,
                 dual_control_required, dual_control_threshold, dual_control_mode,
@@ -321,8 +321,8 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       logger.error('Error decrypting account details', { accountId: id });
     }
 
-    // Only treasury and admin can see full account numbers
-    const showFull = ['treasury', 'admin'].includes(user.role);
+    // Only admin can see full account numbers
+    const showFull = user.role === 'admin';
 
     res.json({
       success: true,

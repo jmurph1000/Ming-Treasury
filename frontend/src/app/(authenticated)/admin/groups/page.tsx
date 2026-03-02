@@ -28,7 +28,7 @@ import {
   ToggleRight,
 } from 'lucide-react';
 
-type UserRole = 'ap_staff' | 'ap_manager' | 'sr_ap_manager' | 'treasury' | 'cfo' | 'admin';
+type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
 
 interface GroupSummary {
   id: string;
@@ -62,20 +62,16 @@ interface GroupAccount {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  ap_staff: 'AP Staff',
-  ap_manager: 'AP Manager',
-  sr_ap_manager: 'Sr. AP Manager',
-  treasury: 'Treasury',
-  cfo: 'CFO',
+  staff: 'Staff',
+  manager: 'Manager',
+  sr_manager: 'Senior Manager',
   admin: 'Administrator',
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  ap_staff: 'bg-gray-100 text-gray-800',
-  ap_manager: 'bg-blue-100 text-blue-800',
-  sr_ap_manager: 'bg-purple-100 text-purple-800',
-  treasury: 'bg-green-100 text-green-800',
-  cfo: 'bg-amber-100 text-amber-800',
+  staff: 'bg-gray-100 text-gray-800',
+  manager: 'bg-blue-100 text-blue-800',
+  sr_manager: 'bg-purple-100 text-purple-800',
   admin: 'bg-red-100 text-red-800',
 };
 
@@ -719,10 +715,8 @@ function ManageAccountsForm({
 // ───────────────────────────────────────────────────────────
 
 const APPROVER_ROLE_OPTIONS = [
-  { value: 'ap_manager', label: 'AP Manager' },
-  { value: 'sr_ap_manager', label: 'Sr. AP Manager' },
-  { value: 'treasury', label: 'Treasury' },
-  { value: 'cfo', label: 'CFO' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'sr_manager', label: 'Senior Manager' },
   { value: 'admin', label: 'Administrator' },
 ];
 
@@ -742,7 +736,7 @@ interface StepConfig {
 }
 
 function newStep(stepNum: number): StepConfig {
-  return { step: stepNum, approverMode: 'role', approverRole: 'ap_manager', specificApproverId: '', escalationHours: 24 };
+  return { step: stepNum, approverMode: 'role', approverRole: 'manager', specificApproverId: '', escalationHours: 24 };
 }
 
 function newTier(label: string): TierConfig {
@@ -795,7 +789,7 @@ function ApprovalFlowPanel({
             ? t.steps.map((s) => ({
                 step: s.step,
                 approverMode: s.approver_mode,
-                approverRole: s.approver_role || 'ap_manager',
+                approverRole: s.approver_role || 'manager',
                 specificApproverId: s.specific_approver_id || '',
                 escalationHours: s.escalation_hours,
               }))

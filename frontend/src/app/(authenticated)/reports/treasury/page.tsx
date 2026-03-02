@@ -393,7 +393,7 @@ export default function TreasuryReportsPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('daily');
 
-  const allowedRoles = ['treasury', 'admin', 'cfo'];
+  const allowedRoles = ['admin'];
   if (!user || !allowedRoles.includes(user.role)) {
     return (
       <div className="flex flex-col items-center justify-center py-24">

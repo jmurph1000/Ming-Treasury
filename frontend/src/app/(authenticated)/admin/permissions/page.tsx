@@ -27,20 +27,16 @@ interface PermissionsReport {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  ap_staff: 'AP Staff',
-  ap_manager: 'AP Manager',
-  sr_ap_manager: 'Sr. AP Manager',
-  treasury: 'Treasury',
-  cfo: 'CFO',
+  staff: 'Staff',
+  manager: 'Manager',
+  sr_manager: 'Senior Manager',
   admin: 'Administrator',
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  ap_staff: 'bg-gray-100 text-gray-800',
-  ap_manager: 'bg-blue-100 text-blue-800',
-  sr_ap_manager: 'bg-purple-100 text-purple-800',
-  treasury: 'bg-green-100 text-green-800',
-  cfo: 'bg-amber-100 text-amber-800',
+  staff: 'bg-gray-100 text-gray-800',
+  manager: 'bg-blue-100 text-blue-800',
+  sr_manager: 'bg-purple-100 text-purple-800',
   admin: 'bg-red-100 text-red-800',
 };
 

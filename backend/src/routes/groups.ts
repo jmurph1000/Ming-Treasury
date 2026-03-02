@@ -7,13 +7,13 @@ import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 
 const router = Router();
-const treasuryOnly = hasRole('admin', 'treasury');
+const treasuryOnly = hasRole('admin');
 
 /**
  * GET /api/groups
  * List all groups with member count and account count
  */
-router.get('/', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(`
       SELECT
@@ -34,7 +34,7 @@ router.get('/', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRe
  * GET /api/groups/:id
  * Get group with members and account assignments
  */
-router.get('/:id', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -206,7 +206,7 @@ router.get('/user/:userId/memberships', async (req: AuthenticatedRequest, res: R
  * GET /api/groups/:id/approval-flow
  * Returns override settings + tiers + steps for a group
  */
-router.get('/:id/approval-flow', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id/approval-flow', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 

@@ -15,11 +15,9 @@ interface UserSnapshot {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  ap_staff: 'AP Staff',
-  ap_manager: 'AP Manager',
-  sr_ap_manager: 'Sr. AP Manager',
-  treasury: 'Treasury',
-  cfo: 'CFO',
+  staff: 'Staff',
+  manager: 'Manager',
+  sr_manager: 'Senior Manager',
   admin: 'Administrator',
 };
 
@@ -46,12 +44,10 @@ export async function runUserPermissionsReportJob(): Promise<void> {
       ORDER BY
         CASE u.role
           WHEN 'admin' THEN 1
-          WHEN 'cfo' THEN 2
-          WHEN 'treasury' THEN 3
-          WHEN 'sr_ap_manager' THEN 4
-          WHEN 'ap_manager' THEN 5
-          WHEN 'ap_staff' THEN 6
-          ELSE 7
+          WHEN 'sr_manager' THEN 2
+          WHEN 'manager' THEN 3
+          WHEN 'staff' THEN 4
+          ELSE 5
         END,
         u.name
     `);

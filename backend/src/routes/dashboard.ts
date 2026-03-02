@@ -1,13 +1,13 @@
 import { Router, Response } from 'express';
 import { query } from '../config/sqlite.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { cfoOrAdmin } from '../middleware/rbac.js';
+import { hasRole } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 
 const router = Router();
 
-router.get('/summary', cfoOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/summary', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows: mtd } = await query(`
       SELECT COUNT(*) as count, COALESCE(SUM(usd_equivalent), 0) as amount
@@ -37,7 +37,7 @@ router.get('/summary', cfoOrAdmin, async (req: AuthenticatedRequest, res: Respon
   }
 });
 
-router.get('/volume', cfoOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/volume', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(`
       SELECT DATE(executed_at) as date, COUNT(*) as count, SUM(usd_equivalent) as amount
@@ -52,7 +52,7 @@ router.get('/volume', cfoOrAdmin, async (req: AuthenticatedRequest, res: Respons
   }
 });
 
-router.get('/pipeline', cfoOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/pipeline', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(`
       SELECT status, COUNT(*) as count
@@ -66,7 +66,7 @@ router.get('/pipeline', cfoOrAdmin, async (req: AuthenticatedRequest, res: Respo
   }
 });
 
-router.get('/vendors', cfoOrAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/vendors', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(`
       SELECT payee_name, SUM(usd_equivalent) as total_amount, COUNT(*) as payment_count

@@ -34,11 +34,10 @@ interface ApprovalChain {
 }
 
 const ROLES = [
-  { value: 'ap_staff', label: 'AP Staff' },
-  { value: 'ap_manager', label: 'AP Manager' },
-  { value: 'sr_ap_manager', label: 'Sr. AP Manager' },
-  { value: 'treasury', label: 'Treasury' },
-  { value: 'cfo', label: 'CFO' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'sr_manager', label: 'Senior Manager' },
+  { value: 'admin', label: 'Administrator' },
 ];
 
 export default function ApprovalChainsPage() {

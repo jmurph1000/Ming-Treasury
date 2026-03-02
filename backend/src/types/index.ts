@@ -3,7 +3,7 @@ import { Request } from 'express';
 // =====================================================
 // USER TYPES
 // =====================================================
-export type UserRole = 'ap_staff' | 'ap_manager' | 'sr_ap_manager' | 'treasury' | 'cfo' | 'admin';
+export type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
 export type UserStatus = 'pending' | 'active' | 'suspended' | 'terminated';
 
 export interface User {

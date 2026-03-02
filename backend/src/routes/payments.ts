@@ -33,7 +33,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
-    if (user.role === 'ap_staff') {
+    if (user.role === 'staff') {
       conditions.push(`p.requester_id = $${paramIndex++}`);
       params.push(user.id);
     }
@@ -294,7 +294,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
 
     const payment = rows[0];
 
-    if (user.role === 'ap_staff' && payment.requester_id !== user.id) {
+    if (user.role === 'staff' && payment.requester_id !== user.id) {
       res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: ERROR_CODES.FORBIDDEN,
@@ -494,7 +494,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
             id: s.id,
             rule_id: `group-override-${grp.group_id}`,
             step: s.step,
-            approver_role: s.approver_mode === 'role' ? s.approver_role : s.approver_role || 'ap_manager',
+            approver_role: s.approver_mode === 'role' ? s.approver_role : s.approver_role || 'manager',
             specific_approver_id: s.approver_mode === 'specific_user' ? s.specific_approver_id : null,
           } as ApprovalChainRow));
           groupOverrideUsed = true;
@@ -555,7 +555,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
 
       // If chain is empty, create a default single-step approval
       if (chain.length === 0) {
-        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'ap_manager', approver_id: null } as ApprovalChainRow];
+        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'manager', approver_id: null } as ApprovalChainRow];
       }
     }
 
@@ -645,7 +645,7 @@ router.post('/:id/cancel', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const payment = existing[0];
-    const canCancel = payment.requester_id === user.id || ['admin', 'treasury', 'cfo'].includes(user.role);
+    const canCancel = payment.requester_id === user.id || user.role === 'admin';
 
     if (!canCancel) {
       res.status(HTTP_STATUS.FORBIDDEN).json({ success: false, error: ERROR_CODES.FORBIDDEN, message: 'You do not have permission to cancel this payment' });

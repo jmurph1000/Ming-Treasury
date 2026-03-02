@@ -23,7 +23,7 @@ export function initializeSchema() {
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('ap_staff', 'ap_manager', 'sr_ap_manager', 'treasury', 'cfo', 'admin')),
+      role TEXT NOT NULL CHECK (role IN ('staff', 'manager', 'sr_manager', 'admin')),
       status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended', 'terminated')),
       workday_id TEXT,
       title TEXT,
@@ -449,6 +449,73 @@ export function initializeSchema() {
   try { db.exec(`ALTER TABLE groups ADD COLUMN override_approval_flow INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE groups ADD COLUMN approval_trigger_mode TEXT DEFAULT 'flat'`); } catch (_) { /* column already exists */ }
 
+  // ── Role migration: old 6-role system → new 4-role system ──
+  // SQLite CHECK constraints prevent direct UPDATE when old roles exist,
+  // so we recreate the table if old role values are found.
+  try {
+    const oldRoleRow = db.prepare(
+      `SELECT COUNT(*) as cnt FROM users WHERE role IN ('ap_staff','ap_manager','sr_ap_manager','treasury','cfo')`
+    ).get() as { cnt: number } | undefined;
+
+    if (oldRoleRow && oldRoleRow.cnt > 0) {
+      logger.info(`Migrating ${oldRoleRow.cnt} users from old role system to new role system`);
+
+      // Disable FK checks during table swap
+      db.pragma('foreign_keys = OFF');
+
+      // 1. Create temp table with new CHECK constraint
+      db.exec(`DROP TABLE IF EXISTS users_new`);
+
+      // Get current table SQL and replace the CHECK constraint
+      const tableInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='users'`).get() as { sql: string };
+      const newSql = tableInfo.sql
+        .replace('users', 'users_new')
+        .replace(
+          /CHECK\s*\(role\s+IN\s*\([^)]+\)\)/i,
+          `CHECK (role IN ('staff', 'manager', 'sr_manager', 'admin'))`
+        );
+      db.exec(newSql);
+
+      // 2. Copy data with role mapping
+      db.exec(`
+        INSERT INTO users_new SELECT
+          id, email, name,
+          CASE role
+            WHEN 'ap_staff' THEN 'staff'
+            WHEN 'ap_manager' THEN 'manager'
+            WHEN 'sr_ap_manager' THEN 'sr_manager'
+            WHEN 'treasury' THEN 'admin'
+            WHEN 'cfo' THEN 'admin'
+            ELSE role
+          END,
+          status, workday_id, title, department, cost_center,
+          manager_name, manager_email, pe_partner_name, pe_partner_email,
+          payment_limit, last_login_at, created_at, updated_at
+        FROM users
+      `);
+
+      // 3. Swap tables
+      db.exec(`DROP TABLE users`);
+      db.exec(`ALTER TABLE users_new RENAME TO users`);
+
+      // Re-enable FK checks
+      db.pragma('foreign_keys = ON');
+
+      // 4. Also update approval chain roles
+      try {
+        db.exec(`UPDATE approval_chains SET approver_role = 'manager' WHERE approver_role = 'ap_manager'`);
+        db.exec(`UPDATE approval_chains SET approver_role = 'sr_manager' WHERE approver_role = 'sr_ap_manager'`);
+        db.exec(`UPDATE approval_chains SET approver_role = 'admin' WHERE approver_role = 'treasury'`);
+        db.exec(`UPDATE approval_chains SET approver_role = 'admin' WHERE approver_role = 'cfo'`);
+        db.exec(`UPDATE approval_chains SET approver_role = 'staff' WHERE approver_role = 'ap_staff'`);
+      } catch (_) { /* approval_chains may not have old values */ }
+
+      logger.info('Role migration completed successfully');
+    }
+  } catch (err) {
+    logger.warn('Role migration check skipped or already done', { error: (err as Error).message });
+  }
+
   logger.info('SQLite schema initialized');
 }
 
@@ -475,14 +542,13 @@ export function seedData() {
     );
 
     // Create team users
-    // Note: Diego Torres is both CFO and Admin - using admin role which has highest permissions
     const teamUsers = [
-      ['user-001', 'sarah.chen@gusto.com', 'Sarah Chen', 'ap_staff', 'active', 'Accounts Payable', 'AP Specialist', 50000],
-      ['user-002', 'james.park@gusto.com', 'James Park', 'ap_manager', 'active', 'Accounts Payable', 'AP Manager', 250000],
-      ['user-003', 'maria.rodriguez@gusto.com', 'Maria Rodriguez', 'sr_ap_manager', 'active', 'Accounts Payable', 'Senior AP Manager', 500000],
-      ['user-004', 'linda.kim@gusto.com', 'Linda Kim', 'treasury', 'active', 'Treasury', 'Treasury Manager', null],
-      ['user-005', 'diego.torres@gusto.com', 'Diego Torres', 'admin', 'active', 'Finance', 'CFO / Administrator', null],
-      ['user-006', 'ming.huey@gusto.com', 'Ming Huey', 'treasury', 'active', 'Treasury', 'Treasury Manager', null],
+      ['user-001', 'sarah.chen@gusto.com', 'Sarah Chen', 'staff', 'active', 'Accounts Payable', 'AP Specialist', 50000],
+      ['user-002', 'james.park@gusto.com', 'James Park', 'manager', 'active', 'Accounts Payable', 'AP Manager', 250000],
+      ['user-003', 'maria.rodriguez@gusto.com', 'Maria Rodriguez', 'sr_manager', 'active', 'Accounts Payable', 'Senior AP Manager', 500000],
+      ['user-004', 'linda.kim@gusto.com', 'Linda Kim', 'admin', 'active', 'Treasury', 'Treasury Manager', null],
+      ['user-005', 'diego.torres@gusto.com', 'Diego Torres', 'admin', 'active', 'Treasury', 'CFO / Administrator', null],
+      ['user-006', 'ming.huey@gusto.com', 'Ming Huey', 'admin', 'active', 'Treasury', 'Treasury Manager', null],
     ];
 
     const insertUser = db.prepare(`
@@ -532,21 +598,21 @@ export function seedData() {
 
     // Create approval chains
     const chains = [
-      ['rule-001', 1, 'ap_manager'],
-      ['rule-002', 1, 'ap_manager'],
-      ['rule-002', 2, 'sr_ap_manager'],
-      ['rule-003', 1, 'ap_manager'],
-      ['rule-003', 2, 'sr_ap_manager'],
-      ['rule-003', 3, 'treasury'],
-      ['rule-004', 1, 'ap_manager'],
-      ['rule-004', 2, 'sr_ap_manager'],
-      ['rule-004', 3, 'treasury'],
-      ['rule-004', 4, 'cfo'],
-      ['rule-005', 1, 'ap_manager'],
-      ['rule-005', 2, 'treasury'],
-      ['rule-006', 1, 'ap_manager'],
-      ['rule-006', 2, 'sr_ap_manager'],
-      ['rule-006', 3, 'treasury'],
+      ['rule-001', 1, 'manager'],
+      ['rule-002', 1, 'manager'],
+      ['rule-002', 2, 'sr_manager'],
+      ['rule-003', 1, 'manager'],
+      ['rule-003', 2, 'sr_manager'],
+      ['rule-003', 3, 'admin'],
+      ['rule-004', 1, 'manager'],
+      ['rule-004', 2, 'sr_manager'],
+      ['rule-004', 3, 'admin'],
+      ['rule-004', 4, 'admin'],
+      ['rule-005', 1, 'manager'],
+      ['rule-005', 2, 'admin'],
+      ['rule-006', 1, 'manager'],
+      ['rule-006', 2, 'sr_manager'],
+      ['rule-006', 3, 'admin'],
     ];
 
     const insertChain = db.prepare(`

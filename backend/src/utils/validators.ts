@@ -124,14 +124,16 @@ export const emergencyHaltSchema = z.object({
 
 export const provisionUserSchema = z.object({
   email: emailSchema,
-  requestedRole: z.enum(['ap_staff', 'ap_manager', 'sr_ap_manager', 'treasury', 'cfo', 'admin']),
+  requestedRole: z.enum(['staff', 'manager', 'sr_manager', 'admin']),
   notes: z.string().max(1000).optional(),
 });
 
 export const updateUserSchema = z.object({
-  role: z.enum(['ap_staff', 'ap_manager', 'sr_ap_manager', 'treasury', 'cfo', 'admin']).optional(),
+  role: z.enum(['staff', 'manager', 'sr_manager', 'admin']).optional(),
   paymentLimit: z.number().positive().optional().nullable(),
   status: z.enum(['active', 'suspended']).optional(),
+  department: z.enum(['Accounting', 'Accounts Payable', 'Other', 'Payment Ops / Platform Accounting', 'Payroll', 'Treasury']).optional().nullable(),
+  title: z.string().max(255).optional().nullable(),
 });
 
 // =====================================================
@@ -233,10 +235,10 @@ export const updateApprovalChainSchema = z.object({
   steps: z.array(
     z.object({
       step: z.number().int().min(1).max(4),
-      approverRole: z.enum(['ap_staff', 'ap_manager', 'sr_ap_manager', 'treasury', 'cfo', 'admin']).optional(),
+      approverRole: z.enum(['staff', 'manager', 'sr_manager', 'admin']).optional(),
       specificApproverId: uuidSchema.optional(),
       escalationHours: z.number().int().min(1).max(168).default(24),
-      escalationRole: z.enum(['ap_staff', 'ap_manager', 'sr_ap_manager', 'treasury', 'cfo', 'admin']).optional(),
+      escalationRole: z.enum(['staff', 'manager', 'sr_manager', 'admin']).optional(),
     })
   ).min(1).max(4),
 });

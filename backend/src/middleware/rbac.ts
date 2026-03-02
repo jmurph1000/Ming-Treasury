@@ -100,12 +100,12 @@ export function canApprove(req: AuthenticatedRequest, res: Response, next: NextF
     return;
   }
 
-  // AP Staff cannot approve
-  if (user.role === 'ap_staff') {
+  // Staff cannot approve
+  if (user.role === 'staff') {
     res.status(HTTP_STATUS.FORBIDDEN).json({
       success: false,
       error: ERROR_CODES.FORBIDDEN,
-      message: 'AP Staff members cannot approve payments',
+      message: 'Staff members cannot approve payments',
     });
     return;
   }
@@ -128,12 +128,12 @@ export function canExecute(req: AuthenticatedRequest, res: Response, next: NextF
     return;
   }
 
-  // Only Treasury and Admin can execute payments
-  if (user.role !== 'treasury' && user.role !== 'admin') {
+  // Only Admin can execute payments
+  if (user.role !== 'admin') {
     res.status(HTTP_STATUS.FORBIDDEN).json({
       success: false,
       error: ERROR_CODES.FORBIDDEN,
-      message: 'Only Treasury staff can execute payments',
+      message: 'Only Administrators can execute payments',
     });
     return;
   }
@@ -215,31 +215,10 @@ export function adminOnly(req: AuthenticatedRequest, res: Response, next: NextFu
 }
 
 /**
- * CFO or Admin only middleware (for dashboard access)
+ * Admin only middleware (for dashboard access)
+ * Kept for backward compatibility — same as adminOnly.
  */
-export function cfoOrAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
-  const user = req.user;
-
-  if (!user) {
-    res.status(HTTP_STATUS.UNAUTHORIZED).json({
-      success: false,
-      error: ERROR_CODES.UNAUTHORIZED,
-      message: 'Authentication required',
-    });
-    return;
-  }
-
-  if (user.role !== 'cfo' && user.role !== 'admin') {
-    res.status(HTTP_STATUS.FORBIDDEN).json({
-      success: false,
-      error: ERROR_CODES.FORBIDDEN,
-      message: 'CFO or Administrator access required',
-    });
-    return;
-  }
-
-  next();
-}
+export const cfoOrAdmin = adminOnly;
 
 /**
  * Get user's payment limit

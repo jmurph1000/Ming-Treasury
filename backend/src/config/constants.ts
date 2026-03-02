@@ -9,30 +9,24 @@ export const APP_VERSION = '1.0.0';
 // USER ROLES & PERMISSIONS
 // =====================================================
 export const USER_ROLES = {
-  AP_STAFF: 'ap_staff',
-  AP_MANAGER: 'ap_manager',
-  SR_AP_MANAGER: 'sr_ap_manager',
-  TREASURY: 'treasury',
-  CFO: 'cfo',
+  STAFF: 'staff',
+  MANAGER: 'manager',
+  SR_MANAGER: 'sr_manager',
   ADMIN: 'admin',
 } as const;
 
 export const ROLE_PAYMENT_LIMITS: Record<string, number | null> = {
-  ap_staff: 50000,
-  ap_manager: 250000,
-  sr_ap_manager: 500000,
-  treasury: null, // Unlimited
-  cfo: null, // Unlimited
+  staff: 50000,
+  manager: 250000,
+  sr_manager: 500000,
   admin: null, // Unlimited
 };
 
 export const ROLE_HIERARCHY: Record<string, number> = {
-  ap_staff: 1,
-  ap_manager: 2,
-  sr_ap_manager: 3,
-  treasury: 4,
-  cfo: 5,
-  admin: 6,
+  staff: 1,
+  manager: 2,
+  sr_manager: 3,
+  admin: 4,
 };
 
 // =====================================================

@@ -78,7 +78,7 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
       LEFT JOIN execution_confirmations ec ON ec.payment_id = p.id
       LEFT JOIN users cu ON ec.confirmer_id = cu.id
       LEFT JOIN payment_approvals pa_treasury ON pa_treasury.payment_id = p.id
-        AND pa_treasury.approver_role IN ('treasury', 'admin')
+        AND pa_treasury.approver_role = 'admin'
         AND pa_treasury.action = 'approved'
       WHERE p.status = 'executed'
         AND date(p.executed_at) = date('now')
@@ -152,12 +152,10 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
 
 function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
-    ap_staff: 'AP Staff',
-    ap_manager: 'AP Manager',
-    sr_ap_manager: 'Sr. AP Manager',
-    treasury: 'Treasury',
-    cfo: 'CFO',
-    admin: 'Admin',
+    staff: 'Staff',
+    manager: 'Manager',
+    sr_manager: 'Senior Manager',
+    admin: 'Administrator',
   };
   return labels[role] || role;
 }

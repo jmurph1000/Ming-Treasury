@@ -104,12 +104,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // Hooks for role checking
 export function useCanApprove() {
   const { user } = useAuth();
-  return user?.role !== 'ap_staff';
+  return user?.role !== 'staff';
 }
 
 export function useCanExecute() {
   const { user } = useAuth();
-  return user?.role === 'treasury' || user?.role === 'admin';
+  return user?.role === 'admin';
 }
 
 export function useIsAdmin() {
@@ -119,7 +119,7 @@ export function useIsAdmin() {
 
 export function useIsCfoOrAdmin() {
   const { user } = useAuth();
-  return user?.role === 'cfo' || user?.role === 'admin';
+  return user?.role === 'admin';
 }
 
 export function usePaymentLimit() {

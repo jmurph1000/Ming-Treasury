@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { query } from '../config/sqlite.js';
 import { AuthenticatedRequest } from '../types/index.js';
-import { validate, provisionUserSchema, updateUserSchema, paginationSchema } from '../utils/validators.js';
+import { validate, provisionUserSchema, updateUserSchema, paginationSchema, ValidationError } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { adminOnly, hasRole } from '../middleware/rbac.js';
 import { generateAccessTokens } from '../middleware/auth.js';
@@ -10,11 +10,44 @@ import { ERROR_CODES, HTTP_STATUS, VALIDATION } from '../config/constants.js';
 
 const router = Router();
 
+// Department-to-Group mapping — keeps group membership in sync with department
+const DEPARTMENT_GROUP_MAP: Record<string, string> = {
+  'Accounting': 'grp-accounting',
+  'Accounts Payable': 'grp-ap',
+  'Other': 'grp-other',
+  'Payment Ops / Platform Accounting': 'grp-payops',
+  'Payroll': 'grp-payroll',
+  'Treasury': 'grp-treasury',
+};
+
+/** Sync a user's department group membership. Removes from old dept group, adds to new. */
+async function syncDepartmentGroup(userId: string, newDepartment: string | null, oldDepartment: string | null, adminId: string): Promise<void> {
+  const deptGroupIds = Object.values(DEPARTMENT_GROUP_MAP);
+
+  // Remove user from all department-based groups
+  if (deptGroupIds.length > 0) {
+    const placeholders = deptGroupIds.map((_, i) => `$${i + 2}`).join(', ');
+    await query(
+      `DELETE FROM group_members WHERE user_id = $1 AND group_id IN (${placeholders})`,
+      [userId, ...deptGroupIds]
+    );
+  }
+
+  // Add to new department group
+  if (newDepartment && DEPARTMENT_GROUP_MAP[newDepartment]) {
+    const groupId = DEPARTMENT_GROUP_MAP[newDepartment];
+    await query(
+      'INSERT OR IGNORE INTO group_members (group_id, user_id, added_by) VALUES ($1, $2, $3)',
+      [groupId, userId, adminId]
+    );
+  }
+}
+
 /**
  * GET /api/users
  * List all users (admin only)
  */
-router.get('/', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filters = validate(paginationSchema, req.query);
 
@@ -317,7 +350,7 @@ router.post('/create-direct', adminOnly, async (req: AuthenticatedRequest, res: 
       `INSERT INTO users (email, name, role, status, department, title, payment_limit)
        VALUES ($1, $2, $3, 'active', $4, $5, $6)
        RETURNING *`,
-      [email.toLowerCase(), name, role || 'ap_staff', department, title, payment_limit]
+      [email.toLowerCase(), name, role || 'staff', department, title, payment_limit]
     );
 
     // Add user to selected groups if provided
@@ -338,6 +371,11 @@ router.post('/create-direct', adminOnly, async (req: AuthenticatedRequest, res: 
           [rows[0].id, aid, admin.id]
         );
       }
+    }
+
+    // Sync department → group membership
+    if (department) {
+      await syncDepartmentGroup(rows[0].id, department, null, admin.id);
     }
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_CREATED, {
@@ -396,7 +434,7 @@ router.get('/access-requests', adminOnly, async (req: AuthenticatedRequest, res:
  * GET /api/users/:id
  * Get user details
  */
-router.get('/:id', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -469,6 +507,14 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       updates.push(`status = $${paramIndex++}`);
       values.push(data.status);
     }
+    if (data.department !== undefined) {
+      updates.push(`department = $${paramIndex++}`);
+      values.push(data.department);
+    }
+    if (data.title !== undefined) {
+      updates.push(`title = $${paramIndex++}`);
+      values.push(data.title);
+    }
 
     if (updates.length === 0) {
       res.json({ success: true, data: existing[0] });
@@ -480,6 +526,11 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       `UPDATE users SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = $${paramIndex} RETURNING *`,
       values
     );
+
+    // Sync department → group membership when department changes
+    if (data.department !== undefined) {
+      await syncDepartmentGroup(id, data.department, existing[0].department, admin.id);
+    }
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
       tableName: 'users',
@@ -493,6 +544,15 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       data: rows[0],
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: error.errors.map(e => e.message).join('; '),
+        details: error.errors,
+      });
+      return;
+    }
     logger.error('Error updating user', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,

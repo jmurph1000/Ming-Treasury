@@ -7,7 +7,7 @@ import { logger } from '../utils/logger.js';
 const router = Router();
 
 // GET /api/notifications/summaries — pending payments summary emails
-router.get('/summaries', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/summaries', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(
       `SELECT id, type, channel, recipient_email, subject, body, template_data, status, sent_at, created_at
@@ -24,7 +24,7 @@ router.get('/summaries', hasRole('admin', 'treasury', 'cfo'), async (req: Authen
 });
 
 // GET /api/notifications/permissions-reports — daily user permissions reports
-router.get('/permissions-reports', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/permissions-reports', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(
       `SELECT id, type, subject, body, template_data, status, created_at
@@ -41,7 +41,7 @@ router.get('/permissions-reports', hasRole('admin', 'treasury', 'cfo'), async (r
 });
 
 // POST /api/notifications/permissions-reports/run — manually trigger the permissions report
-router.post('/permissions-reports/run', hasRole('admin', 'treasury'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/permissions-reports/run', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { runUserPermissionsReportJob } = await import('../jobs/userPermissionsReportJob.js');
     await runUserPermissionsReportJob();
@@ -53,7 +53,7 @@ router.post('/permissions-reports/run', hasRole('admin', 'treasury'), async (req
 });
 
 // POST /api/notifications/summaries/run — manually trigger the daily summary job
-router.post('/summaries/run', hasRole('admin', 'treasury'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/summaries/run', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { runPendingPaymentsSummaryJob } = await import('../jobs/pendingPaymentsSummaryJob.js');
     await runPendingPaymentsSummaryJob();

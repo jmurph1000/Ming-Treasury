@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi, accountsApi, groupsApi } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -17,9 +17,10 @@ import {
   Mail,
   Building2,
   Loader2,
+  Edit2,
 } from 'lucide-react';
 
-type UserRole = 'ap_staff' | 'ap_manager' | 'sr_ap_manager' | 'treasury' | 'cfo' | 'admin';
+type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
 type UserStatus = 'pending' | 'active' | 'suspended' | 'terminated';
 
 interface User {
@@ -56,22 +57,27 @@ interface AccessRequest {
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  ap_staff: 'AP Staff',
-  ap_manager: 'AP Manager',
-  sr_ap_manager: 'Sr. AP Manager',
-  treasury: 'Treasury',
-  cfo: 'CFO',
+  staff: 'Staff',
+  manager: 'Manager',
+  sr_manager: 'Senior Manager',
   admin: 'Administrator',
 };
 
 const ROLE_COLORS: Record<UserRole, string> = {
-  ap_staff: 'bg-gray-100 text-gray-800',
-  ap_manager: 'bg-blue-100 text-blue-800',
-  sr_ap_manager: 'bg-purple-100 text-purple-800',
-  treasury: 'bg-green-100 text-green-800',
-  cfo: 'bg-amber-100 text-amber-800',
+  staff: 'bg-gray-100 text-gray-800',
+  manager: 'bg-blue-100 text-blue-800',
+  sr_manager: 'bg-purple-100 text-purple-800',
   admin: 'bg-red-100 text-red-800',
 };
+
+const DEPARTMENTS = [
+  'Accounting',
+  'Accounts Payable',
+  'Other',
+  'Payment Ops / Platform Accounting',
+  'Payroll',
+  'Treasury',
+] as const;
 
 const STATUS_CONFIG: Record<UserStatus, { color: string; icon: typeof CheckCircle }> = {
   active: { color: 'text-green-600', icon: CheckCircle },
@@ -84,11 +90,26 @@ export default function UserManagementPage() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
+  const [deptFilter, setDeptFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<UserStatus | ''>('');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [manageAccountsUser, setManageAccountsUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!showUserMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
 
   // Auto-hide success message after 5 seconds
   const showSuccess = (message: string) => {
@@ -108,7 +129,8 @@ export default function UserManagementPage() {
     queryFn: () => usersApi.listAccessRequests(),
   });
 
-  const users = usersData?.data || [];
+  const allUsers = usersData?.data || [];
+  const users = deptFilter ? allUsers.filter((u: User) => u.department === deptFilter) : allUsers;
   const accessRequests = (requestsData?.data || []).filter((r: AccessRequest) => r.status === 'pending');
 
   // Suspend user mutation
@@ -195,6 +217,16 @@ export default function UserManagementPage() {
             </div>
           </div>
           <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            <option value="">All Departments</option>
+            {DEPARTMENTS.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+          <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value as UserRole | '')}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -219,7 +251,7 @@ export default function UserManagementPage() {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border">
         <table className="w-full">
           <thead className="bg-gray-50 border-b">
             <tr>
@@ -285,23 +317,27 @@ export default function UserManagementPage() {
                       {user.last_login_at ? formatDate(user.last_login_at) : 'Never'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="relative">
+                      <div className="relative" ref={showUserMenu === user.id ? menuRef : undefined}>
                         <button
-                          onClick={() => setShowUserMenu(showUserMenu === user.id ? null : user.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowUserMenu(showUserMenu === user.id ? null : user.id);
+                          }}
                           className="p-1 hover:bg-gray-100 rounded"
                         >
                           <MoreVertical className="h-5 w-5 text-gray-400" />
                         </button>
                         {showUserMenu === user.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-10">
+                          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
                             <div className="py-1">
                               <button
                                 onClick={() => {
-                                  // TODO: Edit user modal
+                                  setEditingUser(user);
                                   setShowUserMenu(null);
                                 }}
-                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
                               >
+                                <Edit2 className="h-4 w-4" />
                                 Edit User
                               </button>
                               <button
@@ -309,8 +345,9 @@ export default function UserManagementPage() {
                                   setManageAccountsUser(user);
                                   setShowUserMenu(null);
                                 }}
-                                className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
                               >
+                                <Building2 className="h-4 w-4" />
                                 Manage Accounts
                               </button>
                               {user.status === 'active' ? (
@@ -319,8 +356,9 @@ export default function UserManagementPage() {
                                     suspendUser.mutate(user.id);
                                     setShowUserMenu(null);
                                   }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100"
+                                  className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-gray-100"
                                 >
+                                  <XCircle className="h-4 w-4" />
                                   Suspend User
                                 </button>
                               ) : user.status === 'suspended' ? (
@@ -329,8 +367,9 @@ export default function UserManagementPage() {
                                     reactivateUser.mutate(user.id);
                                     setShowUserMenu(null);
                                   }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-gray-100"
+                                  className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-green-600 hover:bg-gray-100"
                                 >
+                                  <CheckCircle className="h-4 w-4" />
                                   Reactivate User
                                 </button>
                               ) : null}
@@ -355,6 +394,15 @@ export default function UserManagementPage() {
         />
       )}
 
+      {/* Edit User Modal */}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSuccess={(name: string) => showSuccess(`User ${name} has been updated successfully`)}
+        />
+      )}
+
       {/* Manage Accounts Modal */}
       {manageAccountsUser && (
         <ManageAccountsModal
@@ -363,6 +411,173 @@ export default function UserManagementPage() {
           onSuccess={(name: string) => showSuccess(`Account access updated for ${name}`)}
         />
       )}
+    </div>
+  );
+}
+
+// Edit User Modal Component
+function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () => void; onSuccess: (name: string) => void }) {
+  const queryClient = useQueryClient();
+  const [role, setRole] = useState<UserRole>(user.role);
+  const [department, setDepartment] = useState(
+    DEPARTMENTS.includes(user.department as any) ? user.department! : ''
+  );
+  const [title, setTitle] = useState(user.title || '');
+  const [status, setStatus] = useState<UserStatus>(user.status);
+  const [paymentLimit, setPaymentLimit] = useState(user.payment_limit?.toString() || '');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const updateMutation = useMutation({
+    mutationFn: () => {
+      const data: Record<string, any> = {};
+      if (role !== user.role) data.role = role;
+      if (department !== (user.department || '')) data.department = department || null;
+      if (title !== (user.title || '')) data.title = title || null;
+      if (status !== user.status) data.status = status;
+      const limitNum = paymentLimit ? parseFloat(paymentLimit) : null;
+      const origLimit = user.payment_limit ?? null;
+      if (limitNum !== origLimit) data.paymentLimit = limitNum;
+      if (Object.keys(data).length === 0) {
+        return Promise.resolve({ success: true, data: user });
+      }
+      return usersApi.update(user.id, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      onSuccess(user.name);
+      onClose();
+    },
+    onError: (error: any) => {
+      setErrorMessage(error.message || 'Failed to update user');
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">Edit User</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {user.name} &mdash; {user.email}
+          </p>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4 space-y-4">
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Role */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              {(Object.entries(ROLE_LABELS) as [UserRole, string][]).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Department */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+            <select
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="">Select department...</option>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+            {user.department && !DEPARTMENTS.includes(user.department as any) && (
+              <p className="text-xs text-amber-600 mt-1">
+                Current value &quot;{user.department}&quot; is not a valid department. Please select one from the list.
+              </p>
+            )}
+            <p className="text-xs text-gray-500 mt-1">Changing department will update group membership automatically.</p>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Senior Accountant"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as UserStatus)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+            {user.status === 'pending' && (
+              <p className="text-xs text-amber-600 mt-1">User is currently pending. Setting to active will grant access.</p>
+            )}
+          </div>
+
+          {/* Payment Limit */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Limit ($)</label>
+            <input
+              type="number"
+              value={paymentLimit}
+              onChange={(e) => setPaymentLimit(e.target.value)}
+              placeholder="Leave empty for no limit"
+              min="0"
+              step="1000"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">Maximum single payment amount this user can create. Leave empty for unlimited.</p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => updateMutation.mutate()}
+            disabled={updateMutation.isPending}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {updateMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Save Changes
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -513,7 +728,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   // Steps: 1 = email entry, 2 = role selection, 3 = review
   const [currentStep, setCurrentStep] = useState(1);
   const [email, setEmail] = useState('');
-  const [selectedRole, setSelectedRole] = useState<UserRole>('ap_staff');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('staff');
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [devMode, setDevMode] = useState(true); // Default to dev mode for easier testing
@@ -550,7 +765,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   // Get the display name (manual entry or auto-generated)
   const displayName = employeeName || getNameFromEmail(email);
   const displayTitle = employeeTitle || 'Employee';
-  const displayDepartment = employeeDepartment || 'Not Specified';
+  const displayDepartment = employeeDepartment || '';
 
   // Handle proceeding from step 1 to step 2
   const handleStep1Continue = async () => {
@@ -593,11 +808,11 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
         email,
         name: displayName,
         role: selectedRole,
-        department: displayDepartment,
-        title: displayTitle,
-        payment_limit: selectedRole === 'ap_staff' ? 50000 :
-                       selectedRole === 'ap_manager' ? 250000 :
-                       selectedRole === 'sr_ap_manager' ? 500000 : undefined,
+        department: displayDepartment || undefined,
+        title: displayTitle || undefined,
+        payment_limit: selectedRole === 'staff' ? 50000 :
+                       selectedRole === 'manager' ? 250000 :
+                       selectedRole === 'sr_manager' ? 500000 : undefined,
         groupIds: selectedGroupIds.length > 0 ? selectedGroupIds : undefined,
         accountIds: selectedAccountIds.length > 0 ? selectedAccountIds : undefined,
       };
@@ -722,13 +937,16 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                         </div>
                         <div>
                           <label className="block text-xs text-amber-700 mb-1">Department</label>
-                          <input
-                            type="text"
+                          <select
                             value={employeeDepartment}
                             onChange={(e) => setEmployeeDepartment(e.target.value)}
-                            placeholder="Finance"
                             className="w-full px-3 py-1.5 text-sm border border-amber-300 rounded focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
-                          />
+                          >
+                            <option value="">Select...</option>
+                            {DEPARTMENTS.map((dept) => (
+                              <option key={dept} value={dept}>{dept}</option>
+                            ))}
+                          </select>
                         </div>
                       </div>
                     </div>
@@ -759,7 +977,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                   </div>
                   <div>
                     <p className="text-gray-500">Department</p>
-                    <p className="font-medium">{displayDepartment}</p>
+                    <p className="font-medium">{displayDepartment || 'Not Specified'}</p>
                   </div>
                 </div>
               </div>
@@ -790,12 +1008,10 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                       <div>
                         <p className="font-medium text-gray-900">{label}</p>
                         <p className="text-sm text-gray-500">
-                          {value === 'ap_staff' && 'Can create payments up to $50,000'}
-                          {value === 'ap_manager' && 'Can approve payments up to $250,000'}
-                          {value === 'sr_ap_manager' && 'Can approve payments up to $500,000'}
-                          {value === 'treasury' && 'Can execute payments, unlimited approval'}
-                          {value === 'cfo' && 'Final approval authority, unlimited'}
-                          {value === 'admin' && 'Full system configuration access'}
+                          {value === 'staff' && 'Can create payments up to $50,000'}
+                          {value === 'manager' && 'Can approve payments up to $250,000'}
+                          {value === 'sr_manager' && 'Can approve payments up to $500,000'}
+                          {value === 'admin' && 'Full access — execute payments, approve all amounts, system configuration'}
                         </p>
                       </div>
                     </label>
@@ -925,7 +1141,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
                 </div>
                 <div className="px-4 py-3">
                   <p className="text-sm text-gray-500">Department</p>
-                  <p className="font-medium">{displayDepartment}</p>
+                  <p className="font-medium">{displayDepartment || 'Not Specified'}</p>
                 </div>
                 <div className="px-4 py-3">
                   <p className="text-sm text-gray-500">Groups</p>

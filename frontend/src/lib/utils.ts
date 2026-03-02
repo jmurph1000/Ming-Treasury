@@ -102,12 +102,10 @@ export function getFundingTypeLabel(type: string): string {
 
 export function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
-    ap_staff: 'AP Staff',
-    ap_manager: 'AP Manager',
-    sr_ap_manager: 'Sr. AP Manager',
-    treasury: 'Treasury',
-    cfo: 'CFO',
-    admin: 'Admin',
+    staff: 'Staff',
+    manager: 'Manager',
+    sr_manager: 'Senior Manager',
+    admin: 'Administrator',
   };
   return labels[role] || role;
 }

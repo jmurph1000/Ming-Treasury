@@ -10,7 +10,7 @@ import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 
 const router = Router();
 
-router.get('/audit', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/audit', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filters = validate(auditLogFilterSchema, req.query);
     let sql = `SELECT al.*, u.name as user_name FROM audit_log al LEFT JOIN users u ON al.user_id = u.id WHERE 1=1`;
@@ -31,7 +31,7 @@ router.get('/audit', hasRole('admin', 'treasury', 'cfo'), async (req: Authentica
   }
 });
 
-router.post('/export', hasRole('admin', 'treasury', 'cfo', 'ap_manager'), exportRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/export', hasRole('admin', 'manager', 'sr_manager'), exportRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
     const { format, filters, reportType } = req.body;
@@ -50,7 +50,7 @@ router.post('/export', hasRole('admin', 'treasury', 'cfo', 'ap_manager'), export
  * GET /api/reports/treasury/daily?date=YYYY-MM-DD
  * All payments approved by treasury on a given date
  */
-router.get('/treasury/daily', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/treasury/daily', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
 
@@ -72,7 +72,7 @@ router.get('/treasury/daily', hasRole('admin', 'treasury', 'cfo'), async (req: A
       JOIN payments p ON p.id = pa.payment_id
       LEFT JOIN users u ON pa.approver_id = u.id
       WHERE pa.action = 'approved'
-        AND pa.approver_role IN ('treasury', 'admin')
+        AND pa.approver_role = 'admin'
         AND date(pa.actioned_at) = $1
       ORDER BY pa.actioned_at DESC`,
       [date]
@@ -89,7 +89,7 @@ router.get('/treasury/daily', hasRole('admin', 'treasury', 'cfo'), async (req: A
  * GET /api/reports/treasury/weekly?startDate=YYYY-MM-DD
  * Treasury-approved payments for 7-day range grouped by date
  */
-router.get('/treasury/weekly', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/treasury/weekly', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const startDate = (req.query.startDate as string) || new Date().toISOString().slice(0, 10);
 
@@ -112,7 +112,7 @@ router.get('/treasury/weekly', hasRole('admin', 'treasury', 'cfo'), async (req: 
       JOIN payments p ON p.id = pa.payment_id
       LEFT JOIN users u ON pa.approver_id = u.id
       WHERE pa.action = 'approved'
-        AND pa.approver_role IN ('treasury', 'admin')
+        AND pa.approver_role = 'admin'
         AND date(pa.actioned_at) >= $1
         AND date(pa.actioned_at) < date($1, '+7 days')
       ORDER BY pa.actioned_at DESC`,
@@ -138,7 +138,7 @@ router.get('/treasury/weekly', hasRole('admin', 'treasury', 'cfo'), async (req: 
  * GET /api/reports/treasury/lifetime?page=1&limit=25&sortBy=actioned_at&sortOrder=desc
  * All payments ever approved by treasury, paginated
  */
-router.get('/treasury/lifetime', hasRole('admin', 'treasury', 'cfo'), async (req: AuthenticatedRequest, res: Response) => {
+router.get('/treasury/lifetime', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string, 10) || 25));
@@ -160,7 +160,7 @@ router.get('/treasury/lifetime', hasRole('admin', 'treasury', 'cfo'), async (req
       `SELECT COUNT(*) as total
        FROM payment_approvals pa
        JOIN payments p ON p.id = pa.payment_id
-       WHERE pa.action = 'approved' AND pa.approver_role IN ('treasury', 'admin')`
+       WHERE pa.action = 'approved' AND pa.approver_role = 'admin'`
     );
     const total = parseInt(countRows[0].total, 10);
 
@@ -182,7 +182,7 @@ router.get('/treasury/lifetime', hasRole('admin', 'treasury', 'cfo'), async (req
       JOIN payments p ON p.id = pa.payment_id
       LEFT JOIN users u ON pa.approver_id = u.id
       WHERE pa.action = 'approved'
-        AND pa.approver_role IN ('treasury', 'admin')
+        AND pa.approver_role = 'admin'
       ORDER BY ${safeSortColumn} ${safeSortOrder}
       LIMIT $1 OFFSET $2`,
       [limit, offset]
@@ -199,7 +199,7 @@ router.get('/treasury/lifetime', hasRole('admin', 'treasury', 'cfo'), async (req
   }
 });
 
-router.post('/sheets', hasRole('admin', 'treasury', 'cfo'), exportRateLimit, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/sheets', hasRole('admin'), exportRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.REPORT_PUSHED_TO_SHEETS, {});

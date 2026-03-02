@@ -34,12 +34,10 @@ export const PAYMENT_STATUSES = [
 ] as const;
 
 export const USER_ROLES = [
-  { value: 'ap_staff', label: 'AP Staff', limit: 50000, description: 'Can submit payments up to $50K' },
-  { value: 'ap_manager', label: 'AP Manager', limit: 250000, description: 'Can submit and approve L1, up to $250K' },
-  { value: 'sr_ap_manager', label: 'Sr. AP Manager', limit: 500000, description: 'Can approve L2, up to $500K' },
-  { value: 'treasury', label: 'Treasury', limit: null, description: 'Can approve all and execute, unlimited' },
-  { value: 'cfo', label: 'CFO', limit: null, description: 'Final approver, read-only dashboard' },
-  { value: 'admin', label: 'Admin', limit: null, description: 'Full system configuration' },
+  { value: 'staff', label: 'Staff', limit: 50000, description: 'Can submit payments up to $50K' },
+  { value: 'manager', label: 'Manager', limit: 250000, description: 'Can submit and approve payments up to $250K' },
+  { value: 'sr_manager', label: 'Senior Manager', limit: 500000, description: 'Can approve larger payments up to $500K' },
+  { value: 'admin', label: 'Administrator', limit: null, description: 'Full access — execute, configure, unlimited' },
 ] as const;
 
 export const ACCOUNT_TYPES = [

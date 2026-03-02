@@ -249,7 +249,7 @@ export const usersApi = {
   listAccessRequests: () =>
     fetchApi<any[]>('/api/users/access-requests'),
 
-  update: (id: string, data: { role?: string; paymentLimit?: number; status?: string }) =>
+  update: (id: string, data: { role?: string; paymentLimit?: number; status?: string; department?: string | null; title?: string | null }) =>
     fetchApi<User>(`/api/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
