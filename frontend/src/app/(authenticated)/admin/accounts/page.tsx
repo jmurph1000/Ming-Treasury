@@ -18,7 +18,7 @@ import {
   Upload,
   FileSpreadsheet,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 // Matches the actual snake_case field names returned by GET /api/accounts
 interface AccountRow {
@@ -71,20 +71,24 @@ export default function BankAccountsPage() {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
-        const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { header: 'A', defval: '' });
+        const buffer = evt.target?.result as ArrayBuffer;
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const sheet = workbook.worksheets[0];
+        if (!sheet) {
+          setUploadError('No worksheet found in the Excel file.');
+          return;
+        }
 
         const rows: ParsedRow[] = [];
-        const maxRows = Math.min(json.length, 10);
-        for (let i = 0; i < maxRows; i++) {
-          const row = json[i];
-          const bankName = String(row['A'] || '').trim();
-          const description = String(row['B'] || '').trim();
-          const lastFour = String(row['C'] || '').trim();
+        const maxRows = Math.min(sheet.rowCount, 10);
+        for (let i = 1; i <= maxRows; i++) {
+          const row = sheet.getRow(i);
+          const bankName = String(row.getCell(1).value || '').trim();
+          const description = String(row.getCell(2).value || '').trim();
+          const lastFour = String(row.getCell(3).value || '').trim();
           if (bankName || description || lastFour) {
             rows.push({ bankName, description, lastFour });
           }
@@ -113,10 +117,10 @@ export default function BankAccountsPage() {
         setParsedRows(rows);
         setShowUploadModal(true);
       } catch {
-        setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx or .xls file.');
+        setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx file.');
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
   }, []);
 
