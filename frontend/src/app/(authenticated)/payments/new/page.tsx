@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useCreatePayment, useSubmitPayment, useCheckDuplicates } from '@/hooks/usePayments';
 import { useAuth, usePaymentLimit } from '@/hooks/useAuth';
-import { accountsApi, payeesApi, templatesApi, calendarApi } from '@/lib/api';
+import { accountsApi, payeesApi, templatesApi } from '@/lib/api';
 import { formatCurrency, debounce } from '@/lib/utils';
 import { CURRENCIES, PAYMENT_TYPES, FUNDING_TYPES, RECURRING_FREQUENCIES, VALIDATION, ROUTES } from '@/lib/constants';
-import { ArrowLeft, AlertTriangle, Calendar, Upload, Save, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Upload, Save, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import BusinessDayPicker from '@/components/BusinessDayPicker';
 
 export default function NewPaymentPage() {
   const router = useRouter();
@@ -39,7 +40,6 @@ export default function NewPaymentPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDuplicateWarning, setIsDuplicateWarning] = useState(false);
-  const [dateWarning, setDateWarning] = useState<string | null>(null);
 
   // Queries
   const { data: accountsData } = useQuery({
@@ -72,22 +72,7 @@ export default function NewPaymentPage() {
     }
   }, [duplicatesData]);
 
-  // Validate date when it changes
-  useEffect(() => {
-    if (formData.requestedDate) {
-      calendarApi.validateDate(formData.requestedDate).then((response) => {
-        if (response.data && !response.data.isBusinessDay) {
-          if (response.data.isWeekend) {
-            setDateWarning('This date falls on a weekend');
-          } else if (response.data.isHoliday) {
-            setDateWarning(`This date is a bank holiday: ${response.data.holidayName}`);
-          }
-        } else {
-          setDateWarning(null);
-        }
-      });
-    }
-  }, [formData.requestedDate]);
+  // Date warning is now handled by BusinessDayPicker component
 
   // Mutations
   const createPayment = useCreatePayment();
@@ -587,26 +572,14 @@ export default function NewPaymentPage() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Requested Execution Date *
           </label>
-          <div className="relative">
-            <input
-              type="date"
-              name="requestedDate"
-              value={formData.requestedDate}
-              onChange={handleInputChange}
-              min={new Date().toISOString().split('T')[0]}
-              className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
-                errors.requestedDate ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          </div>
-          {errors.requestedDate && <p className="text-red-500 text-sm mt-1">{errors.requestedDate}</p>}
-          {dateWarning && (
-            <p className="text-yellow-600 text-sm mt-1 flex items-center gap-1">
-              <AlertTriangle className="h-4 w-4" />
-              {dateWarning}
-            </p>
-          )}
+          <BusinessDayPicker
+            value={formData.requestedDate}
+            onChange={(date) => {
+              setFormData((prev) => ({ ...prev, requestedDate: date }));
+              setErrors((prev) => ({ ...prev, requestedDate: '' }));
+            }}
+            error={errors.requestedDate}
+          />
         </div>
 
         {/* Business Justification */}

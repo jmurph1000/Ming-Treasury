@@ -265,12 +265,13 @@ export function initializeSchema() {
     -- Bank holidays
     CREATE TABLE IF NOT EXISTS bank_holidays (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-      date TEXT NOT NULL UNIQUE,
+      date TEXT NOT NULL,
       name TEXT NOT NULL,
       country TEXT DEFAULT 'USA',
       year INTEGER NOT NULL,
       is_federal INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(date, country)
     );
 
     -- FX rates
@@ -449,6 +450,27 @@ export function initializeSchema() {
   try { db.exec(`ALTER TABLE groups ADD COLUMN override_approval_flow INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE groups ADD COLUMN approval_trigger_mode TEXT DEFAULT 'flat'`); } catch (_) { /* column already exists */ }
 
+  // Migrate bank_holidays: remove old UNIQUE(date) constraint, add UNIQUE(date, country)
+  try {
+    const bhInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='bank_holidays'`).get() as { sql: string } | undefined;
+    if (bhInfo && bhInfo.sql.includes('date TEXT NOT NULL UNIQUE') && !bhInfo.sql.includes('UNIQUE(date, country)')) {
+      logger.info('Migrating bank_holidays table for multi-country support...');
+      db.exec(`DROP TABLE bank_holidays`);
+      db.exec(`
+        CREATE TABLE bank_holidays (
+          id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+          date TEXT NOT NULL,
+          name TEXT NOT NULL,
+          country TEXT DEFAULT 'USA',
+          year INTEGER NOT NULL,
+          is_federal INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT (datetime('now')),
+          UNIQUE(date, country)
+        )
+      `);
+    }
+  } catch (_) { /* table may not exist yet */ }
+
   // ── Role migration: old 6-role system → new 4-role system ──
   // SQLite CHECK constraints prevent direct UPDATE when old roles exist,
   // so we recreate the table if old role values are found.
@@ -516,7 +538,82 @@ export function initializeSchema() {
     logger.warn('Role migration check skipped or already done', { error: (err as Error).message });
   }
 
+  // ── Seed bank holidays (US federal + Canadian federal) for 2025-2026 ──
+  seedBankHolidays();
+
   logger.info('SQLite schema initialized');
+}
+
+function seedBankHolidays() {
+  const existing = db.prepare('SELECT COUNT(*) as cnt FROM bank_holidays').get() as { cnt: number };
+  if (existing.cnt > 0) return; // already seeded
+
+  logger.info('Seeding US and Canadian federal holidays for 2025-2026...');
+
+  const holidays: { date: string; name: string; country: string; year: number }[] = [
+    // ── 2025 US Federal Holidays ──
+    { date: '2025-01-01', name: "New Year's Day", country: 'USA', year: 2025 },
+    { date: '2025-01-20', name: 'Martin Luther King Jr. Day', country: 'USA', year: 2025 },
+    { date: '2025-02-17', name: "Presidents' Day", country: 'USA', year: 2025 },
+    { date: '2025-05-26', name: 'Memorial Day', country: 'USA', year: 2025 },
+    { date: '2025-06-19', name: 'Juneteenth National Independence Day', country: 'USA', year: 2025 },
+    { date: '2025-07-04', name: 'Independence Day', country: 'USA', year: 2025 },
+    { date: '2025-09-01', name: 'Labor Day', country: 'USA', year: 2025 },
+    { date: '2025-10-13', name: 'Columbus Day', country: 'USA', year: 2025 },
+    { date: '2025-11-11', name: 'Veterans Day', country: 'USA', year: 2025 },
+    { date: '2025-11-27', name: 'Thanksgiving Day', country: 'USA', year: 2025 },
+    { date: '2025-12-25', name: 'Christmas Day', country: 'USA', year: 2025 },
+
+    // ── 2026 US Federal Holidays ──
+    { date: '2026-01-01', name: "New Year's Day", country: 'USA', year: 2026 },
+    { date: '2026-01-19', name: 'Martin Luther King Jr. Day', country: 'USA', year: 2026 },
+    { date: '2026-02-16', name: "Presidents' Day", country: 'USA', year: 2026 },
+    { date: '2026-05-25', name: 'Memorial Day', country: 'USA', year: 2026 },
+    { date: '2026-06-19', name: 'Juneteenth National Independence Day', country: 'USA', year: 2026 },
+    { date: '2026-07-03', name: 'Independence Day (Observed)', country: 'USA', year: 2026 }, // Jul 4 is Saturday
+    { date: '2026-09-07', name: 'Labor Day', country: 'USA', year: 2026 },
+    { date: '2026-10-12', name: 'Columbus Day', country: 'USA', year: 2026 },
+    { date: '2026-11-11', name: 'Veterans Day', country: 'USA', year: 2026 },
+    { date: '2026-11-26', name: 'Thanksgiving Day', country: 'USA', year: 2026 },
+    { date: '2026-12-25', name: 'Christmas Day', country: 'USA', year: 2026 },
+
+    // ── 2025 Canadian Federal Holidays ──
+    { date: '2025-01-01', name: "New Year's Day", country: 'CAN', year: 2025 },
+    { date: '2025-02-17', name: 'Family Day', country: 'CAN', year: 2025 },
+    { date: '2025-04-18', name: 'Good Friday', country: 'CAN', year: 2025 },
+    { date: '2025-05-19', name: 'Victoria Day', country: 'CAN', year: 2025 },
+    { date: '2025-07-01', name: 'Canada Day', country: 'CAN', year: 2025 },
+    { date: '2025-08-04', name: 'Civic Holiday', country: 'CAN', year: 2025 },
+    { date: '2025-09-01', name: 'Labour Day', country: 'CAN', year: 2025 },
+    { date: '2025-09-30', name: 'National Day for Truth and Reconciliation', country: 'CAN', year: 2025 },
+    { date: '2025-10-13', name: 'Thanksgiving Day', country: 'CAN', year: 2025 },
+    { date: '2025-11-11', name: 'Remembrance Day', country: 'CAN', year: 2025 },
+    { date: '2025-12-25', name: 'Christmas Day', country: 'CAN', year: 2025 },
+    { date: '2025-12-26', name: 'Boxing Day', country: 'CAN', year: 2025 },
+
+    // ── 2026 Canadian Federal Holidays ──
+    { date: '2026-01-01', name: "New Year's Day", country: 'CAN', year: 2026 },
+    { date: '2026-02-16', name: 'Family Day', country: 'CAN', year: 2026 },
+    { date: '2026-04-03', name: 'Good Friday', country: 'CAN', year: 2026 },
+    { date: '2026-05-18', name: 'Victoria Day', country: 'CAN', year: 2026 },
+    { date: '2026-07-01', name: 'Canada Day', country: 'CAN', year: 2026 },
+    { date: '2026-08-03', name: 'Civic Holiday', country: 'CAN', year: 2026 },
+    { date: '2026-09-07', name: 'Labour Day', country: 'CAN', year: 2026 },
+    { date: '2026-09-30', name: 'National Day for Truth and Reconciliation', country: 'CAN', year: 2026 },
+    { date: '2026-10-12', name: 'Thanksgiving Day', country: 'CAN', year: 2026 },
+    { date: '2026-11-11', name: 'Remembrance Day', country: 'CAN', year: 2026 },
+    { date: '2026-12-25', name: 'Christmas Day', country: 'CAN', year: 2026 },
+    { date: '2026-12-28', name: 'Boxing Day (Observed)', country: 'CAN', year: 2026 }, // Dec 26 is Saturday
+  ];
+
+  const stmt = db.prepare(
+    `INSERT OR IGNORE INTO bank_holidays (date, name, country, year, is_federal) VALUES (?, ?, ?, ?, 1)`
+  );
+  for (const h of holidays) {
+    stmt.run(h.date, h.name, h.country, h.year);
+  }
+
+  logger.info(`Seeded ${holidays.length} bank holidays`);
 }
 
 // Seed initial data

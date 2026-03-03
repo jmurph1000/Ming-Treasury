@@ -404,8 +404,11 @@ export const calendarApi = {
     return fetchApi<BankHoliday[]>(`/api/calendar/holidays?${params}`);
   },
 
+  allHolidays: () =>
+    fetchApi<BankHoliday[]>('/api/calendar/holidays/all'),
+
   validateDate: (date: string) =>
-    fetchApi<{ date: string; isBusinessDay: boolean; isWeekend: boolean; isHoliday: boolean; holidayName?: string }>(
+    fetchApi<{ date: string; isBusinessDay: boolean; isWeekend: boolean; isHoliday: boolean; holidayName?: string; nextBusinessDay?: string }>(
       `/api/calendar/validate/${date}`
     ),
 

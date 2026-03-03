@@ -54,6 +54,16 @@ async function startServer(): Promise<void> {
   // Schedule background jobs
   scheduleJobs();
 
+  // Run pending payments summary on startup so today's report is always current
+  setTimeout(async () => {
+    try {
+      await runPendingPaymentsSummaryJob();
+      logger.info('Startup pending payments summary completed');
+    } catch (error) {
+      logger.error('Startup pending payments summary failed', { error: (error as Error).message });
+    }
+  }, 5000);
+
   // Graceful shutdown handling
   const shutdown = async (signal: string): Promise<void> => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
@@ -140,8 +150,8 @@ function scheduleJobs(): void {
     timezone: 'America/New_York',
   });
 
-  // Pending payments summary email - daily at 5 PM ET
-  cron.schedule('0 17 * * *', async () => {
+  // Pending payments summary email - daily at 6 PM ET
+  cron.schedule('0 18 * * *', async () => {
     logger.debug('Running pending payments summary job');
     try {
       await runPendingPaymentsSummaryJob();

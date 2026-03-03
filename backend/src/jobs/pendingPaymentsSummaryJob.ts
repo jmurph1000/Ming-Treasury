@@ -8,6 +8,9 @@ const RECIPIENTS = [
   'treasury@gusto.com',
 ];
 
+// Only include payments submitted on or after this date
+const REPORT_START_DATE = '2026-02-25';
+
 interface PendingPayment {
   reference_number: string;
   payee_name: string;
@@ -38,7 +41,7 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
   try {
     logger.info('Pending payments summary job started');
 
-    // Section 1: Pending Payments (Life to Date)
+    // Section 1: Pending Payments (from REPORT_START_DATE forward)
     const { rows: pendingRows } = await query<PendingPayment>(`
       SELECT
         p.reference_number,
@@ -59,10 +62,11 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
         AND pa_wait.step_number = p.current_approval_step
       LEFT JOIN users wu ON pa_wait.approver_id = wu.id
       WHERE p.status = 'pending_approval'
+        AND date(p.submitted_at) >= $1
       ORDER BY p.submitted_at ASC
-    `);
+    `, [REPORT_START_DATE]);
 
-    // Section 2: Completed Payments (Today)
+    // Section 2: Completed Payments (Today, from REPORT_START_DATE forward)
     const { rows: completedRows } = await query<CompletedPayment>(`
       SELECT
         p.reference_number,
@@ -82,9 +86,10 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
         AND pa_treasury.action = 'approved'
       WHERE p.status = 'executed'
         AND date(p.executed_at) = date('now')
+        AND date(p.submitted_at) >= $1
       GROUP BY p.id
       ORDER BY p.executed_at ASC
-    `);
+    `, [REPORT_START_DATE]);
 
     logger.info(`Summary job found ${pendingRows.length} pending and ${completedRows.length} completed today`);
 
@@ -198,7 +203,7 @@ function buildHtml(pending: PendingPayment[], completed: CompletedPayment[], dat
       <h2 style="color:#1a1a1a;">Daily Payments Summary — ${date}</h2>
 
       <!-- Section 1: Pending Payments -->
-      <h3 style="color:#b45309;margin-top:24px;">Pending Payments (Life to Date)</h3>
+      <h3 style="color:#b45309;margin-top:24px;">Pending Payments (from ${REPORT_START_DATE})</h3>
       ${pending.length === 0
         ? '<p style="color:#666;">No payments are currently pending approval.</p>'
         : `
