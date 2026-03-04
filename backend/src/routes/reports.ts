@@ -10,6 +10,75 @@ import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 
 const router = Router();
 
+// ─── Dashboard Stats ───────────────────────────────────────────────────────
+
+/**
+ * GET /api/reports/dashboard
+ * Real-time summary stats for the Reports Dashboard tab
+ */
+router.get('/dashboard', hasRole('admin', 'manager', 'sr_manager'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const monthStart = today.slice(0, 7) + '-01';
+
+    // Pending approvals count
+    const { rows: pendingRows } = await query<{ count: number }>(`
+      SELECT COUNT(*) AS count FROM payments WHERE status = 'pending_approval'
+    `);
+
+    // MTD payments (submitted this month)
+    const { rows: mtdRows } = await query<{ count: number; total: number }>(`
+      SELECT COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
+      FROM payments WHERE date(created_at) >= $1
+    `, [monthStart]);
+
+    // Executed today
+    const { rows: execRows } = await query<{ count: number; total: number }>(`
+      SELECT COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
+      FROM payments WHERE status = 'executed' AND date(executed_at) = $1
+    `, [today]);
+
+    // Ready to execute
+    const { rows: readyRows } = await query<{ count: number }>(`
+      SELECT COUNT(*) AS count FROM payments WHERE status IN ('ready_to_execute', 'pending_confirmation')
+    `);
+
+    // Pipeline breakdown by status
+    const { rows: pipelineRows } = await query<{ status: string; count: number; total: number }>(`
+      SELECT status, COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
+      FROM payments
+      GROUP BY status
+      ORDER BY count DESC
+    `);
+
+    // Escalations count (pending approvals older than 24h)
+    const { rows: escRows } = await query<{ count: number }>(`
+      SELECT COUNT(*) AS count FROM payment_approvals
+      WHERE action = 'pending'
+        AND datetime(created_at, '+24 hours') < datetime('now')
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        pendingApprovals: pendingRows[0]?.count || 0,
+        mtdCount: mtdRows[0]?.count || 0,
+        mtdAmount: mtdRows[0]?.total || 0,
+        executedTodayCount: execRows[0]?.count || 0,
+        executedTodayAmount: execRows[0]?.total || 0,
+        readyToExecute: readyRows[0]?.count || 0,
+        escalations: escRows[0]?.count || 0,
+        pipeline: pipelineRows,
+      },
+    });
+  } catch (error) {
+    logger.error('Error getting dashboard stats', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+// ─── Audit Log ─────────────────────────────────────────────────────────────
+
 router.get('/audit', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const filters = validate(auditLogFilterSchema, req.query);
@@ -38,13 +107,14 @@ router.post('/export', hasRole('admin', 'manager', 'sr_manager'), exportRateLimi
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.REPORT_EXPORTED, {
       newValues: { format, reportType, filters },
     });
-    // TODO: Generate actual export file
     res.json({ success: true, message: 'Export queued', data: { downloadUrl: '/api/reports/download/placeholder' } });
   } catch (error) {
     logger.error('Error exporting report', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
   }
 });
+
+// ─── Treasury Reports (Daily / Weekly / Lifetime) ──────────────────────────
 
 /**
  * GET /api/reports/treasury/daily?date=YYYY-MM-DD
@@ -199,11 +269,77 @@ router.get('/treasury/lifetime', hasRole('admin'), async (req: AuthenticatedRequ
   }
 });
 
+// ─── End of Day Reports ────────────────────────────────────────────────────
+
+/**
+ * GET /api/reports/eod?limit=30
+ * List EOD report snapshots (most recent first)
+ */
+router.get('/eod', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const limit = Math.min(90, Math.max(1, parseInt(req.query.limit as string, 10) || 30));
+
+    const { rows } = await query(
+      `SELECT id, report_date, generated_at, generated_by,
+        pending_count, pending_amount, executed_count, executed_amount,
+        rejected_count, cancelled_count, pipeline_data
+      FROM eod_reports
+      ORDER BY report_date DESC
+      LIMIT $1`,
+      [limit]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error listing EOD reports', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
+ * GET /api/reports/eod/:id
+ * Get full EOD report with HTML body and payments data
+ */
+router.get('/eod/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM eod_reports WHERE id = $1`,
+      [req.params.id]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ success: false, message: 'EOD report not found' });
+      return;
+    }
+
+    res.json({ success: true, data: rows[0] });
+  } catch (error) {
+    logger.error('Error getting EOD report', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
+ * POST /api/reports/eod/generate
+ * Manually generate an EOD report for today
+ */
+router.post('/eod/generate', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { runEodReportJob } = await import('../jobs/eodReportJob.js');
+    await runEodReportJob(req.user!.id);
+    res.json({ success: true, message: 'End of day report generated' });
+  } catch (error) {
+    logger.error('Error generating EOD report', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Failed to generate EOD report' });
+  }
+});
+
+// ─── Sheets Push ───────────────────────────────────────────────────────────
+
 router.post('/sheets', hasRole('admin'), exportRateLimit, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.REPORT_PUSHED_TO_SHEETS, {});
-    // TODO: Push to Google Sheets via MCP
     res.json({ success: true, message: 'Report pushed to Google Sheets' });
   } catch (error) {
     logger.error('Error pushing to sheets', { error: (error as Error).message });

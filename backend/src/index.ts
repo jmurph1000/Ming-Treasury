@@ -6,6 +6,7 @@ import { runEscalationJob } from './jobs/escalationJob.js';
 import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
 import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
 import { runUserPermissionsReportJob } from './jobs/userPermissionsReportJob.js';
+import { runEodReportJob } from './jobs/eodReportJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -138,25 +139,23 @@ function scheduleJobs(): void {
     timezone: 'America/Los_Angeles',
   });
 
-  // User permissions report - daily at 6 AM ET
-  cron.schedule('0 6 * * *', async () => {
-    logger.debug('Running user permissions report job');
+  // Daily 6 PM ET jobs: user permissions, pending payments summary, and EOD report
+  cron.schedule('0 18 * * *', async () => {
+    logger.debug('Running 6 PM ET scheduled jobs');
     try {
       await runUserPermissionsReportJob();
     } catch (error) {
       logger.error('User permissions report job failed', { error: (error as Error).message });
     }
-  }, {
-    timezone: 'America/New_York',
-  });
-
-  // Pending payments summary email - daily at 6 PM ET
-  cron.schedule('0 18 * * *', async () => {
-    logger.debug('Running pending payments summary job');
     try {
       await runPendingPaymentsSummaryJob();
     } catch (error) {
       logger.error('Pending payments summary job failed', { error: (error as Error).message });
+    }
+    try {
+      await runEodReportJob();
+    } catch (error) {
+      logger.error('EOD report job failed', { error: (error as Error).message });
     }
   }, {
     timezone: 'America/New_York',

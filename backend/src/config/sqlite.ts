@@ -493,6 +493,27 @@ export function initializeSchema() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pa_group ON payment_approvals(group_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_grcl_group ON group_routing_change_log(group_id)`);
 
+  // End-of-day report snapshots
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS eod_reports (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      report_date TEXT NOT NULL UNIQUE,
+      generated_at TEXT NOT NULL,
+      generated_by TEXT,
+      pending_count INTEGER NOT NULL DEFAULT 0,
+      pending_amount REAL NOT NULL DEFAULT 0,
+      executed_count INTEGER NOT NULL DEFAULT 0,
+      executed_amount REAL NOT NULL DEFAULT 0,
+      rejected_count INTEGER NOT NULL DEFAULT 0,
+      cancelled_count INTEGER NOT NULL DEFAULT 0,
+      pipeline_data TEXT,
+      payments_data TEXT,
+      html_body TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_reports(report_date)`);
+
   // Migrate bank_holidays: remove old UNIQUE(date) constraint, add UNIQUE(date, country)
   try {
     const bhInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='bank_holidays'`).get() as { sql: string } | undefined;

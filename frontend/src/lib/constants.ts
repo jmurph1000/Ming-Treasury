@@ -77,7 +77,6 @@ export const ROUTES = {
   DASHBOARD: '/dashboard',
   CALENDAR: '/calendar',
   REPORTS: '/reports',
-  TREASURY_REPORTS: '/reports/treasury',
   GUIDE: '/guide',
   ADMIN: '/admin',
   ADMIN_USERS: '/admin/users',
@@ -86,8 +85,6 @@ export const ROUTES = {
   ADMIN_CHAINS: '/admin/chains',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_GUIDE: '/admin/guide',
-  ADMIN_NOTIFICATIONS: '/admin/notifications',
-  ADMIN_PERMISSIONS: '/admin/permissions',
   ADMIN_GROUPS: '/admin/groups',
 } as const;
 

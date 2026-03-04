@@ -539,6 +539,27 @@ export const treasuryReportsApi = {
     }
     return fetchApi<any[]>(`/api/reports/treasury/lifetime?${searchParams}`);
   },
+
+  dashboard: () =>
+    fetchApi<{
+      pendingApprovals: number;
+      mtdCount: number;
+      mtdAmount: number;
+      executedTodayCount: number;
+      executedTodayAmount: number;
+      readyToExecute: number;
+      escalations: number;
+      pipeline: Array<{ status: string; count: number; total: number }>;
+    }>('/api/reports/dashboard'),
+
+  eodList: (limit?: number) =>
+    fetchApi<any[]>(`/api/reports/eod?limit=${limit || 30}`),
+
+  eodGet: (id: string) =>
+    fetchApi<any>(`/api/reports/eod/${id}`),
+
+  eodGenerate: () =>
+    fetchApi<{ message: string }>('/api/reports/eod/generate', { method: 'POST' }),
 };
 
 // Notifications
