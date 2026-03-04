@@ -190,6 +190,19 @@ export const NOTIFICATION_TYPES = {
 // =====================================================
 // HTTP STATUS CODES (for reference)
 // =====================================================
+// =====================================================
+// TREASURY ADMIN EMAILS
+// =====================================================
+export const TREASURY_ADMIN_EMAILS = ['john.murphy@gusto.com', 'ming.huey@gusto.com'] as const;
+
+// =====================================================
+// ACCOUNT ACCESS AUDIT ACTIONS
+// =====================================================
+export const ACCOUNT_ACCESS_AUDIT_ACTIONS = {
+  OVERRIDE_SET: 'ACCOUNT_ACCESS_OVERRIDE_SET',
+  OVERRIDE_CLEARED: 'ACCOUNT_ACCESS_OVERRIDE_CLEARED',
+} as const;
+
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
@@ -201,6 +214,7 @@ export const HTTP_STATUS = {
   CONFLICT: 409,
   UNPROCESSABLE_ENTITY: 422,
   TOO_MANY_REQUESTS: 429,
+  NOT_IMPLEMENTED: 501,
   INTERNAL_SERVER_ERROR: 500,
   SERVICE_UNAVAILABLE: 503,
 } as const;

@@ -16,7 +16,7 @@ const adminSections = [
   },
   {
     name: 'Bank Accounts',
-    description: 'Configure source bank accounts and dual control settings',
+    description: 'Configure source bank accounts',
     href: ROUTES.ADMIN_ACCOUNTS,
     icon: Building2,
     color: 'bg-green-500',

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi, accountsApi, groupsApi } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/utils';
 import {
   Users,
@@ -87,6 +88,7 @@ const STATUS_CONFIG: Record<UserStatus, { color: string; icon: typeof CheckCircl
 };
 
 export default function UserManagementPage() {
+  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<UserRole | ''>('');
@@ -411,6 +413,7 @@ export default function UserManagementPage() {
           user={manageAccountsUser}
           onClose={() => setManageAccountsUser(null)}
           onSuccess={(name: string) => showSuccess(`Account access updated for ${name}`)}
+          currentUserEmail={currentUser?.email}
         />
       )}
     </div>
@@ -585,40 +588,73 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
   );
 }
 
-// Manage Accounts Modal Component
-function ManageAccountsModal({ user, onClose, onSuccess }: { user: User; onClose: () => void; onSuccess: (name: string) => void }) {
+// Treasury Admin emails (must match backend TREASURY_ADMIN_EMAILS)
+const TREASURY_ADMIN_EMAILS = ['john.murphy@gusto.com', 'ming.huey@gusto.com'];
+
+// Manage Accounts Modal Component — Group-based access model with override support
+function ManageAccountsModal({ user, onClose, onSuccess, currentUserEmail }: {
+  user: User;
+  onClose: () => void;
+  onSuccess: (name: string) => void;
+  currentUserEmail?: string;
+}) {
   const queryClient = useQueryClient();
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [reason, setReason] = useState('');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Fetch all active accounts
+  const isTreasuryAdmin = currentUserEmail ? TREASURY_ADMIN_EMAILS.includes(currentUserEmail) : false;
+
+  // Fetch all active accounts (for display names)
   const { data: accountsData, isLoading: accountsLoading } = useQuery({
     queryKey: ['accounts'],
     queryFn: () => accountsApi.list(),
   });
 
-  // Fetch user's current account access
+  // Fetch user's rich account access data
   const { data: accessData, isLoading: accessLoading } = useQuery({
     queryKey: ['user-account-access', user.id],
     queryFn: () => accountsApi.getUserAccess(user.id),
   });
 
-  const accounts = (accountsData?.data || []) as Array<{ id: string; name: string; bank_name: string; account_type: string; currency: string }>;
+  const allAccounts = (accountsData?.data || []) as Array<{ id: string; name: string; bank_name: string; account_type: string; currency: string }>;
+  const accessInfo = accessData?.data;
 
-  // Initialize selected accounts from current access
+  const groupPoolIds = accessInfo?.groupPoolAccountIds || [];
+  const hasOverride = accessInfo?.hasOverride || false;
+  const overrideDetails = accessInfo?.overrideDetails || null;
+  const auditHistory = accessInfo?.auditHistory || [];
+
+  // Build a lookup map for account details
+  const accountMap = new Map(allAccounts.map(a => [a.id, a]));
+
+  // Group pool accounts (only these can be checked/unchecked)
+  const groupPoolAccounts = groupPoolIds.map(id => accountMap.get(id)).filter(Boolean) as Array<{ id: string; name: string; bank_name: string; account_type: string; currency: string }>;
+
+  // Initialize selected accounts from current effective state
   useEffect(() => {
-    if (accessData?.data && !isInitialized) {
-      setSelectedAccountIds(accessData.data.accountIds || []);
+    if (accessInfo && !isInitialized) {
+      if (hasOverride && accessInfo.overrideAccountIds) {
+        setSelectedAccountIds(accessInfo.overrideAccountIds);
+      } else {
+        // No override = all group pool accounts selected
+        setSelectedAccountIds([...groupPoolIds]);
+      }
       setIsInitialized(true);
     }
-  }, [accessData, isInitialized]);
+  }, [accessInfo, isInitialized, hasOverride, groupPoolIds]);
 
   const saveMutation = useMutation({
-    mutationFn: () => accountsApi.updateUserAccess(user.id, selectedAccountIds),
+    mutationFn: ({ accountIds, reason }: { accountIds: string[] | null; reason: string }) =>
+      accountsApi.updateUserAccess(user.id, accountIds, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-account-access', user.id] });
       onSuccess(user.name);
       onClose();
+    },
+    onError: (error: any) => {
+      setErrorMessage(error.message || 'Failed to update account access');
     },
   });
 
@@ -630,61 +666,174 @@ function ManageAccountsModal({ user, onClose, onSuccess }: { user: User; onClose
     );
   };
 
+  const handleSave = () => {
+    setErrorMessage('');
+
+    // Check if this is the same as full group pool (no override needed)
+    const isFullPool = groupPoolIds.length === selectedAccountIds.length &&
+      groupPoolIds.every(id => selectedAccountIds.includes(id));
+
+    if (isFullPool) {
+      // Clear override
+      saveMutation.mutate({ accountIds: null, reason: reason || 'Override cleared' });
+    } else {
+      if (reason.trim().length < 10) {
+        setErrorMessage('Reason is required (minimum 10 characters) when restricting access');
+        return;
+      }
+      saveMutation.mutate({ accountIds: selectedAccountIds, reason: reason.trim() });
+    }
+  };
+
+  const handleClearRestrictions = () => {
+    saveMutation.mutate({ accountIds: null, reason: 'Override cleared — full group access restored' });
+  };
+
   const isLoading = accountsLoading || accessLoading;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="px-6 py-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">{user.name} — Account Access</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Select which bank accounts this user can access
+            Access is inherited from group memberships. You can restrict (but not expand) access here.
           </p>
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-4 space-y-4">
+          {!isTreasuryAdmin && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800 flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>Only Treasury Administrators can modify account access overrides. Contact john.murphy@gusto.com or ming.huey@gusto.com.</span>
+            </div>
+          )}
+
+          {/* Override Banner */}
+          {hasOverride && overrideDetails && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+              <p className="font-medium text-amber-900">Access Restricted</p>
+              <p className="text-amber-800 mt-1">
+                Restricted by {overrideDetails.setBy} on {overrideDetails.setAt ? new Date(overrideDetails.setAt).toLocaleDateString() : 'unknown date'}
+              </p>
+              {overrideDetails.reason && (
+                <p className="text-amber-700 mt-1 italic">&ldquo;{overrideDetails.reason}&rdquo;</p>
+              )}
+              {isTreasuryAdmin && (
+                <button
+                  onClick={handleClearRestrictions}
+                  disabled={saveMutation.isPending}
+                  className="mt-2 text-sm text-amber-800 underline hover:text-amber-900"
+                >
+                  Clear Restrictions (restore full group access)
+                </button>
+              )}
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : accounts.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No active accounts found.</p>
+          ) : groupPoolAccounts.length === 0 ? (
+            <div className="p-4 bg-gray-50 border rounded-lg text-center text-gray-500">
+              <p className="font-medium">No group accounts</p>
+              <p className="text-sm mt-1">This user is not a member of any group with account assignments.</p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {accounts.map((account) => (
-                <label
-                  key={account.id}
-                  className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedAccountIds.includes(account.id)
-                      ? 'border-primary bg-primary/5'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAccountIds.includes(account.id)}
-                    onChange={() => toggleAccount(account.id)}
-                    className="h-4 w-4 text-primary focus:ring-primary rounded"
+            <>
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">
+                  Group Pool Accounts ({groupPoolAccounts.length})
+                </p>
+                <div className="space-y-2">
+                  {groupPoolAccounts.map((account) => {
+                    const isSelected = selectedAccountIds.includes(account.id);
+                    const isRestricted = hasOverride && !isSelected;
+                    return (
+                      <label
+                        key={account.id}
+                        className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                          !isTreasuryAdmin ? 'cursor-default' : 'cursor-pointer'
+                        } ${
+                          isRestricted
+                            ? 'border-red-200 bg-red-50'
+                            : isSelected
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAccount(account.id)}
+                          disabled={!isTreasuryAdmin}
+                          className="h-4 w-4 text-primary focus:ring-primary rounded disabled:opacity-50"
+                        />
+                        <div className="flex items-center gap-2 flex-1">
+                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{account.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {account.bank_name} — {account.account_type} — {account.currency}
+                            </p>
+                          </div>
+                        </div>
+                        {isRestricted && (
+                          <span className="text-xs text-red-600 font-medium">Restricted</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Reason textarea — only when restricting and user is treasury admin */}
+              {isTreasuryAdmin && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                    Reason for change
+                  </label>
+                  <textarea
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="Explain why access is being restricted (min 10 characters)..."
+                    rows={2}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-gray-400" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{account.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {account.bank_name} — {account.account_type} — {account.currency}
-                      </p>
-                    </div>
-                  </div>
-                </label>
-              ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              {errorMessage}
             </div>
           )}
 
-          {selectedAccountIds.length === 0 && !isLoading && (
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-              No accounts assigned — this user will see all accounts by default.
+          {/* Audit History */}
+          {auditHistory.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Audit History</p>
+              <div className="border rounded-lg divide-y max-h-40 overflow-y-auto">
+                {auditHistory.map((entry: any) => (
+                  <div key={entry.id} className="px-3 py-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-900">
+                        {entry.action.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-gray-500">
+                        {new Date(entry.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 mt-0.5">by {entry.admin_email}</p>
+                    {entry.reason && <p className="text-gray-500 italic mt-0.5">{entry.reason}</p>}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -692,32 +841,34 @@ function ManageAccountsModal({ user, onClose, onSuccess }: { user: User; onClose
         {/* Footer */}
         <div className="px-6 py-4 border-t bg-gray-50 flex justify-between">
           <div className="text-sm text-gray-500">
-            {selectedAccountIds.length} of {accounts.length} account(s) selected
+            {selectedAccountIds.length} of {groupPoolAccounts.length} account(s) selected
           </div>
           <div className="flex gap-3">
             <button
               onClick={onClose}
               className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
             >
-              Cancel
+              {isTreasuryAdmin ? 'Cancel' : 'Close'}
             </button>
-            <button
-              onClick={() => saveMutation.mutate()}
-              disabled={saveMutation.isPending}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
-            >
-              {saveMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4" />
-                  Save Access
-                </>
-              )}
-            </button>
+            {isTreasuryAdmin && (
+              <button
+                onClick={handleSave}
+                disabled={saveMutation.isPending}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {saveMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    Save Access
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>

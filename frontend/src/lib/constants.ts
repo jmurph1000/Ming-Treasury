@@ -47,12 +47,6 @@ export const ACCOUNT_TYPES = [
   { value: 'operating', label: 'Operating' },
 ] as const;
 
-export const DUAL_CONTROL_MODES = [
-  { value: 'all', label: 'All Payments', description: 'Require dual control for all payments' },
-  { value: 'wires_only', label: 'Wires Only', description: 'Only require for wire transfers' },
-  { value: 'above_threshold', label: 'Above Threshold', description: 'Only require above a certain amount' },
-] as const;
-
 export const RECURRING_FREQUENCIES = [
   { value: 'weekly', label: 'Weekly' },
   { value: 'biweekly', label: 'Bi-weekly' },

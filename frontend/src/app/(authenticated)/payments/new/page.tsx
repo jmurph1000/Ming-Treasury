@@ -11,20 +11,40 @@ import { CURRENCIES, PAYMENT_TYPES, FUNDING_TYPES, RECURRING_FREQUENCIES, VALIDA
 import { ArrowLeft, AlertTriangle, Upload, Save, Send, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import BusinessDayPicker from '@/components/BusinessDayPicker';
+import type { Currency, PaymentType, FundingType } from '@/types';
 
 export default function NewPaymentPage() {
   const router = useRouter();
   const { user } = useAuth();
   const paymentLimit = usePaymentLimit();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    payeeName: string;
+    payeeId: string;
+    amount: string;
+    currency: Currency;
+    accountId: string;
+    paymentType: PaymentType;
+    fundingType: FundingType;
+    destinationAccountId: string;
+    extBankName: string;
+    extRoutingNumber: string;
+    extBankAccount: string;
+    extRecipientAddress: string;
+    extSpecialInstructions: string;
+    businessJustification: string;
+    requestedDate: string;
+    isRecurring: boolean;
+    recurringFrequency: string;
+    recurringEndDate: string;
+  }>({
     payeeName: '',
     payeeId: '',
     amount: '',
-    currency: 'USD' as const,
+    currency: 'USD',
     accountId: '',
-    paymentType: 'ach' as const,
-    fundingType: 'external' as const,
+    paymentType: 'ach',
+    fundingType: 'external',
     destinationAccountId: '',
     extBankName: '',
     extRoutingNumber: '',

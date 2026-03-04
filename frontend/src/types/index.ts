@@ -13,7 +13,13 @@ export interface User {
   costCenter?: string;
   paymentLimit?: number;
   managerName?: string;
+  managerEmail?: string;
   lastLoginAt?: string;
+  created_at: string;
+  last_login_at?: string;
+  payment_limit?: number;
+  manager_name?: string;
+  manager_email?: string;
 }
 
 // Payment types
@@ -73,6 +79,7 @@ export interface Payment {
   updated_at: string;
   submitted_at?: string;
   executed_at?: string;
+  notified_at?: string;
 }
 
 export interface CreatePaymentData {
@@ -205,6 +212,7 @@ export interface ApprovalChain {
 export interface BankHoliday {
   date: string;
   name: string;
+  country: string;
   is_federal: boolean;
 }
 

@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest, UserRole } from '../types/index.js';
-import { ROLE_HIERARCHY, ROLE_PAYMENT_LIMITS, ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
+import { ROLE_HIERARCHY, ROLE_PAYMENT_LIMITS, ERROR_CODES, HTTP_STATUS, TREASURY_ADMIN_EMAILS } from '../config/constants.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -219,6 +219,40 @@ export function adminOnly(req: AuthenticatedRequest, res: Response, next: NextFu
  * Kept for backward compatibility — same as adminOnly.
  */
 export const cfoOrAdmin = adminOnly;
+
+/**
+ * Treasury Admin only middleware
+ * Checks if the user's email is in the TREASURY_ADMIN_EMAILS list.
+ */
+export function treasuryAdminOnly(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const user = req.user;
+
+  if (!user) {
+    res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      success: false,
+      error: ERROR_CODES.UNAUTHORIZED,
+      message: 'Authentication required',
+    });
+    return;
+  }
+
+  if (!(TREASURY_ADMIN_EMAILS as readonly string[]).includes(user.email)) {
+    logger.warn('Access denied - not a Treasury Administrator', {
+      userId: user.id,
+      userEmail: user.email,
+      path: req.path,
+    });
+
+    res.status(HTTP_STATUS.FORBIDDEN).json({
+      success: false,
+      error: ERROR_CODES.FORBIDDEN,
+      message: 'Unauthorized — Treasury Administrator access required',
+    });
+    return;
+  }
+
+  next();
+}
 
 /**
  * Get user's payment limit

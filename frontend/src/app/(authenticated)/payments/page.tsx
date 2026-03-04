@@ -160,11 +160,11 @@ export default function PaymentsPage() {
             </table>
 
             {/* Pagination */}
-            {meta && meta.totalPages > 1 && (
+            {meta && (meta.totalPages ?? 0) > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t">
                 <div className="text-sm text-gray-500">
-                  Showing {(meta.page - 1) * meta.limit + 1} to{' '}
-                  {Math.min(meta.page * meta.limit, meta.total)} of {meta.total}{' '}
+                  Showing {((meta.page ?? 1) - 1) * (meta.limit ?? 20) + 1} to{' '}
+                  {Math.min((meta.page ?? 1) * (meta.limit ?? 20), meta.total ?? 0)} of {meta.total}{' '}
                   results
                 </div>
                 <div className="flex items-center gap-2">
@@ -179,8 +179,8 @@ export default function PaymentsPage() {
                     Page {meta.page} of {meta.totalPages}
                   </span>
                   <button
-                    onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                    disabled={page === meta.totalPages}
+                    onClick={() => setPage((p) => Math.min(meta.totalPages ?? 1, p + 1))}
+                    disabled={page === (meta.totalPages ?? 1)}
                     className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="h-4 w-4" />

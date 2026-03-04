@@ -122,13 +122,8 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       return;
     }
 
-    // Check if dual control is required
-    let requiresDualControl = payment.dual_control_required;
-    if (payment.dual_control_mode === 'wires_only') {
-      requiresDualControl = payment.payment_type === 'wire';
-    } else if (payment.dual_control_mode === 'above_threshold') {
-      requiresDualControl = payment.usd_equivalent >= payment.dual_control_threshold;
-    }
+    // Dual control is always required (hardcoded system rule)
+    const requiresDualControl = true;
 
     // Check for existing confirmation by this user
     const { rows: existingConfirms } = await query<ExecutionConfirmation>(
@@ -137,7 +132,7 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
     );
 
     const userAlreadyConfirmed = existingConfirms.some(
-      (c) => c.confirmer_id === user.id && !c.is_emergency_halt
+      (c) => (c as any).confirmer_id === user.id && !(c as any).is_emergency_halt
     );
 
     if (userAlreadyConfirmed) {
@@ -151,7 +146,7 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
 
     // Determine confirmation type
     const hasPrimaryConfirm = existingConfirms.some(
-      (c) => c.confirmation_type === 'primary' && !c.is_emergency_halt
+      (c) => (c as any).confirmation_type === 'primary' && !(c as any).is_emergency_halt
     );
     const confirmationType = hasPrimaryConfirm ? 'secondary' : 'primary';
 
@@ -480,7 +475,7 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
         batchReference,
         paymentCount: payments.length,
         paymentIds,
-        totalAmount: payments.reduce((sum, p) => sum + p.usd_equivalent, 0),
+        totalAmount: payments.reduce((sum, p) => sum + (p as any).usd_equivalent, 0),
       },
       ipAddress: clientIp,
     });

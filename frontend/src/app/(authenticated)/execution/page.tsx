@@ -123,12 +123,10 @@ export default function ExecutionPage() {
                   </div>
                 </div>
 
-                {payment.dual_control_required && (
-                  <div className="mt-3 pt-3 border-t flex items-center gap-2 text-sm text-amber-600">
-                    <AlertTriangle className="h-4 w-4" />
-                    Dual control required
-                  </div>
-                )}
+                <div className="mt-3 pt-3 border-t flex items-center gap-2 text-sm text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  Dual control required
+                </div>
               </div>
             ))
           )}

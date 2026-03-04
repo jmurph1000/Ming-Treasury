@@ -57,7 +57,7 @@ router.get('/', hasRole('admin'), async (req: AuthenticatedRequest, res: Respons
        FROM users
        ORDER BY created_at DESC
        LIMIT $1 OFFSET $2`,
-      [filters.limit, (filters.page - 1) * filters.limit]
+      [filters.limit ?? 50, ((filters.page ?? 1) - 1) * (filters.limit ?? 50)]
     );
 
     const { rows: countRows } = await query<{ total: string }>('SELECT COUNT(*) as total FROM users');
@@ -67,10 +67,10 @@ router.get('/', hasRole('admin'), async (req: AuthenticatedRequest, res: Respons
       success: true,
       data: rows,
       meta: {
-        page: filters.page,
-        limit: filters.limit,
+        page: filters.page ?? 1,
+        limit: filters.limit ?? 50,
         total,
-        totalPages: Math.ceil(total / filters.limit),
+        totalPages: Math.ceil(total / (filters.limit ?? 50)),
       },
     });
   } catch (error) {

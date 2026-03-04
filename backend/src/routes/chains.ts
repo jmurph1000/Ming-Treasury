@@ -106,8 +106,8 @@ router.put('/:ruleId', adminOnly, async (req: AuthenticatedRequest, res: Respons
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.CHAIN_UPDATED, {
       tableName: 'approval_chains',
       recordId: ruleId,
-      oldValues: existingChains,
-      newValues: chains,
+      oldValues: { chains: existingChains } as Record<string, unknown>,
+      newValues: { chains } as Record<string, unknown>,
     });
 
     // Fetch updated chains

@@ -93,23 +93,23 @@ export function maskSensitiveFields<T extends Record<string, unknown>>(
 ): T {
   if (!obj || typeof obj !== 'object') return obj;
 
-  const masked = { ...obj };
+  const masked: Record<string, unknown> = { ...obj };
   const maskChar = COMPLIANCE.PII_MASK_CHAR;
 
   for (const field of sensitiveFields) {
     if (field in masked && typeof masked[field] === 'string') {
       const value = masked[field] as string;
       if (field.toLowerCase().includes('account') || field.toLowerCase().includes('routing')) {
-        masked[field] = maskAccountNumber(value) as T[keyof T];
+        masked[field] = maskAccountNumber(value);
       } else if (field.toLowerCase().includes('email')) {
-        masked[field] = maskEmail(value) as T[keyof T];
+        masked[field] = maskEmail(value);
       } else {
-        masked[field] = (maskChar.repeat(Math.min(value.length, 8)) + '...') as T[keyof T];
+        masked[field] = maskChar.repeat(Math.min(value.length, 8)) + '...';
       }
     }
   }
 
-  return masked;
+  return masked as T;
 }
 
 /**

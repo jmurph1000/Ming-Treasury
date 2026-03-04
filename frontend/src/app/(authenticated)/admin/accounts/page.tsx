@@ -198,7 +198,6 @@ export default function BankAccountsPage() {
   const activeAccounts = accounts.filter((a) => a.is_active === 1 || a.is_active === true as any);
   const inactiveAccounts = accounts.filter((a) => !a.is_active);
   const totalDailyLimit = activeAccounts.reduce((sum, a) => sum + (a.daily_limit || 0), 0);
-  const dualControlCount = activeAccounts.filter((a) => a.dual_control_required).length;
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => accountsApi.delete(id),
@@ -236,7 +235,7 @@ export default function BankAccountsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bank Accounts</h1>
           <p className="text-gray-500 mt-1">
-            Configure source bank accounts and dual control settings
+            Configure source bank accounts
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -301,8 +300,8 @@ export default function BankAccountsPage() {
               <Shield className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Dual Control Enabled</p>
-              <p className="text-xl font-bold text-gray-900">{dualControlCount}</p>
+              <p className="text-sm text-gray-500">Dual Control</p>
+              <p className="text-xl font-bold text-green-600">Always On</p>
             </div>
           </div>
         </div>
@@ -347,16 +346,10 @@ export default function BankAccountsPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500">Dual Control</p>
-                  {account.dual_control_required ? (
-                    <span className="inline-flex items-center gap-1 text-green-600 text-sm font-medium">
-                      <CheckCircle className="h-4 w-4" />
-                      {account.dual_control_threshold
-                        ? `Over ${formatCurrency(account.dual_control_threshold)}`
-                        : 'All'}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 text-sm">Disabled</span>
-                  )}
+                  <span className="inline-flex items-center gap-1 text-green-600 text-sm font-medium">
+                    <CheckCircle className="h-4 w-4" />
+                    Enabled
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -578,15 +571,6 @@ function AddEditAccountModal({
   const [accountType, setAccountType] = useState(editingAccount?.account_type || 'checking');
   const [currency, setCurrency] = useState(editingAccount?.currency || 'USD');
   const [dailyLimit, setDailyLimit] = useState<string>(editingAccount?.daily_limit?.toString() || '');
-  const [dualControlRequired, setDualControlRequired] = useState(
-    editingAccount ? !!editingAccount.dual_control_required : true
-  );
-  const [dualControlThreshold, setDualControlThreshold] = useState<string>(
-    editingAccount?.dual_control_threshold?.toString() || ''
-  );
-  const [dualControlMode, setDualControlMode] = useState(
-    editingAccount?.dual_control_mode || 'all'
-  );
   const [errorMessage, setErrorMessage] = useState('');
 
   const createMutation = useMutation({
@@ -620,20 +604,15 @@ function AddEditAccountModal({
     if (!bankName.trim()) { setErrorMessage('Bank name is required'); return; }
 
     if (isEditing) {
-      // For edit, send only the fields that can be updated
       const updateData: any = {
         name: name.trim(),
         bankName: bankName.trim(),
         accountType,
         currency,
         dailyLimit: dailyLimit ? parseFloat(dailyLimit) : undefined,
-        dualControlRequired,
-        dualControlThreshold: dualControlThreshold ? parseFloat(dualControlThreshold) : undefined,
-        dualControlMode,
       };
       updateMutation.mutate({ id: editingAccount!.id, data: updateData });
     } else {
-      // For create, account number and routing number are required
       if (!accountNumber.trim() || accountNumber.trim().length < 4) {
         setErrorMessage('Account number is required (minimum 4 digits)');
         return;
@@ -651,9 +630,8 @@ function AddEditAccountModal({
         accountType,
         currency,
         dailyLimit: dailyLimit ? parseFloat(dailyLimit) : undefined,
-        dualControlRequired,
-        dualControlThreshold: dualControlThreshold ? parseFloat(dualControlThreshold) : undefined,
-        dualControlMode,
+        dualControlRequired: true,
+        dualControlMode: 'all',
       });
     }
   };
@@ -781,52 +759,14 @@ function AddEditAccountModal({
             />
           </div>
 
-          <div className="border rounded-lg p-4">
-            <p className="font-semibold text-gray-900 mb-3">Dual Control Settings</p>
-            <label className="flex items-center gap-2 cursor-pointer mb-3">
-              <input
-                type="checkbox"
-                checked={dualControlRequired}
-                onChange={(e) => setDualControlRequired(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-sm">Require dual control for payments</span>
-            </label>
-            {dualControlRequired && (
-              <>
-                <div className="mb-2">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                    Dual Control Mode
-                  </label>
-                  <select
-                    value={dualControlMode}
-                    onChange={(e) => setDualControlMode(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="all">All Payments</option>
-                    <option value="wires_only">Wires Only</option>
-                    <option value="above_threshold">Above Threshold</option>
-                  </select>
-                </div>
-                {dualControlMode === 'above_threshold' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-                      Dual Control Threshold
-                    </label>
-                    <input
-                      type="number"
-                      value={dualControlThreshold}
-                      onChange={(e) => setDualControlThreshold(e.target.value)}
-                      placeholder="Amount threshold"
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">
-                      Only require dual control above this amount
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
+          <div className="border rounded-lg p-4 bg-green-50 border-green-200">
+            <div className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-green-600" />
+              <p className="font-semibold text-green-900">Dual Control: Always On</p>
+            </div>
+            <p className="text-sm text-green-700 mt-1">
+              Dual control is enforced for all payments as a system-wide security policy.
+            </p>
           </div>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2">

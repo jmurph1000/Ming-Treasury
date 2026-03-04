@@ -63,7 +63,7 @@ export async function getClient() {
  * Execute a transaction with automatic rollback on error
  */
 export async function transaction<T>(
-  callback: (client: Awaited<ReturnType<typeof pool.connect>>) => Promise<T>
+  callback: (client: Awaited<ReturnType<typeof getClient>>) => Promise<T>
 ): Promise<T> {
   const client = await getClient();
   try {

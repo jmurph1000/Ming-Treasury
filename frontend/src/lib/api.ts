@@ -128,6 +128,9 @@ export const paymentsApi = {
     fetchApi<{ hasDuplicates: boolean; duplicates: Payment[] }>(
       `/api/payments/check/duplicates?payeeName=${encodeURIComponent(payeeName)}&amount=${amount}&currency=${currency}`
     ),
+
+  calendar: (month: string) =>
+    fetchApi<Payment[]>(`/api/payments/calendar?month=${month}`),
 };
 
 // Approvals
@@ -311,12 +314,30 @@ export const accountsApi = {
     }),
 
   getUserAccess: (userId: string) =>
-    fetchApi<{ accountIds: string[] }>(`/api/accounts/user/${userId}/access`),
+    fetchApi<{
+      groupPoolAccountIds: string[];
+      overrideAccountIds: string[] | null;
+      effectiveAccountIds: string[];
+      hasOverride: boolean;
+      overrideDetails: { reason: string; setBy: string; setAt: string } | null;
+      auditHistory: Array<{
+        id: string;
+        user_id: string;
+        admin_id: string;
+        admin_email: string;
+        action: string;
+        previous_account_ids: string;
+        new_account_ids: string;
+        group_pool_account_ids: string;
+        reason: string;
+        created_at: string;
+      }>;
+    }>(`/api/accounts/user/${userId}/access`),
 
-  updateUserAccess: (userId: string, accountIds: string[]) =>
+  updateUserAccess: (userId: string, accountIds: string[] | null, reason: string) =>
     fetchApi<{ accountIds: string[] }>(`/api/accounts/user/${userId}/access`, {
       method: 'PUT',
-      body: JSON.stringify({ accountIds }),
+      body: JSON.stringify({ accountIds, reason }),
     }),
 };
 
@@ -662,6 +683,12 @@ export const adminApi = {
 
   accessRequests: () =>
     fetchApi<any[]>('/api/admin/access-requests'),
+};
+
+// Alias for settings page
+export const settingsApi = {
+  get: () => adminApi.settings(),
+  update: (updates: Record<string, any>) => adminApi.updateSettings(updates),
 };
 
 export { ApiError };

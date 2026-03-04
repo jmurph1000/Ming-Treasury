@@ -3,14 +3,15 @@ import { query } from '../config/sqlite.js';
 import { AuthenticatedRequest } from '../types/index.js';
 import { validate, createAccountSchema, updateAccountSchema, ValidationError } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
-import { adminOnly, hasRole } from '../middleware/rbac.js';
+import { adminOnly, hasRole, treasuryAdminOnly } from '../middleware/rbac.js';
 
 // Allow admin to manage accounts
 const canManageAccounts = hasRole('admin');
 import { encryptAccountNumber, encryptRoutingNumber, decryptAccountNumber, decryptRoutingNumber } from '../services/encryptionService.js';
 import { maskAccountNumber, maskRoutingNumber } from '../utils/masks.js';
 import { logger } from '../utils/logger.js';
-import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
+import { ERROR_CODES, HTTP_STATUS, ACCOUNT_ACCESS_AUDIT_ACTIONS } from '../config/constants.js';
+import { getGroupPoolAccountIds, getEffectiveAccountIds } from '../services/accountAccessSync.js';
 
 const router = Router();
 
@@ -169,19 +170,51 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
 
 /**
  * GET /api/accounts/user/:userId/access
- * Get account IDs assigned to a user (admin only)
+ * Get rich account access data for a user (admin only)
  */
 router.get('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
-    const { rows } = await query<{ account_id: string }>(
-      'SELECT account_id FROM user_account_access WHERE user_id = $1',
+
+    const groupPoolAccountIds = await getGroupPoolAccountIds(userId);
+    const effectiveAccountIds = await getEffectiveAccountIds(userId);
+
+    // Check for override entries
+    const { rows: overrideRows } = await query<{ account_id: string; override_reason: string; override_by: string; override_at: string }>(
+      'SELECT account_id, override_reason, override_by, override_at FROM user_account_access WHERE user_id = $1',
+      [userId]
+    );
+
+    const hasOverride = overrideRows.length > 0;
+    let overrideDetails: { reason: string; setBy: string; setAt: string } | null = null;
+    if (hasOverride && overrideRows[0].override_by) {
+      const { rows: adminRows } = await query<{ name: string }>(
+        'SELECT name FROM users WHERE id = $1',
+        [overrideRows[0].override_by]
+      );
+      overrideDetails = {
+        reason: overrideRows[0].override_reason,
+        setBy: adminRows[0]?.name || 'Unknown',
+        setAt: overrideRows[0].override_at,
+      };
+    }
+
+    // Get audit history
+    const { rows: auditHistory } = await query(
+      `SELECT * FROM account_access_audit_log WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20`,
       [userId]
     );
 
     res.json({
       success: true,
-      data: { accountIds: rows.map(r => r.account_id) },
+      data: {
+        groupPoolAccountIds,
+        overrideAccountIds: hasOverride ? overrideRows.map(r => r.account_id) : null,
+        effectiveAccountIds,
+        hasOverride,
+        overrideDetails,
+        auditHistory,
+      },
     });
   } catch (error) {
     logger.error('Error getting user account access', { error: (error as Error).message });
@@ -195,50 +228,111 @@ router.get('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, 
 
 /**
  * PUT /api/accounts/user/:userId/access
- * Set account access for a user (admin only)
+ * Set account access override for a user (Treasury Admin only)
+ * accountIds: null or [] = clear override (restore full group access)
+ * accountIds: [...] = must be subset of group pool (restrict access)
+ * reason: required string (min 10 chars) when setting an override
  */
-router.put('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+router.put('/user/:userId/access', treasuryAdminOnly, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { userId } = req.params;
     const admin = req.user!;
-    const { accountIds } = req.body;
+    const { accountIds, reason } = req.body;
 
-    if (!Array.isArray(accountIds)) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'accountIds must be an array',
-      });
-      return;
-    }
+    const groupPool = await getGroupPoolAccountIds(userId);
 
     // Get old assignments for audit
     const { rows: oldAccess } = await query<{ account_id: string }>(
       'SELECT account_id FROM user_account_access WHERE user_id = $1',
       [userId]
     );
+    const previousAccountIds = oldAccess.map(r => r.account_id);
 
-    // Delete existing assignments
+    // Clear override
+    if (accountIds === null || (Array.isArray(accountIds) && accountIds.length === 0)) {
+      await query('DELETE FROM user_account_access WHERE user_id = $1', [userId]);
+
+      await query(
+        `INSERT INTO account_access_audit_log (user_id, admin_id, admin_email, action, previous_account_ids, new_account_ids, group_pool_account_ids, reason)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [userId, admin.id, admin.email, ACCOUNT_ACCESS_AUDIT_ACTIONS.OVERRIDE_CLEARED,
+         JSON.stringify(previousAccountIds), null, JSON.stringify(groupPool),
+         reason || 'Override cleared — full group access restored']
+      );
+
+      await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
+        tableName: 'user_account_access',
+        recordId: userId,
+        oldValues: { accountIds: previousAccountIds },
+        newValues: { accountIds: null, action: 'override_cleared' },
+      });
+
+      res.json({ success: true, message: 'Account access override cleared' });
+      return;
+    }
+
+    // Setting an override — validate
+    if (!Array.isArray(accountIds)) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'accountIds must be an array or null',
+      });
+      return;
+    }
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'reason is required (minimum 10 characters) when restricting access',
+      });
+      return;
+    }
+
+    // Validate accountIds are a subset of the group pool
+    const groupPoolSet = new Set(groupPool);
+    const invalidIds = accountIds.filter((id: string) => !groupPoolSet.has(id));
+    if (invalidIds.length > 0) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'accountIds must be a subset of the user\'s group pool accounts',
+        data: { invalidIds },
+      });
+      return;
+    }
+
+    // Delete existing and insert new overrides
     await query('DELETE FROM user_account_access WHERE user_id = $1', [userId]);
 
-    // Insert new assignments
+    const now = new Date().toISOString();
     for (const accountId of accountIds) {
       await query(
-        'INSERT INTO user_account_access (user_id, account_id, created_by) VALUES ($1, $2, $3)',
-        [userId, accountId, admin.id]
+        `INSERT INTO user_account_access (user_id, account_id, created_by, override_reason, override_by, override_at)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [userId, accountId, admin.id, reason.trim(), admin.id, now]
       );
     }
+
+    await query(
+      `INSERT INTO account_access_audit_log (user_id, admin_id, admin_email, action, previous_account_ids, new_account_ids, group_pool_account_ids, reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [userId, admin.id, admin.email, ACCOUNT_ACCESS_AUDIT_ACTIONS.OVERRIDE_SET,
+       JSON.stringify(previousAccountIds), JSON.stringify(accountIds), JSON.stringify(groupPool),
+       reason.trim()]
+    );
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
       tableName: 'user_account_access',
       recordId: userId,
-      oldValues: { accountIds: oldAccess.map(r => r.account_id) },
-      newValues: { accountIds },
+      oldValues: { accountIds: previousAccountIds },
+      newValues: { accountIds, reason: reason.trim(), action: 'override_set' },
     });
 
     res.json({
       success: true,
-      message: 'Account access updated',
+      message: 'Account access override set',
       data: { accountIds },
     });
   } catch (error) {
@@ -257,39 +351,18 @@ router.put('/user/:userId/access', adminOnly, async (req: AuthenticatedRequest, 
 
 /**
  * GET /api/accounts
- * List all bank accounts
+ * List bank accounts — non-admins see only their effective accounts (group-based + overrides)
  */
 router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
-    const restrictedRoles = ['staff', 'manager', 'sr_manager'];
 
     let rows;
-    if (restrictedRoles.includes(user.role)) {
-      // Check direct user-account assignments
-      const { rows: accessRows } = await query<{ account_id: string }>(
-        'SELECT account_id FROM user_account_access WHERE user_id = $1',
-        [user.id]
-      );
+    if (user.role !== 'admin') {
+      const effectiveIds = await getEffectiveAccountIds(user.id);
 
-      // Check group-based account assignments
-      const { rows: groupAccessRows } = await query<{ account_id: string }>(
-        `SELECT DISTINCT ga.account_id
-         FROM group_members gm
-         JOIN group_accounts ga ON ga.group_id = gm.group_id
-         WHERE gm.user_id = $1`,
-        [user.id]
-      );
-
-      // Merge both sets of account IDs
-      const allAccountIds = new Set<string>([
-        ...accessRows.map(r => r.account_id),
-        ...groupAccessRows.map(r => r.account_id),
-      ]);
-
-      if (allAccountIds.size > 0) {
-        const idsArray = Array.from(allAccountIds);
-        const placeholders = idsArray.map((_, i) => `$${i + 1}`).join(', ');
+      if (effectiveIds.length > 0) {
+        const placeholders = effectiveIds.map((_, i) => `$${i + 1}`).join(', ');
         const result = await query(
           `SELECT id, name, bank_name, account_type, currency, daily_limit,
                   dual_control_required, dual_control_threshold, dual_control_mode,
@@ -297,20 +370,11 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
            FROM accounts
            WHERE is_active = 1 AND id IN (${placeholders})
            ORDER BY name`,
-          idsArray
+          effectiveIds
         );
         rows = result.rows;
       } else {
-        // No assignments — show all (backwards compatible)
-        const result = await query(
-          `SELECT id, name, bank_name, account_type, currency, daily_limit,
-                  dual_control_required, dual_control_threshold, dual_control_mode,
-                  is_active, created_at
-           FROM accounts
-           WHERE is_active = 1
-           ORDER BY name`
-        );
-        rows = result.rows;
+        rows = [];
       }
     } else {
       // Admin sees all accounts
@@ -319,7 +383,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
                 dual_control_required, dual_control_threshold, dual_control_mode,
                 is_active, created_at
          FROM accounts
-         WHERE is_active = true
+         WHERE is_active = 1
          ORDER BY name`
       );
       rows = result.rows;

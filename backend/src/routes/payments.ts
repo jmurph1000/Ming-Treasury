@@ -143,6 +143,75 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /**
+ * GET /api/payments/calendar
+ * Get payments for a calendar month view
+ */
+router.get('/calendar', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { month } = req.query;
+    const user = req.user!;
+
+    // Parse month param (YYYY-MM) or default to current month
+    let startDate: string;
+    let endDate: string;
+
+    if (month && typeof month === 'string' && /^\d{4}-\d{2}$/.test(month)) {
+      startDate = `${month}-01`;
+      const [y, m] = month.split('-').map(Number);
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      endDate = nextMonth;
+    } else {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = now.getMonth() + 1;
+      startDate = `${y}-${String(m).padStart(2, '0')}-01`;
+      const nextMonth = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+      endDate = nextMonth;
+    }
+
+    let baseQuery = `
+      SELECT p.id, p.reference_number, p.payee_name, p.amount, p.currency,
+             p.usd_equivalent, p.status, p.payment_type, p.requested_date,
+             p.requester_id, u.name AS requester_name, a.name AS account_name
+      FROM payments p
+      LEFT JOIN users u ON p.requester_id = u.id
+      LEFT JOIN accounts a ON p.account_id = a.id
+      WHERE p.requested_date >= $1 AND p.requested_date < $2
+    `;
+    const params: unknown[] = [startDate, endDate];
+    let paramIndex = 3;
+
+    // Role-based filtering
+    if (user.role === 'staff') {
+      baseQuery += ` AND p.requester_id = $${paramIndex++}`;
+      params.push(user.id);
+    } else if (user.role === 'manager' || user.role === 'sr_manager') {
+      baseQuery += ` AND (p.requester_id = $${paramIndex} OR p.requester_id IN (
+        SELECT gm2.user_id FROM group_members gm
+        JOIN group_members gm2 ON gm2.group_id = gm.group_id
+        WHERE gm.user_id = $${paramIndex}
+      ))`;
+      params.push(user.id);
+      paramIndex++;
+    }
+    // admin/treasury/cfo: no additional filter — see all payments
+
+    baseQuery += ` ORDER BY p.requested_date, p.created_at`;
+
+    const { rows } = await query<PaymentRow & { requester_name: string; account_name: string }>(baseQuery, params);
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error fetching calendar payments', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to fetch calendar payments',
+    });
+  }
+});
+
+/**
  * POST /api/payments
  * Create a new payment request
  */
@@ -406,8 +475,8 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_UPDATED, {
       tableName: 'payments',
       recordId: id,
-      oldValues: payment,
-      newValues: updated[0],
+      oldValues: payment as unknown as Record<string, unknown>,
+      newValues: updated[0] as unknown as Record<string, unknown>,
     });
 
     res.json({ success: true, data: updated[0] });
@@ -492,7 +561,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
           step: s.step,
           approver_role: 'any',
           approver_id: null,
-        } as ApprovalChainRow));
+        } as unknown as ApprovalChainRow));
         groupOverrideUsed = true;
         groupOverrideName = `${grp.group_name} (Approval Chain - ${numApprovers} approver${numApprovers > 1 ? 's' : ''})`;
         logger.info('Using group approval chain override', {
@@ -529,7 +598,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
               step: s.step,
               approver_role: s.approver_role,
               approver_id: null,
-            } as ApprovalChainRow));
+            } as unknown as ApprovalChainRow));
             groupOverrideUsed = true;
             groupOverrideName = `${grp.group_name} (Routing Rules - ${tier.label})`;
             logger.info('Using group routing rules override', {
@@ -561,8 +630,8 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
             break;
           case 'amount_range':
             matches =
-              (rule.min_amount === null || payment.usd_equivalent >= rule.min_amount) &&
-              (rule.max_amount === null || payment.usd_equivalent <= rule.max_amount);
+              (rule.min_amount == null || payment.usd_equivalent >= rule.min_amount) &&
+              (rule.max_amount == null || payment.usd_equivalent <= rule.max_amount);
             break;
           default:
             break;
@@ -586,7 +655,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
 
       // If chain is empty, create a default single-step approval
       if (chain.length === 0) {
-        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'manager', approver_id: null } as ApprovalChainRow];
+        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'manager', approver_id: null } as unknown as ApprovalChainRow];
       }
     }
 

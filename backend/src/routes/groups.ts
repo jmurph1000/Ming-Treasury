@@ -5,6 +5,7 @@ import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { hasRole } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
+import { syncUserAfterGroupChange, syncGroupMembers } from '../services/accountAccessSync.js';
 
 const router = Router();
 const treasuryOnly = hasRole('admin');
@@ -98,6 +99,9 @@ router.post('/:id/members', treasuryOnly, async (req: AuthenticatedRequest, res:
       newValues: { action: 'member_added', userId, groupId: id },
     });
 
+    // Sync account access overrides for the added user
+    await syncUserAfterGroupChange(userId, admin.id, admin.email);
+
     res.json({ success: true, message: 'User added to group' });
   } catch (error) {
     logger.error('Error adding group member', { error: (error as Error).message });
@@ -121,6 +125,9 @@ router.delete('/:id/members/:userId', treasuryOnly, async (req: AuthenticatedReq
       recordId: id,
       newValues: { action: 'member_removed', userId, groupId: id },
     });
+
+    // Sync account access overrides for the removed user
+    await syncUserAfterGroupChange(userId, admin.id, admin.email);
 
     res.json({ success: true, message: 'User removed from group' });
   } catch (error) {
@@ -171,6 +178,9 @@ router.put('/:id/accounts', treasuryOnly, async (req: AuthenticatedRequest, res:
       recordId: id,
       newValues: { accounts },
     });
+
+    // Sync account access overrides for all members of this group
+    await syncGroupMembers(id, admin.id, admin.email);
 
     res.json({ success: true, message: 'Group account access updated' });
   } catch (error) {

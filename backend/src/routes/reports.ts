@@ -22,7 +22,7 @@ router.get('/audit', hasRole('admin'), async (req: AuthenticatedRequest, res: Re
     if (filters.startDate) { sql += ` AND al.timestamp >= $${idx++}`; params.push(filters.startDate); }
     if (filters.endDate) { sql += ` AND al.timestamp <= $${idx++}`; params.push(filters.endDate); }
     sql += ` ORDER BY al.timestamp DESC LIMIT $${idx++} OFFSET $${idx++}`;
-    params.push(filters.limit, (filters.page - 1) * filters.limit);
+    params.push(filters.limit ?? 50, ((filters.page ?? 1) - 1) * (filters.limit ?? 50));
     const { rows } = await query(sql, params);
     res.json({ success: true, data: rows, meta: { page: filters.page, limit: filters.limit } });
   } catch (error) {

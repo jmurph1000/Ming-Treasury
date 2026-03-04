@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import { logger } from '../utils/logger.js';
 
@@ -8,7 +8,7 @@ const isMemory = dbPath === ':memory:';
 
 logger.info(`Using SQLite database: ${isMemory ? 'in-memory' : dbPath}`);
 
-export const db = new Database(dbPath);
+export const db: DatabaseType = new Database(dbPath);
 
 // Enable foreign keys
 db.pragma('foreign_keys = ON');
@@ -454,6 +454,28 @@ export function initializeSchema() {
   try { db.exec(`ALTER TABLE group_approval_steps ADD COLUMN approver_pool TEXT DEFAULT 'group_or_treasury'`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE payment_approvals ADD COLUMN approver_pool TEXT`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE payment_approvals ADD COLUMN group_id TEXT`); } catch (_) { /* column already exists */ }
+
+  // Account access override columns (group-based access model)
+  try { db.exec(`ALTER TABLE user_account_access ADD COLUMN override_reason TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE user_account_access ADD COLUMN override_by TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE user_account_access ADD COLUMN override_at TEXT`); } catch (_) { /* column already exists */ }
+
+  // Account access audit log
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS account_access_audit_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL,
+      admin_id TEXT NOT NULL,
+      admin_email TEXT NOT NULL,
+      action TEXT NOT NULL,
+      previous_account_ids TEXT,
+      new_account_ids TEXT,
+      group_pool_account_ids TEXT,
+      reason TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_aaal_user ON account_access_audit_log(user_id)`);
 
   // Group routing change log
   db.exec(`

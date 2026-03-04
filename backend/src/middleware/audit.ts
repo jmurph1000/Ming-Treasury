@@ -1,6 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../types/index.js';
-import { query, setSessionContext, getClient } from '../config/sqlite.js';
+import { query } from '../config/sqlite.js';
+import { setSessionContext, getClient } from '../config/database.js';
 import { auditLogger } from '../utils/logger.js';
 import { maskSensitiveFields, maskIpAddress } from '../utils/masks.js';
 import { v4 as uuidv4 } from 'uuid';
