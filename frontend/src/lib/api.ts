@@ -91,6 +91,8 @@ export const paymentsApi = {
     search?: string;
     minAmount?: number;
     maxAmount?: number;
+    requesterId?: string;
+    groupId?: string;
   }) => {
     const searchParams = new URLSearchParams();
     if (params) {

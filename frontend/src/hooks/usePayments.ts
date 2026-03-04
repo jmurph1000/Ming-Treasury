@@ -13,6 +13,8 @@ export function usePayments(params?: PaginationParams & {
   search?: string;
   minAmount?: number;
   maxAmount?: number;
+  requesterId?: string;
+  groupId?: string;
 }) {
   return useQuery({
     queryKey: ['payments', params],

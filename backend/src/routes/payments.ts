@@ -69,6 +69,18 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
       paramIndex++;
     }
 
+    // Admin-only: filter by specific requester
+    if (filters.requesterId && user.role === 'admin') {
+      conditions.push(`p.requester_id = $${paramIndex++}`);
+      params.push(filters.requesterId);
+    }
+
+    // Admin-only: filter by group membership
+    if (filters.groupId && user.role === 'admin') {
+      conditions.push(`p.requester_id IN (SELECT user_id FROM group_members WHERE group_id = $${paramIndex++})`);
+      params.push(filters.groupId);
+    }
+
     if (filters.minAmount !== undefined) {
       conditions.push(`p.usd_equivalent >= $${paramIndex++}`);
       params.push(filters.minAmount);

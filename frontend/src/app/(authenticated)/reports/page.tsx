@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth, useIsAdmin } from '@/hooks/useAuth';
 import { usePayments } from '@/hooks/usePayments';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { treasuryReportsApi, notificationsApi, paymentsApi } from '@/lib/api';
+import { treasuryReportsApi, notificationsApi, paymentsApi, usersApi, groupsApi } from '@/lib/api';
 import {
   formatCurrency,
   formatDate,
@@ -15,7 +15,7 @@ import {
   getPaymentTypeLabel,
   getRoleLabel,
 } from '@/lib/utils';
-import { ROUTES, PAYMENT_STATUSES } from '@/lib/constants';
+import { ROUTES, PAYMENT_STATUSES, PAYMENT_TYPES } from '@/lib/constants';
 import {
   Search,
   Filter,
@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   ShieldOff,
   Archive,
+  Lock,
 } from 'lucide-react';
 
 type Tab = 'dashboard' | 'daily' | 'weekly' | 'date-range' | 'lifetime' | 'eod' | 'permissions';
@@ -211,6 +212,142 @@ function Pagination({ page, setPage, meta }: { page: number; setPage: (fn: (p: n
   );
 }
 
+// ─── Admin Filter Bar ─────────────────────────────────────────────────────
+
+interface AdminFilters {
+  requesterId: string;
+  groupId: string;
+  paymentType: string;
+}
+
+function AdminFilterBar({
+  filters,
+  onChange,
+  onClear,
+}: {
+  filters: AdminFilters;
+  onChange: (filters: AdminFilters) => void;
+  onClear: () => void;
+}) {
+  const isAdmin = useIsAdmin();
+
+  // Fetch users for "Initiated By" dropdown (admin only)
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-filter-users'],
+    queryFn: () => usersApi.list({ limit: 500, status: 'active' }),
+    enabled: isAdmin,
+    staleTime: 60000,
+  });
+
+  // Fetch groups for "Group/Department" dropdown (admin only)
+  const { data: groupsData } = useQuery({
+    queryKey: ['admin-filter-groups'],
+    queryFn: () => groupsApi.list(),
+    enabled: isAdmin,
+    staleTime: 60000,
+  });
+
+  // Fetch selected group details for member filtering
+  const { data: groupDetail } = useQuery({
+    queryKey: ['admin-filter-group-detail', filters.groupId],
+    queryFn: () => groupsApi.get(filters.groupId),
+    enabled: isAdmin && !!filters.groupId,
+    staleTime: 60000,
+  });
+
+  const allUsers: any[] = usersData?.data || [];
+  const groups: any[] = groupsData?.data || [];
+  const groupMembers: any[] = groupDetail?.data?.members || [];
+
+  // Narrow users list when a group is selected
+  const filteredUsers = useMemo(() => {
+    if (!filters.groupId || groupMembers.length === 0) return allUsers;
+    const memberIds = new Set(groupMembers.map((m: any) => m.id));
+    return allUsers.filter(u => memberIds.has(u.id));
+  }, [allUsers, filters.groupId, groupMembers]);
+
+  const hasAdminFilters = filters.requesterId || filters.groupId;
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Admin-only: Group/Department */}
+      {isAdmin && (
+        <div className="flex items-center gap-1.5">
+          <Lock className="h-3.5 w-3.5 text-amber-500" />
+          <select
+            value={filters.groupId}
+            onChange={e => {
+              const newGroupId = e.target.value;
+              // If group changed and we had a requester selected, check if they're in the new group
+              onChange({
+                ...filters,
+                groupId: newGroupId,
+                requesterId: newGroupId ? '' : filters.requesterId,
+              });
+            }}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+          >
+            <option value="">All Groups</option>
+            {groups.map((g: any) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Admin-only: Initiated By */}
+      {isAdmin && (
+        <div className="flex items-center gap-1.5">
+          <Lock className="h-3.5 w-3.5 text-amber-500" />
+          <select
+            value={filters.requesterId}
+            onChange={e => onChange({ ...filters, requesterId: e.target.value })}
+            className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent min-w-[180px]"
+          >
+            <option value="">All Users</option>
+            {filteredUsers.map((u: any) => (
+              <option key={u.id} value={u.id}>
+                {u.name}{u.department ? ` (${u.department})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* All roles: Payment Type */}
+      <select
+        value={filters.paymentType}
+        onChange={e => onChange({ ...filters, paymentType: e.target.value })}
+        className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+      >
+        <option value="">All Types</option>
+        {PAYMENT_TYPES.map(t => (
+          <option key={t.value} value={t.value}>{t.label}</option>
+        ))}
+      </select>
+
+      {/* Clear admin filters button */}
+      {(hasAdminFilters || filters.paymentType) && (
+        <button
+          onClick={onClear}
+          className="text-xs text-gray-500 hover:text-gray-700 underline"
+        >
+          Clear
+        </button>
+      )}
+
+      {/* Admin-only badge */}
+      {isAdmin && (
+        <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+          <Lock className="h-3 w-3" /> Admin filters
+        </span>
+      )}
+    </div>
+  );
+}
+
+const emptyAdminFilters: AdminFilters = { requesterId: '', groupId: '', paymentType: '' };
+
 // ─── Tab 1: Dashboard ──────────────────────────────────────────────────────
 
 function DashboardTab({ onNavigate }: { onNavigate: (action: NavAction) => void }) {
@@ -299,12 +436,16 @@ function DashboardTab({ onNavigate }: { onNavigate: (action: NavAction) => void 
 function DailyTab({ initialStatus }: { initialStatus?: string }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [statusFilter, setStatusFilter] = useState(initialStatus || '');
+  const [adminFilters, setAdminFilters] = useState<AdminFilters>(emptyAdminFilters);
 
   const { data, isLoading } = usePayments({
     page: 1, limit: 100,
     startDate: date,
     endDate: date,
     status: statusFilter || undefined,
+    paymentType: adminFilters.paymentType || undefined,
+    requesterId: adminFilters.requesterId || undefined,
+    groupId: adminFilters.groupId || undefined,
   });
 
   const payments = data?.data || [];
@@ -331,6 +472,7 @@ function DailyTab({ initialStatus }: { initialStatus?: string }) {
           <Download className="h-4 w-4" /> Export CSV
         </button>
       </div>
+      <AdminFilterBar filters={adminFilters} onChange={setAdminFilters} onClear={() => setAdminFilters(emptyAdminFilters)} />
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
@@ -359,12 +501,16 @@ function WeeklyTab() {
   };
 
   const [startDate, setStartDate] = useState(getMonday(new Date()));
+  const [adminFilters, setAdminFilters] = useState<AdminFilters>(emptyAdminFilters);
   const endDate = getSunday(startDate);
 
   const { data, isLoading } = usePayments({
     page: 1, limit: 200,
     startDate,
     endDate,
+    paymentType: adminFilters.paymentType || undefined,
+    requesterId: adminFilters.requesterId || undefined,
+    groupId: adminFilters.groupId || undefined,
   });
 
   const payments = data?.data || [];
@@ -394,6 +540,7 @@ function WeeklyTab() {
           <Download className="h-4 w-4" /> Export CSV
         </button>
       </div>
+      <AdminFilterBar filters={adminFilters} onChange={setAdminFilters} onClear={() => setAdminFilters(emptyAdminFilters)} />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
@@ -446,6 +593,7 @@ function DateRangeTab({ initialStatus, initialStartDate, initialEndDate }: { ini
   const [statusFilter, setStatusFilter] = useState(initialStatus || '');
   const [startDate, setStartDate] = useState(initialStartDate || '');
   const [endDate, setEndDate] = useState(initialEndDate || '');
+  const [adminFilters, setAdminFilters] = useState<AdminFilters>(emptyAdminFilters);
 
   const { data, isLoading, error } = usePayments({
     page, limit: 25,
@@ -453,6 +601,9 @@ function DateRangeTab({ initialStatus, initialStartDate, initialEndDate }: { ini
     status: statusFilter || undefined,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
+    paymentType: adminFilters.paymentType || undefined,
+    requesterId: adminFilters.requesterId || undefined,
+    groupId: adminFilters.groupId || undefined,
   });
 
   const payments = data?.data || [];
@@ -464,9 +615,10 @@ function DateRangeTab({ initialStatus, initialStartDate, initialEndDate }: { ini
 
   const handleClearFilters = useCallback(() => {
     setSearch(''); setStatusFilter(''); setStartDate(''); setEndDate(''); setPage(1);
+    setAdminFilters(emptyAdminFilters);
   }, []);
 
-  const hasActiveFilters = search || statusFilter || startDate || endDate;
+  const hasActiveFilters = search || statusFilter || startDate || endDate || adminFilters.requesterId || adminFilters.groupId || adminFilters.paymentType;
 
   return (
     <div className="space-y-4">
@@ -511,6 +663,7 @@ function DateRangeTab({ initialStatus, initialStartDate, initialEndDate }: { ini
               </button>
             )}
           </div>
+          <AdminFilterBar filters={adminFilters} onChange={f => { setAdminFilters(f); setPage(1); }} onClear={() => { setAdminFilters(emptyAdminFilters); setPage(1); }} />
         </div>
       </div>
 
@@ -537,11 +690,15 @@ function LifetimeTab() {
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [adminFilters, setAdminFilters] = useState<AdminFilters>(emptyAdminFilters);
 
   const { data, isLoading } = usePayments({
     page, limit: 25,
     sortBy,
     sortOrder,
+    paymentType: adminFilters.paymentType || undefined,
+    requesterId: adminFilters.requesterId || undefined,
+    groupId: adminFilters.groupId || undefined,
   });
 
   const payments = data?.data || [];
@@ -583,6 +740,7 @@ function LifetimeTab() {
           <Download className="h-4 w-4" /> Export CSV
         </button>
       </div>
+      <AdminFilterBar filters={adminFilters} onChange={f => { setAdminFilters(f); setPage(1); }} onClear={() => { setAdminFilters(emptyAdminFilters); setPage(1); }} />
 
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         {isLoading ? (

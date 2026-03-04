@@ -263,6 +263,8 @@ export const paymentFilterSchema = paginationSchema.extend({
   search: z.string().max(255).optional(),
   minAmount: z.coerce.number().min(0).optional(),
   maxAmount: z.coerce.number().positive().optional(),
+  requesterId: z.string().optional(),
+  groupId: z.string().optional(),
 });
 
 export const auditLogFilterSchema = paginationSchema.extend({
