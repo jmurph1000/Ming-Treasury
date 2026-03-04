@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth, useIsAdmin } from '@/hooks/useAuth';
 import { usePayments } from '@/hooks/usePayments';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { treasuryReportsApi, notificationsApi } from '@/lib/api';
+import { treasuryReportsApi, notificationsApi, paymentsApi } from '@/lib/api';
 import {
   formatCurrency,
   formatDate,
@@ -40,7 +40,16 @@ import {
 
 type Tab = 'dashboard' | 'daily' | 'weekly' | 'date-range' | 'lifetime' | 'eod' | 'permissions';
 
-// ─── CSV Export Helper ─────────────────────────────────────────────────────
+// ─── Shared navigation state type ──────────────────────────────────────────
+
+interface NavAction {
+  tab: Tab;
+  status?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// ─── CSV Export Helpers ────────────────────────────────────────────────────
 
 function downloadCSV(headers: string[], rows: string[][], filename: string) {
   const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -55,44 +64,41 @@ function downloadCSV(headers: string[], rows: string[][], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-function exportTreasuryCSV(rows: any[], filename: string) {
-  const headers = ['Reference #', 'Payee', 'Amount', 'Currency', 'USD Equivalent', 'Type', 'Status', 'Submitted', 'Approved By', 'Approved At', 'Executed'];
-  const csvRows = rows.map(r => [
-    r.reference_number,
-    `"${(r.payee_name || '').replace(/"/g, '""')}"`,
-    r.amount, r.currency, r.usd_equivalent,
-    getPaymentTypeLabel(r.payment_type), getStatusLabel(r.status),
-    r.submitted_at || '', r.approver_name || '', r.approval_timestamp || '', r.executed_at || '',
-  ]);
-  downloadCSV(headers, csvRows, filename);
-}
-
-function exportPaymentsCSV(payments: any[]) {
-  const headers = ['Reference #', 'Payee', 'Amount', 'Currency', 'USD Equivalent', 'Type', 'Status', 'Requested By', 'Date'];
+function exportPaymentsCSV(payments: any[], filename?: string) {
+  const headers = ['Reference #', 'Payee', 'Amount', 'Currency', 'USD Equivalent', 'Type', 'Status', 'Requested By', 'Waiting On', 'Date Submitted', 'Days Pending'];
   const csvRows = payments.map(p => [
     p.reference_number,
     `"${(p.payee_name || '').replace(/"/g, '""')}"`,
     p.amount, p.currency, p.usd_equivalent,
     getPaymentTypeLabel(p.payment_type), getStatusLabel(p.status),
-    p.requester_name || '', formatDate(p.created_at),
+    `"${(p.requester_name || '').replace(/"/g, '""')}"`,
+    p.waiting_on ? (p.waiting_on.name || getRoleLabel(p.waiting_on.role)) : '',
+    p.submitted_at || p.created_at || '',
+    getDaysPending(p),
   ]);
-  downloadCSV(headers, csvRows, `payments-report-${new Date().toISOString().slice(0, 10)}.csv`);
+  downloadCSV(headers, csvRows, filename || `payments-report-${new Date().toISOString().slice(0, 10)}.csv`);
 }
 
-// ─── Treasury Payment Table (shared by Daily/Weekly/Lifetime) ──────────────
+function getDaysPending(p: any): number {
+  const ref = p.submitted_at || p.created_at;
+  if (!ref) return 0;
+  return Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+}
 
-function TreasuryPaymentTable({ rows }: { rows: any[] }) {
-  if (rows.length === 0) {
+// ─── Shared Payment Table ──────────────────────────────────────────────────
+
+function PaymentTable({ payments, showSummary = true }: { payments: any[]; showSummary?: boolean }) {
+  if (payments.length === 0) {
     return (
       <div className="text-center py-12">
         <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-medium text-gray-900">No results</h3>
-        <p className="text-gray-500 mt-1">No treasury-approved payments found for this period.</p>
+        <h3 className="text-lg font-medium text-gray-900">No payments found</h3>
+        <p className="text-gray-500 mt-1">No payments match the current criteria.</p>
       </div>
     );
   }
 
-  const totalAmount = rows.reduce((sum: number, r: any) => sum + (r.usd_equivalent || r.amount), 0);
+  const totalAmount = payments.reduce((sum: number, p: any) => sum + (p.usd_equivalent || p.amount || 0), 0);
 
   return (
     <>
@@ -105,49 +111,109 @@ function TreasuryPaymentTable({ rows }: { rows: any[] }) {
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approver</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved At</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Initiated By</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waiting On</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date Submitted</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Action</th>
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {rows.map((row: any, idx: number) => (
-              <tr key={`${row.reference_number}-${idx}`} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-primary">{row.reference_number}</td>
-                <td className="px-4 py-3 text-gray-900">{row.payee_name}</td>
-                <td className="px-4 py-3 font-mono text-right">
-                  {formatCurrency(row.amount, row.currency)}
-                  {row.currency !== 'USD' && (
-                    <span className="text-xs text-gray-500 ml-1">({formatCurrency(row.usd_equivalent, 'USD')})</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-gray-600">{getPaymentTypeLabel(row.payment_type)}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
-                    {getStatusLabel(row.status)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-600">
-                  {row.approver_name || getRoleLabel(row.approver_role)}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-500">
-                  {row.approval_timestamp ? formatDateTime(row.approval_timestamp) : '\u2014'}
-                </td>
-              </tr>
-            ))}
+            {payments.map((p: any, idx: number) => {
+              const daysPending = getDaysPending(p);
+              return (
+                <tr key={p.id || `${p.reference_number}-${idx}`} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    {p.id ? (
+                      <Link href={ROUTES.PAYMENT_DETAIL(p.id)} className="text-primary hover:underline font-medium">
+                        {p.reference_number}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-primary">{p.reference_number}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-900">{p.payee_name}</td>
+                  <td className="px-4 py-3 font-mono text-right">
+                    {formatCurrency(p.amount, p.currency)}
+                    {p.currency !== 'USD' && (
+                      <span className="text-xs text-gray-500 ml-1">({formatCurrency(p.usd_equivalent, 'USD')})</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{getPaymentTypeLabel(p.payment_type)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(p.status)}`}>
+                      {getStatusLabel(p.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{p.requester_name || '\u2014'}</td>
+                  <td className="px-4 py-3 text-sm">
+                    {p.waiting_on ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                        {p.waiting_on.name || getRoleLabel(p.waiting_on.role)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">\u2014</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {p.submitted_at ? formatDate(p.submitted_at) : formatDate(p.created_at)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {p.updated_at ? formatDateTime(p.updated_at) : '\u2014'}
+                  </td>
+                  <td className="px-4 py-3 text-center text-sm">
+                    {['pending_approval', 'approved', 'ready_to_execute', 'pending_confirmation'].includes(p.status) ? (
+                      <span className={`font-medium ${daysPending > 3 ? 'text-red-600' : daysPending > 1 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                        {daysPending}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">\u2014</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center text-sm">
-        <span className="font-medium text-gray-700">{rows.length} payment{rows.length !== 1 ? 's' : ''}</span>
-        <span className="font-medium text-gray-900">Total: {formatCurrency(totalAmount, 'USD')}</span>
-      </div>
+      {showSummary && (
+        <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center text-sm">
+          <span className="font-medium text-gray-700">{payments.length} payment{payments.length !== 1 ? 's' : ''}</span>
+          <span className="font-medium text-gray-900">Total: {formatCurrency(totalAmount, 'USD')}</span>
+        </div>
+      )}
     </>
+  );
+}
+
+// ─── Pagination Component ──────────────────────────────────────────────────
+
+function Pagination({ page, setPage, meta }: { page: number; setPage: (fn: (p: number) => number) => void; meta: any }) {
+  if (!meta || (meta.totalPages ?? 0) <= 1) return null;
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t">
+      <div className="text-sm text-gray-500">
+        Showing {((meta.page ?? 1) - 1) * (meta.limit ?? 25) + 1} to{' '}
+        {Math.min((meta.page ?? 1) * (meta.limit ?? 25), meta.total ?? 0)} of {meta.total} results
+      </div>
+      <div className="flex items-center gap-2">
+        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+          className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="text-sm text-gray-700">Page {meta.page} of {meta.totalPages}</span>
+        <button onClick={() => setPage(p => Math.min(meta.totalPages ?? 1, p + 1))} disabled={page === (meta.totalPages ?? 1)}
+          className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
   );
 }
 
 // ─── Tab 1: Dashboard ──────────────────────────────────────────────────────
 
-function DashboardTab() {
+function DashboardTab({ onNavigate }: { onNavigate: (action: NavAction) => void }) {
   const { data, isLoading } = useQuery({
     queryKey: ['reports-dashboard'],
     queryFn: () => treasuryReportsApi.dashboard(),
@@ -156,12 +222,14 @@ function DashboardTab() {
 
   const stats = data?.data;
   const pipeline = stats?.pipeline || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + '-01';
 
   const statCards = [
-    { label: 'Pending Approvals', value: stats?.pendingApprovals ?? 0, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-    { label: 'Ready to Execute', value: stats?.readyToExecute ?? 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-    { label: 'Executed Today', value: stats?.executedTodayCount ?? 0, subValue: stats?.executedTodayAmount ? formatCurrency(stats.executedTodayAmount) : undefined, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Escalations', value: stats?.escalations ?? 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Pending Approvals', value: stats?.pendingApprovals ?? 0, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', action: { tab: 'date-range' as Tab, status: 'pending_approval' } },
+    { label: 'Ready to Execute', value: stats?.readyToExecute ?? 0, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', action: { tab: 'date-range' as Tab, status: 'ready_to_execute' } },
+    { label: 'Executed Today', value: stats?.executedTodayCount ?? 0, subValue: stats?.executedTodayAmount ? formatCurrency(stats.executedTodayAmount) : undefined, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-50', action: { tab: 'daily' as Tab, status: 'executed' } },
+    { label: 'Escalations', value: stats?.escalations ?? 0, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50', action: { tab: 'date-range' as Tab, status: 'pending_approval' } },
   ];
 
   if (isLoading) {
@@ -170,52 +238,54 @@ function DashboardTab() {
 
   return (
     <div className="space-y-6">
-      {/* Stat Cards */}
+      {/* Stat Cards — clickable */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(card => (
-          <div key={card.label} className={`rounded-lg border p-4 ${card.bg}`}>
+          <button key={card.label} onClick={() => onNavigate(card.action)}
+            className={`rounded-lg border p-4 ${card.bg} text-left hover:ring-2 hover:ring-primary/30 transition-all cursor-pointer`}>
             <div className="flex items-center gap-2 mb-2">
               <card.icon className={`h-5 w-5 ${card.color}`} />
               <span className="text-sm font-medium text-gray-600">{card.label}</span>
             </div>
             <p className="text-2xl font-bold text-gray-900">{card.value}</p>
             {card.subValue && <p className="text-sm text-gray-500 mt-1">{card.subValue}</p>}
-          </div>
+          </button>
         ))}
       </div>
 
-      {/* MTD Summary */}
+      {/* MTD Summary — clickable */}
       <div className="bg-white rounded-lg border p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Month to Date</h3>
         <div className="grid grid-cols-2 gap-4">
-          <div>
+          <button onClick={() => onNavigate({ tab: 'date-range', startDate: monthStart, endDate: today })}
+            className="text-left p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
             <p className="text-sm text-gray-500">Payments Created</p>
             <p className="text-xl font-bold text-gray-900">{stats?.mtdCount ?? 0}</p>
-          </div>
-          <div>
+          </button>
+          <button onClick={() => onNavigate({ tab: 'lifetime' })}
+            className="text-left p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
             <p className="text-sm text-gray-500">Total Amount</p>
             <p className="text-xl font-bold text-gray-900">{formatCurrency(stats?.mtdAmount ?? 0)}</p>
-          </div>
+          </button>
         </div>
       </div>
 
-      {/* Pipeline Breakdown */}
+      {/* Pipeline Breakdown — each row clickable */}
       {pipeline.length > 0 && (
         <div className="bg-white rounded-lg border p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Pipeline</h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {pipeline.map(p => (
-              <div key={p.status} className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(p.status)}`}>
-                    {getStatusLabel(p.status)}
-                  </span>
-                </div>
+              <button key={p.status} onClick={() => onNavigate({ tab: 'date-range', status: p.status })}
+                className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(p.status)}`}>
+                  {getStatusLabel(p.status)}
+                </span>
                 <div className="flex items-center gap-6 text-sm">
                   <span className="text-gray-500">{p.count} payment{p.count !== 1 ? 's' : ''}</span>
                   <span className="font-medium text-gray-900 w-32 text-right">{formatCurrency(p.total)}</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -226,24 +296,37 @@ function DashboardTab() {
 
 // ─── Tab 2: Daily ──────────────────────────────────────────────────────────
 
-function DailyTab() {
+function DailyTab({ initialStatus }: { initialStatus?: string }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const { data, isLoading } = useQuery({
-    queryKey: ['treasury-reports-daily', date],
-    queryFn: () => treasuryReportsApi.daily(date),
+  const [statusFilter, setStatusFilter] = useState(initialStatus || '');
+
+  const { data, isLoading } = usePayments({
+    page: 1, limit: 100,
+    startDate: date,
+    endDate: date,
+    status: statusFilter || undefined,
   });
-  const rows = data?.data || [];
+
+  const payments = data?.data || [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 text-gray-400" />
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent" />
         </div>
-        <button onClick={() => exportTreasuryCSV(rows, `treasury-daily-${date}.csv`)}
-          disabled={rows.length === 0}
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-400" />
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent">
+            <option value="">All Statuses</option>
+            {PAYMENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+        <button onClick={() => exportPaymentsCSV(payments, `daily-${date}.csv`)}
+          disabled={payments.length === 0}
           className="inline-flex items-center gap-2 px-3 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark text-sm disabled:opacity-50">
           <Download className="h-4 w-4" /> Export CSV
         </button>
@@ -252,7 +335,7 @@ function DailyTab() {
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
         ) : (
-          <TreasuryPaymentTable rows={rows} />
+          <PaymentTable payments={payments} />
         )}
       </div>
     </div>
@@ -263,19 +346,36 @@ function DailyTab() {
 
 function WeeklyTab() {
   const getMonday = (d: Date) => {
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff)).toISOString().slice(0, 10);
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    date.setDate(diff);
+    return date.toISOString().slice(0, 10);
   };
-  const [startDate, setStartDate] = useState(getMonday(new Date()));
+  const getSunday = (monday: string) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + 6);
+    return d.toISOString().slice(0, 10);
+  };
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['treasury-reports-weekly', startDate],
-    queryFn: () => treasuryReportsApi.weekly(startDate),
+  const [startDate, setStartDate] = useState(getMonday(new Date()));
+  const endDate = getSunday(startDate);
+
+  const { data, isLoading } = usePayments({
+    page: 1, limit: 200,
+    startDate,
+    endDate,
   });
 
-  const grouped = data?.data || {};
-  const allRows = Object.values(grouped).flat();
+  const payments = data?.data || [];
+
+  // Group by date(created_at)
+  const grouped: Record<string, any[]> = {};
+  for (const p of payments) {
+    const d = (p.created_at || '').slice(0, 10);
+    if (!grouped[d]) grouped[d] = [];
+    grouped[d].push(p);
+  }
   const sortedDates = Object.keys(grouped).sort();
 
   return (
@@ -287,8 +387,9 @@ function WeeklyTab() {
           <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
             className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent" />
         </div>
-        <button onClick={() => exportTreasuryCSV(allRows, `treasury-weekly-${startDate}.csv`)}
-          disabled={allRows.length === 0}
+        <span className="text-sm text-gray-500">through {formatDate(endDate)}</span>
+        <button onClick={() => exportPaymentsCSV(payments, `weekly-${startDate}.csv`)}
+          disabled={payments.length === 0}
           className="inline-flex items-center gap-2 px-3 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark text-sm disabled:opacity-50">
           <Download className="h-4 w-4" /> Export CSV
         </button>
@@ -296,30 +397,42 @@ function WeeklyTab() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
-      ) : allRows.length === 0 ? (
+      ) : payments.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
           <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No results</h3>
-          <p className="text-gray-500 mt-1">No treasury-approved payments found for this week.</p>
+          <p className="text-gray-500 mt-1">No payments found for this week.</p>
         </div>
       ) : (
-        sortedDates.map(date => {
-          const dayRows = grouped[date];
-          const dayTotal = dayRows.reduce((sum: number, r: any) => sum + (r.usd_equivalent || r.amount), 0);
-          return (
-            <div key={date} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">{formatDate(date)}</h3>
-                <span className="text-sm text-gray-500">
-                  {dayRows.length} payment{dayRows.length !== 1 ? 's' : ''} \u2014 {formatCurrency(dayTotal, 'USD')}
-                </span>
+        <>
+          {/* Week summary */}
+          <div className="bg-white rounded-lg border p-4 flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              {payments.length} payment{payments.length !== 1 ? 's' : ''} this week
+            </span>
+            <span className="text-sm font-bold text-gray-900">
+              {formatCurrency(payments.reduce((s: number, p: any) => s + (p.usd_equivalent || p.amount || 0), 0), 'USD')}
+            </span>
+          </div>
+
+          {sortedDates.map(date => {
+            const dayRows = grouped[date];
+            const dayTotal = dayRows.reduce((sum: number, r: any) => sum + (r.usd_equivalent || r.amount || 0), 0);
+            return (
+              <div key={date} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-900">{formatDate(date)}</h3>
+                  <span className="text-sm text-gray-500">
+                    {dayRows.length} payment{dayRows.length !== 1 ? 's' : ''} \u2014 {formatCurrency(dayTotal, 'USD')}
+                  </span>
+                </div>
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <PaymentTable payments={dayRows} />
+                </div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-                <TreasuryPaymentTable rows={dayRows} />
-              </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </>
       )}
     </div>
   );
@@ -327,12 +440,12 @@ function WeeklyTab() {
 
 // ─── Tab 4: Date Range ─────────────────────────────────────────────────────
 
-function DateRangeTab() {
+function DateRangeTab({ initialStatus, initialStartDate, initialEndDate }: { initialStatus?: string; initialStartDate?: string; initialEndDate?: string }) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [statusFilter, setStatusFilter] = useState(initialStatus || '');
+  const [startDate, setStartDate] = useState(initialStartDate || '');
+  const [endDate, setEndDate] = useState(initialEndDate || '');
 
   const { data, isLoading, error } = usePayments({
     page, limit: 25,
@@ -363,7 +476,7 @@ function DateRangeTab() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input type="text" placeholder="Search by payee or reference..."
+              <input type="text" placeholder="Search by payee, requester, or reference..."
                 value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent" />
             </div>
@@ -407,77 +520,10 @@ function DateRangeTab() {
           <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
         ) : error ? (
           <div className="text-center py-12 text-red-600">Failed to load report data. Please try again.</div>
-        ) : payments.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">No results found</h3>
-            <p className="text-gray-500 mt-1">
-              {hasActiveFilters ? 'Try adjusting your filters to see more results.' : 'No payment data available.'}
-            </p>
-          </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payee</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Requested By</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {payments.map(payment => (
-                    <tr key={payment.id} className="hover:bg-gray-50 cursor-pointer">
-                      <td className="px-4 py-3">
-                        <Link href={ROUTES.PAYMENT_DETAIL(payment.id)} className="text-primary hover:underline font-medium">
-                          {payment.reference_number}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-gray-900">{payment.payee_name}</td>
-                      <td className="px-4 py-3 font-mono">
-                        {formatCurrency(payment.amount, payment.currency)}
-                        {payment.currency !== 'USD' && (
-                          <span className="text-xs text-gray-500 ml-1">({formatCurrency(payment.usd_equivalent, 'USD')})</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">{getPaymentTypeLabel(payment.payment_type)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
-                          {getStatusLabel(payment.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm">{payment.requester_name || '\u2014'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-sm">{formatDate(payment.created_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {meta && (meta.totalPages ?? 0) > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-gray-500">
-                  Showing {((meta.page ?? 1) - 1) * (meta.limit ?? 25) + 1} to{' '}
-                  {Math.min((meta.page ?? 1) * (meta.limit ?? 25), meta.total ?? 0)} of {meta.total} results
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-sm text-gray-700">Page {meta.page} of {meta.totalPages}</span>
-                  <button onClick={() => setPage(p => Math.min(meta.totalPages ?? 1, p + 1))} disabled={page === (meta.totalPages ?? 1)}
-                    className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            <PaymentTable payments={payments} showSummary={true} />
+            <Pagination page={page} setPage={setPage} meta={meta} />
           </>
         )}
       </div>
@@ -485,19 +531,20 @@ function DateRangeTab() {
   );
 }
 
-// ─── Tab 5: Lifetime ───────────────────────────────────────────────────────
+// ─── Tab 5: Life to Date ───────────────────────────────────────────────────
 
 function LifetimeTab() {
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState('actioned_at');
+  const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['treasury-reports-lifetime', page, sortBy, sortOrder],
-    queryFn: () => treasuryReportsApi.lifetime({ page, limit: 25, sortBy, sortOrder }),
+  const { data, isLoading } = usePayments({
+    page, limit: 25,
+    sortBy,
+    sortOrder,
   });
 
-  const rows = data?.data || [];
+  const payments = data?.data || [];
   const meta = data?.meta;
 
   function handleSort(column: string) {
@@ -522,11 +569,16 @@ function LifetimeTab() {
     );
   }
 
+  const totalAmount = payments.reduce((sum: number, p: any) => sum + (p.usd_equivalent || p.amount || 0), 0);
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button onClick={() => exportTreasuryCSV(rows, `treasury-lifetime-page${page}.csv`)}
-          disabled={rows.length === 0}
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-gray-500">
+          {meta?.total ? `${meta.total} total payments across all time` : ''}
+        </div>
+        <button onClick={() => exportPaymentsCSV(payments, `lifetime-page${page}.csv`)}
+          disabled={payments.length === 0}
           className="inline-flex items-center gap-2 px-3 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark text-sm disabled:opacity-50">
           <Download className="h-4 w-4" /> Export CSV
         </button>
@@ -535,10 +587,10 @@ function LifetimeTab() {
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
-        ) : rows.length === 0 ? (
+        ) : payments.length === 0 ? (
           <div className="text-center py-12">
             <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900">No results</h3>
+            <h3 className="text-lg font-medium text-gray-900">No payments found</h3>
           </div>
         ) : (
           <>
@@ -551,47 +603,73 @@ function LifetimeTab() {
                     <SortHeader column="amount">Amount</SortHeader>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                     <SortHeader column="status">Status</SortHeader>
-                    <SortHeader column="approver">Approver</SortHeader>
-                    <SortHeader column="actioned_at">Approved At</SortHeader>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Initiated By</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waiting On</th>
+                    <SortHeader column="created_at">Date Submitted</SortHeader>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Action</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {rows.map((row: any, idx: number) => (
-                    <tr key={`${row.reference_number}-${idx}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-primary">{row.reference_number}</td>
-                      <td className="px-4 py-3 text-gray-900">{row.payee_name}</td>
-                      <td className="px-4 py-3 font-mono text-right">{formatCurrency(row.amount, row.currency)}</td>
-                      <td className="px-4 py-3 text-gray-600">{getPaymentTypeLabel(row.payment_type)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
-                          {getStatusLabel(row.status)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{row.approver_name || getRoleLabel(row.approver_role)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.approval_timestamp ? formatDateTime(row.approval_timestamp) : '\u2014'}</td>
-                    </tr>
-                  ))}
+                  {payments.map((p: any) => {
+                    const daysPending = getDaysPending(p);
+                    return (
+                      <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <Link href={ROUTES.PAYMENT_DETAIL(p.id)} className="text-primary hover:underline font-medium">
+                            {p.reference_number}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 text-gray-900">{p.payee_name}</td>
+                        <td className="px-4 py-3 font-mono text-right">
+                          {formatCurrency(p.amount, p.currency)}
+                          {p.currency !== 'USD' && (
+                            <span className="text-xs text-gray-500 ml-1">({formatCurrency(p.usd_equivalent, 'USD')})</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{getPaymentTypeLabel(p.payment_type)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(p.status)}`}>
+                            {getStatusLabel(p.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{p.requester_name || '\u2014'}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {p.waiting_on ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {p.waiting_on.name || getRoleLabel(p.waiting_on.role)}
+                            </span>
+                          ) : <span className="text-gray-400">\u2014</span>}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">
+                          {p.submitted_at ? formatDate(p.submitted_at) : formatDate(p.created_at)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{p.updated_at ? formatDateTime(p.updated_at) : '\u2014'}</td>
+                        <td className="px-4 py-3 text-center text-sm">
+                          {['pending_approval', 'approved', 'ready_to_execute', 'pending_confirmation'].includes(p.status) ? (
+                            <span className={`font-medium ${daysPending > 3 ? 'text-red-600' : daysPending > 1 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                              {daysPending}
+                            </span>
+                          ) : <span className="text-gray-400">\u2014</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
-            {meta && (meta.totalPages ?? 0) > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t">
-                <div className="text-sm text-gray-500">
-                  Showing {(page - 1) * 25 + 1} to {Math.min(page * 25, meta.total ?? 0)} of {meta.total} results
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                    className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50">
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="text-sm text-gray-700">Page {page} of {meta.totalPages}</span>
-                  <button onClick={() => setPage(p => Math.min(meta.totalPages ?? 1, p + 1))} disabled={page === (meta.totalPages ?? 1)}
-                    className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50">
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+
+            {/* Summary row */}
+            <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center text-sm">
+              <span className="font-medium text-gray-700">
+                {meta?.total ?? payments.length} total payments
+              </span>
+              <span className="font-medium text-gray-900">
+                Page total: {formatCurrency(totalAmount, 'USD')}
+              </span>
+            </div>
+
+            <Pagination page={page} setPage={setPage} meta={meta} />
           </>
         )}
       </div>
@@ -850,6 +928,29 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  // Shared filter state that Dashboard can pre-set before switching tabs
+  const [navStatus, setNavStatus] = useState('');
+  const [navStartDate, setNavStartDate] = useState('');
+  const [navEndDate, setNavEndDate] = useState('');
+  // Key to force re-mount of tabs when navigating from Dashboard
+  const [tabKey, setTabKey] = useState(0);
+
+  const handleNavigate = useCallback((action: NavAction) => {
+    setNavStatus(action.status || '');
+    setNavStartDate(action.startDate || '');
+    setNavEndDate(action.endDate || '');
+    setActiveTab(action.tab);
+    setTabKey(k => k + 1); // force re-mount to pick up new initial values
+  }, []);
+
+  // Reset nav filters when user manually clicks a tab
+  const handleTabClick = useCallback((tab: Tab) => {
+    setNavStatus('');
+    setNavStartDate('');
+    setNavEndDate('');
+    setActiveTab(tab);
+    setTabKey(k => k + 1);
+  }, []);
 
   const tabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
     { key: 'dashboard', label: 'Dashboard' },
@@ -876,7 +977,7 @@ export default function ReportsPage() {
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-6 overflow-x-auto">
           {visibleTabs.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => handleTabClick(tab.key)}
               className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
                 activeTab === tab.key
                   ? 'border-primary text-primary'
@@ -889,11 +990,11 @@ export default function ReportsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'dashboard' && <DashboardTab />}
-      {activeTab === 'daily' && <DailyTab />}
-      {activeTab === 'weekly' && <WeeklyTab />}
-      {activeTab === 'date-range' && <DateRangeTab />}
-      {activeTab === 'lifetime' && <LifetimeTab />}
+      {activeTab === 'dashboard' && <DashboardTab onNavigate={handleNavigate} />}
+      {activeTab === 'daily' && <DailyTab key={tabKey} initialStatus={navStatus} />}
+      {activeTab === 'weekly' && <WeeklyTab key={tabKey} />}
+      {activeTab === 'date-range' && <DateRangeTab key={tabKey} initialStatus={navStatus} initialStartDate={navStartDate} initialEndDate={navEndDate} />}
+      {activeTab === 'lifetime' && <LifetimeTab key={tabKey} />}
       {activeTab === 'eod' && <EodArchiveTab />}
       {activeTab === 'permissions' && <PermissionsTab />}
     </div>

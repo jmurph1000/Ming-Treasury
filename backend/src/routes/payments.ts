@@ -54,17 +54,17 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     }
 
     if (filters.startDate) {
-      conditions.push(`p.created_at >= $${paramIndex++}`);
+      conditions.push(`date(p.created_at) >= $${paramIndex++}`);
       params.push(filters.startDate);
     }
 
     if (filters.endDate) {
-      conditions.push(`p.created_at <= $${paramIndex++}`);
+      conditions.push(`date(p.created_at) <= $${paramIndex++}`);
       params.push(filters.endDate);
     }
 
     if (filters.search) {
-      conditions.push(`(p.payee_name LIKE $${paramIndex} OR p.reference_number LIKE $${paramIndex})`);
+      conditions.push(`(p.payee_name LIKE $${paramIndex} OR p.reference_number LIKE $${paramIndex} OR u.name LIKE $${paramIndex})`);
       params.push(`%${filters.search}%`);
       paramIndex++;
     }
@@ -89,7 +89,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const safeSortColumn = allowedSortColumns.includes(sortColumn) ? sortColumn : 'created_at';
     baseQuery += ` ORDER BY p.${safeSortColumn} ${sortOrder.toUpperCase()}`;
 
-    const countQuery = `SELECT COUNT(*) as total FROM payments p ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}`;
+    const countQuery = `SELECT COUNT(*) as total FROM payments p LEFT JOIN users u ON p.requester_id = u.id ${conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''}`;
     const { rows: countRows } = await query<{ total: string }>(countQuery, params);
     const total = parseInt(countRows[0].total, 10);
 
