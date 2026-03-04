@@ -148,6 +148,7 @@ export const ERROR_CODES = {
   APPROVAL_REQUIRED: 'APPROVAL_REQUIRED',
   ALREADY_APPROVED: 'ALREADY_APPROVED',
   NOT_YOUR_TURN: 'NOT_YOUR_TURN',
+  SELF_APPROVAL: 'SELF_APPROVAL',
   DUAL_CONTROL_REQUIRED: 'DUAL_CONTROL_REQUIRED',
 
   // Resource errors
@@ -159,6 +160,15 @@ export const ERROR_CODES = {
   DATABASE_ERROR: 'DATABASE_ERROR',
   EXTERNAL_SERVICE_ERROR: 'EXTERNAL_SERVICE_ERROR',
 } as const;
+
+// =====================================================
+// APPROVER POOL LABELS
+// =====================================================
+export const APPROVER_POOL_LABELS: Record<string, string> = {
+  group_or_treasury: 'Any Group Member or Treasury',
+  senior_or_treasury: 'Sr Manager, Admin, or Treasury',
+  treasury_only: 'Treasury Only',
+};
 
 // =====================================================
 // NOTIFICATION TYPES

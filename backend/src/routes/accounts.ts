@@ -36,31 +36,75 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
       return;
     }
 
-    if (accounts.length > 10) {
+    if (accounts.length > 50) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'Maximum 10 accounts can be uploaded at a time',
+        message: 'Maximum 50 accounts can be uploaded at a time',
       });
       return;
     }
 
+    const validAccountTypes = ['checking', 'savings', 'operating', 'payroll'];
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
+    const validDualControlModes = ['all', 'wires_only', 'above_threshold'];
+
     // Validate each row
     for (let i = 0; i < accounts.length; i++) {
       const acct = accounts[i];
-      if (!acct.bankName || !acct.description || !acct.lastFour) {
+      if (!acct.name?.trim()) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           error: ERROR_CODES.VALIDATION_ERROR,
-          message: `Row ${i + 1}: bankName, description, and lastFour are all required`,
+          message: `Row ${i + 1}: Account Name is required`,
         });
         return;
       }
-      if (!/^\d{4}$/.test(acct.lastFour)) {
+      if (!acct.bankName?.trim()) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false,
           error: ERROR_CODES.VALIDATION_ERROR,
-          message: `Row ${i + 1}: lastFour must be exactly 4 digits`,
+          message: `Row ${i + 1}: Bank Name is required`,
+        });
+        return;
+      }
+      if (!acct.accountNumber?.trim() || acct.accountNumber.trim().length < 4) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: Account Number is required (minimum 4 digits)`,
+        });
+        return;
+      }
+      if (!acct.routingNumber?.trim() || !/^\d{9}$/.test(acct.routingNumber.trim())) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: Routing Number must be exactly 9 digits`,
+        });
+        return;
+      }
+      if (acct.accountType && !validAccountTypes.includes(acct.accountType)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: Invalid Account Type. Must be one of: ${validAccountTypes.join(', ')}`,
+        });
+        return;
+      }
+      if (acct.currency && !validCurrencies.includes(acct.currency)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: Invalid Currency. Must be one of: ${validCurrencies.join(', ')}`,
+        });
+        return;
+      }
+      if (acct.dualControlMode && !validDualControlModes.includes(acct.dualControlMode)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: `Row ${i + 1}: Invalid Dual Control Mode. Must be one of: ${validDualControlModes.join(', ')}`,
         });
         return;
       }
@@ -68,17 +112,29 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
 
     const created: any[] = [];
     for (const acct of accounts) {
-      const accountNumberEncrypted = encryptAccountNumber('XXXX' + acct.lastFour);
-      const routingNumberEncrypted = encryptRoutingNumber('000000000');
+      const accountNumberEncrypted = encryptAccountNumber(acct.accountNumber.trim());
+      const routingNumberEncrypted = encryptRoutingNumber(acct.routingNumber.trim());
+      const dualControl = acct.dualControlRequired !== undefined ? (acct.dualControlRequired ? 1 : 0) : 1;
+      const dailyLimit = acct.dailyLimit ? parseFloat(acct.dailyLimit) : null;
 
       const { rows } = await query(
         `INSERT INTO accounts (
           name, bank_name, account_number_encrypted, routing_number_encrypted,
-          account_type, currency, dual_control_required
-        ) VALUES ($1, $2, $3, $4, 'checking', 'USD', 1)
+          account_type, currency, daily_limit, dual_control_required, dual_control_mode
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id, name, bank_name, account_type, currency, daily_limit,
                   dual_control_required, dual_control_threshold, dual_control_mode, is_active, created_at`,
-        [acct.description, acct.bankName, accountNumberEncrypted, routingNumberEncrypted]
+        [
+          acct.name.trim(),
+          acct.bankName.trim(),
+          accountNumberEncrypted,
+          routingNumberEncrypted,
+          acct.accountType || 'checking',
+          acct.currency || 'USD',
+          dailyLimit,
+          dualControl,
+          acct.dualControlMode || 'all',
+        ]
       );
 
       created.push(rows[0]);
@@ -87,8 +143,10 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
         tableName: 'accounts',
         recordId: rows[0].id,
         newValues: {
-          name: acct.description,
-          bankName: acct.bankName,
+          name: acct.name.trim(),
+          bankName: acct.bankName.trim(),
+          accountType: acct.accountType || 'checking',
+          currency: acct.currency || 'USD',
           source: 'excel_upload',
         },
       });

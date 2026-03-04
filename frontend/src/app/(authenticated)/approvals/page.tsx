@@ -3,11 +3,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePendingApprovals, useApprovePayment, useRejectPayment } from '@/hooks/usePayments';
+import { useAuth } from '@/hooks/useAuth';
+import { approvalsApi, usersApi } from '@/lib/api';
 import { formatCurrency, formatRelativeTime, getPaymentTypeLabel, getRoleLabel } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
-import { CheckCircle, XCircle, Clock, AlertCircle, ChevronRight } from 'lucide-react';
+import { useQueryClient, useMutation, useQuery } from '@tanstack/react-query';
+import { CheckCircle, XCircle, Clock, AlertCircle, ChevronRight, UserCog } from 'lucide-react';
+
+const POOL_LABELS: Record<string, string> = {
+  group_or_treasury: 'Any Group Member or Treasury',
+  senior_or_treasury: 'Sr Manager, Admin, or Treasury',
+  treasury_only: 'Treasury Only',
+};
 
 export default function ApprovalsPage() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data, isLoading, error, refetch } = usePendingApprovals();
   const approvePayment = useApprovePayment();
   const rejectPayment = useRejectPayment();
@@ -15,14 +26,44 @@ export default function ApprovalsPage() {
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [rejectComment, setRejectComment] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Reassignment state
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [reassignApprovalId, setReassignApprovalId] = useState<string | null>(null);
+  const [reassignUserId, setReassignUserId] = useState('');
+
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => usersApi.list({ status: 'active' } as any),
+    enabled: user?.role === 'admin',
+  });
+  const allUsers = (usersData?.data || []) as Array<{ id: string; name: string; email: string; role: string }>;
+
+  const reassignMutation = useMutation({
+    mutationFn: ({ id, newApproverId }: { id: string; newApproverId: string }) =>
+      approvalsApi.reassign(id, newApproverId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      setShowReassignModal(false);
+      setReassignApprovalId(null);
+      setReassignUserId('');
+    },
+  });
 
   const approvals = data?.data || [];
 
   async function handleApprove(approvalId: string) {
+    setErrorMessage(null);
     try {
       await approvePayment.mutateAsync({ id: approvalId });
-    } catch (error) {
-      console.error('Approval failed:', error);
+    } catch (err: any) {
+      const msg = err?.message || 'Approval failed';
+      if (msg.includes('cannot approve') || msg.includes('SELF_APPROVAL')) {
+        setErrorMessage('You cannot approve a request you initiated.');
+      } else {
+        setErrorMessage(msg);
+      }
     }
   }
 
@@ -33,14 +74,21 @@ export default function ApprovalsPage() {
       setShowRejectModal(false);
       setRejectComment('');
       setSelectedPayment(null);
-    } catch (error) {
-      console.error('Rejection failed:', error);
+    } catch (err: any) {
+      const msg = err?.message || 'Rejection failed';
+      setErrorMessage(msg);
     }
   }
 
   function openRejectModal(approvalId: string) {
     setSelectedPayment(approvalId);
     setShowRejectModal(true);
+  }
+
+  function openReassignModal(approvalId: string) {
+    setReassignApprovalId(approvalId);
+    setReassignUserId('');
+    setShowReassignModal(true);
   }
 
   return (
@@ -52,6 +100,14 @@ export default function ApprovalsPage() {
           Review and action payment requests awaiting your approval
         </p>
       </div>
+
+      {/* Error Toast */}
+      {errorMessage && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center justify-between">
+          <span>{errorMessage}</span>
+          <button onClick={() => setErrorMessage(null)} className="text-red-500 hover:text-red-700 ml-4">&times;</button>
+        </div>
+      )}
 
       {/* Approvals List */}
       {isLoading ? (
@@ -97,6 +153,11 @@ export default function ApprovalsPage() {
                       <span>•</span>
                       <span>Requested by {approval.requester_name}</span>
                     </div>
+                    {(approval as any).approver_pool && (
+                      <p className="text-xs text-cyan-700 bg-cyan-50 inline-block px-2 py-0.5 rounded mt-2">
+                        {POOL_LABELS[(approval as any).approver_pool] || (approval as any).approver_pool}
+                      </p>
+                    )}
                   </div>
 
                   <div className="text-right">
@@ -134,6 +195,15 @@ export default function ApprovalsPage() {
                       <CheckCircle className="h-4 w-4" />
                       Approve
                     </button>
+                    {user?.role === 'admin' && (
+                      <button
+                        onClick={() => openReassignModal(approval.approval_id)}
+                        className="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <UserCog className="h-4 w-4" />
+                        Reassign
+                      </button>
+                    )}
                     <Link
                       href={`/approvals/${approval.approval_id}`}
                       className="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
@@ -184,6 +254,54 @@ export default function ApprovalsPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
               >
                 Reject Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Modal */}
+      {showReassignModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <UserCog className="h-5 w-5 text-primary" />
+              Reassign Approval
+            </h3>
+            <p className="text-gray-500 mt-2">
+              Select a user to reassign this approval to.
+            </p>
+            <select
+              value={reassignUserId}
+              onChange={(e) => setReassignUserId(e.target.value)}
+              className="w-full mt-4 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
+            >
+              <option value="">Select user...</option>
+              {allUsers.map((u) => (
+                <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+              ))}
+            </select>
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowReassignModal(false);
+                  setReassignApprovalId(null);
+                  setReassignUserId('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (reassignApprovalId && reassignUserId) {
+                    reassignMutation.mutate({ id: reassignApprovalId, newApproverId: reassignUserId });
+                  }
+                }}
+                disabled={!reassignUserId || reassignMutation.isPending}
+                className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 disabled:opacity-50"
+              >
+                {reassignMutation.isPending ? 'Reassigning...' : 'Reassign'}
               </button>
             </div>
           </div>

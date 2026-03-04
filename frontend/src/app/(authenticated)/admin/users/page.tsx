@@ -138,6 +138,7 @@ export default function UserManagementPage() {
     mutationFn: (userId: string) => usersApi.suspend(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     },
   });
 
@@ -146,6 +147,7 @@ export default function UserManagementPage() {
     mutationFn: (userId: string) => usersApi.reactivate(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     },
   });
 
@@ -444,6 +446,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: User; onClose: () =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       onSuccess(user.name);
       onClose();
@@ -832,6 +835,7 @@ function AddUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       if (selectedGroupIds.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['groups'] });

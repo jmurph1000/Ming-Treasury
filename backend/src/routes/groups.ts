@@ -204,14 +204,16 @@ router.get('/user/:userId/memberships', async (req: AuthenticatedRequest, res: R
 
 /**
  * GET /api/groups/:id/approval-flow
- * Returns override settings + tiers + steps for a group
+ * Returns routing config + tiers + steps + change history for a group
  */
 router.get('/:id/approval-flow', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 
     const { rows: groupRows } = await query(
-      'SELECT id, override_approval_flow, approval_trigger_mode FROM groups WHERE id = $1',
+      `SELECT id, override_approval_flow, approval_trigger_mode,
+              routing_mode, approval_chain_option
+       FROM groups WHERE id = $1`,
       [id]
     );
     if (groupRows.length === 0) {
@@ -240,12 +242,26 @@ router.get('/:id/approval-flow', hasRole('admin'), async (req: AuthenticatedRequ
       tiersWithSteps.push({ ...tier, steps });
     }
 
+    // Get change history
+    const { rows: changeHistory } = await query(
+      `SELECT grcl.*, u.name AS changed_by_name
+       FROM group_routing_change_log grcl
+       LEFT JOIN users u ON u.id = grcl.changed_by
+       WHERE grcl.group_id = $1
+       ORDER BY grcl.created_at DESC
+       LIMIT 20`,
+      [id]
+    );
+
     res.json({
       success: true,
       data: {
         overrideApprovalFlow: !!group.override_approval_flow,
         approvalTriggerMode: group.approval_trigger_mode || 'flat',
+        routingMode: group.routing_mode || 'approval_chain',
+        approvalChainOption: group.approval_chain_option || 'one_approver',
         tiers: tiersWithSteps,
+        changeHistory,
       },
     });
   } catch (error) {
@@ -255,43 +271,75 @@ router.get('/:id/approval-flow', hasRole('admin'), async (req: AuthenticatedRequ
 });
 
 /**
+ * GET /api/groups/:id/routing-history
+ * Get routing change history for a group
+ */
+router.get('/:id/routing-history', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await query(
+      `SELECT grcl.*, u.name AS changed_by_name
+       FROM group_routing_change_log grcl
+       LEFT JOIN users u ON u.id = grcl.changed_by
+       WHERE grcl.group_id = $1
+       ORDER BY grcl.created_at DESC
+       LIMIT 50`,
+      [id]
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting routing history', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
  * PUT /api/groups/:id/approval-flow
- * Replace entire approval flow config atomically
+ * Replace entire approval flow / routing config atomically
  */
 router.put('/:id/approval-flow', treasuryOnly, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const admin = req.user!;
-    const { overrideApprovalFlow, approvalTriggerMode, tiers } = req.body;
+    const { overrideApprovalFlow, routingMode, approvalChainOption, tiers } = req.body;
 
-    // Validate group exists
-    const { rows: groupRows } = await query('SELECT id FROM groups WHERE id = $1', [id]);
+    // Validate group exists and get old config for change log
+    const { rows: groupRows } = await query(
+      `SELECT id, override_approval_flow, routing_mode, approval_chain_option, approval_trigger_mode FROM groups WHERE id = $1`,
+      [id]
+    );
     if (groupRows.length === 0) {
       res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: ERROR_CODES.NOT_FOUND, message: 'Group not found' });
       return;
     }
 
-    // Validate trigger mode
-    if (approvalTriggerMode && !['flat', 'amount_threshold'].includes(approvalTriggerMode)) {
+    const oldConfig = groupRows[0];
+
+    // Validate routing mode
+    const validRoutingModes = ['approval_chain', 'routing_rules'];
+    const effectiveRoutingMode = routingMode || 'approval_chain';
+    if (!validRoutingModes.includes(effectiveRoutingMode)) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false, error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'approvalTriggerMode must be "flat" or "amount_threshold"',
+        message: 'routingMode must be "approval_chain" or "routing_rules"',
       });
       return;
     }
 
-    // Validate tiers if override is enabled
-    if (overrideApprovalFlow && Array.isArray(tiers)) {
-      // Flat mode should have exactly 1 tier
-      if (approvalTriggerMode === 'flat' && tiers.length !== 1) {
+    // Validate chain option
+    if (effectiveRoutingMode === 'approval_chain') {
+      const validOptions = ['one_approver', 'two_approvers'];
+      if (approvalChainOption && !validOptions.includes(approvalChainOption)) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({
           success: false, error: ERROR_CODES.VALIDATION_ERROR,
-          message: 'Flat mode requires exactly one tier',
+          message: 'approvalChainOption must be "one_approver" or "two_approvers"',
         });
         return;
       }
+    }
 
-      // Validate each tier has at least one step
+    // Validate tiers for routing_rules mode
+    if (overrideApprovalFlow && effectiveRoutingMode === 'routing_rules' && Array.isArray(tiers)) {
       for (const tier of tiers) {
         if (!Array.isArray(tier.steps) || tier.steps.length === 0) {
           res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -300,28 +348,21 @@ router.put('/:id/approval-flow', treasuryOnly, async (req: AuthenticatedRequest,
           });
           return;
         }
-        // Validate each step has role or specific user
         for (const step of tier.steps) {
-          if (step.approverMode === 'role' && !step.approverRole) {
+          const validPools = ['group_or_treasury', 'senior_or_treasury', 'treasury_only'];
+          if (step.approverPool && !validPools.includes(step.approverPool)) {
             res.status(HTTP_STATUS.BAD_REQUEST).json({
               success: false, error: ERROR_CODES.VALIDATION_ERROR,
-              message: `Step ${step.step} in tier "${tier.label}" must specify an approver role`,
-            });
-            return;
-          }
-          if (step.approverMode === 'specific_user' && !step.specificApproverId) {
-            res.status(HTTP_STATUS.BAD_REQUEST).json({
-              success: false, error: ERROR_CODES.VALIDATION_ERROR,
-              message: `Step ${step.step} in tier "${tier.label}" must specify a user`,
+              message: `Invalid approver pool "${step.approverPool}" in tier "${tier.label}"`,
             });
             return;
           }
         }
       }
 
-      // Validate no amount gaps/overlaps for threshold mode
-      if (approvalTriggerMode === 'amount_threshold' && tiers.length > 1) {
-        const sorted = [...tiers].sort((a, b) => (a.minAmount || 0) - (b.minAmount || 0));
+      // Validate no amount gaps for threshold mode
+      if (tiers.length > 1) {
+        const sorted = [...tiers].sort((a: any, b: any) => (a.minAmount || 0) - (b.minAmount || 0));
         for (let i = 1; i < sorted.length; i++) {
           const prev = sorted[i - 1];
           const curr = sorted[i];
@@ -336,21 +377,30 @@ router.put('/:id/approval-flow', treasuryOnly, async (req: AuthenticatedRequest,
       }
     }
 
+    // Map routing_mode to legacy approval_trigger_mode for backward compat
+    const legacyTriggerMode = effectiveRoutingMode === 'approval_chain' ? 'flat' : 'amount_threshold';
+
     // Update group settings
     await query(
-      `UPDATE groups SET override_approval_flow = $2, approval_trigger_mode = $3, updated_at = datetime('now') WHERE id = $1`,
-      [id, overrideApprovalFlow ? 1 : 0, approvalTriggerMode || 'flat']
+      `UPDATE groups
+       SET override_approval_flow = $2,
+           approval_trigger_mode = $3,
+           routing_mode = $4,
+           approval_chain_option = $5,
+           updated_at = datetime('now')
+       WHERE id = $1`,
+      [id, overrideApprovalFlow ? 1 : 0, legacyTriggerMode, effectiveRoutingMode, approvalChainOption || 'one_approver']
     );
 
-    // Delete old tiers and steps (cascade handles steps via foreign key)
+    // Delete old tiers and steps
     const { rows: oldTiers } = await query('SELECT id FROM group_approval_tiers WHERE group_id = $1', [id]);
     for (const oldTier of oldTiers) {
       await query('DELETE FROM group_approval_steps WHERE tier_id = $1', [oldTier.id]);
     }
     await query('DELETE FROM group_approval_tiers WHERE group_id = $1', [id]);
 
-    // Insert new tiers and steps if override is enabled
-    if (overrideApprovalFlow && Array.isArray(tiers)) {
+    // Insert new tiers and steps for routing_rules mode
+    if (overrideApprovalFlow && effectiveRoutingMode === 'routing_rules' && Array.isArray(tiers)) {
       for (let i = 0; i < tiers.length; i++) {
         const tier = tiers[i];
         const { rows: tierRows } = await query(
@@ -363,21 +413,33 @@ router.put('/:id/approval-flow', treasuryOnly, async (req: AuthenticatedRequest,
 
         for (const step of tier.steps) {
           await query(
-            `INSERT INTO group_approval_steps (tier_id, step, approver_mode, approver_role, specific_approver_id, escalation_hours)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [tierId, step.step, step.approverMode, step.approverRole || null, step.specificApproverId || null, step.escalationHours || 24]
+            `INSERT INTO group_approval_steps (tier_id, step, approver_mode, approver_role, specific_approver_id, escalation_hours, approver_pool)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [tierId, step.step, step.approverMode || 'pool', step.approverRole || null,
+             step.specificApproverId || null, step.escalationHours || 24, step.approverPool || 'group_or_treasury']
           );
         }
       }
     }
 
-    await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.GROUP_APPROVAL_FLOW_UPDATED, {
+    // Log change to routing change log
+    const newConfig = { overrideApprovalFlow, routingMode: effectiveRoutingMode, approvalChainOption, tierCount: tiers?.length || 0 };
+    await query(
+      `INSERT INTO group_routing_change_log (group_id, changed_by, changed_by_email, change_type, old_config, new_config)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, admin.id, admin.email, 'routing_config_updated',
+       JSON.stringify({ routingMode: oldConfig.routing_mode, approvalChainOption: oldConfig.approval_chain_option, overrideApprovalFlow: !!oldConfig.override_approval_flow }),
+       JSON.stringify(newConfig)]
+    );
+
+    await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.GROUP_ROUTING_CONFIG_CHANGED, {
       tableName: 'groups',
       recordId: id,
-      newValues: { overrideApprovalFlow, approvalTriggerMode, tierCount: tiers?.length || 0 },
+      oldValues: { routingMode: oldConfig.routing_mode, approvalChainOption: oldConfig.approval_chain_option },
+      newValues: newConfig,
     });
 
-    res.json({ success: true, message: 'Group approval flow updated' });
+    res.json({ success: true, message: 'Group routing configuration updated' });
   } catch (error) {
     logger.error('Error updating group approval flow', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });

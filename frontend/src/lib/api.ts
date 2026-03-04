@@ -161,6 +161,12 @@ export const approvalsApi = {
       method: 'POST',
       body: JSON.stringify({ comment, isInternal }),
     }),
+
+  reassign: (id: string, newApproverId: string) =>
+    fetchApi<void>(`/api/approvals/${id}/reassign`, {
+      method: 'POST',
+      body: JSON.stringify({ newApproverId }),
+    }),
 };
 
 // Execution
@@ -288,7 +294,17 @@ export const accountsApi = {
   delete: (id: string) =>
     fetchApi<void>(`/api/accounts/${id}`, { method: 'DELETE' }),
 
-  bulkUpload: (accounts: Array<{ bankName: string; description: string; lastFour: string }>) =>
+  bulkUpload: (accounts: Array<{
+    name: string;
+    bankName: string;
+    accountNumber: string;
+    routingNumber: string;
+    accountType?: string;
+    currency?: string;
+    dailyLimit?: string;
+    dualControlRequired?: boolean;
+    dualControlMode?: string;
+  }>) =>
     fetchApi<Account[]>('/api/accounts/bulk-upload', {
       method: 'POST',
       body: JSON.stringify({ accounts }),
@@ -384,6 +400,11 @@ export const chainsApi = {
 export const dashboardApi = {
   summary: () =>
     fetchApi<DashboardSummary>('/api/dashboard/summary'),
+
+  adminStats: () =>
+    fetchApi<{ activeUsers: number; bankAccounts: number; routingRules: number; pendingAccessRequests: number }>(
+      '/api/dashboard/admin-stats'
+    ),
 
   volume: () =>
     fetchApi<PaymentVolumeData[]>('/api/dashboard/volume'),
@@ -546,6 +567,8 @@ export const groupsApi = {
     fetchApi<{
       overrideApprovalFlow: boolean;
       approvalTriggerMode: 'flat' | 'amount_threshold';
+      routingMode: 'approval_chain' | 'routing_rules';
+      approvalChainOption: 'one_approver' | 'two_approvers';
       tiers: Array<{
         id: string;
         group_id: string;
@@ -557,26 +580,40 @@ export const groupsApi = {
           id: string;
           tier_id: string;
           step: number;
-          approver_mode: 'role' | 'specific_user';
+          approver_mode: 'role' | 'specific_user' | 'pool';
           approver_role: string | null;
           specific_approver_id: string | null;
           approver_name: string | null;
           approver_email: string | null;
+          approver_pool: string | null;
           escalation_hours: number;
         }>;
+      }>;
+      changeHistory: Array<{
+        id: string;
+        group_id: string;
+        changed_by: string;
+        changed_by_name: string;
+        changed_by_email: string;
+        change_type: string;
+        old_config: string;
+        new_config: string;
+        created_at: string;
       }>;
     }>(`/api/groups/${groupId}/approval-flow`),
 
   updateApprovalFlow: (groupId: string, data: {
     overrideApprovalFlow: boolean;
-    approvalTriggerMode: 'flat' | 'amount_threshold';
-    tiers: Array<{
+    routingMode: 'approval_chain' | 'routing_rules';
+    approvalChainOption?: 'one_approver' | 'two_approvers';
+    tiers?: Array<{
       label: string;
       minAmount: number | null;
       maxAmount: number | null;
       steps: Array<{
         step: number;
-        approverMode: 'role' | 'specific_user';
+        approverMode?: 'role' | 'specific_user' | 'pool';
+        approverPool?: string;
         approverRole?: string;
         specificApproverId?: string;
         escalationHours?: number;
@@ -587,6 +624,17 @@ export const groupsApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
+
+  getRoutingHistory: (groupId: string) =>
+    fetchApi<Array<{
+      id: string;
+      changed_by_name: string;
+      changed_by_email: string;
+      change_type: string;
+      old_config: string;
+      new_config: string;
+      created_at: string;
+    }>>(`/api/groups/${groupId}/routing-history`),
 };
 
 // Admin

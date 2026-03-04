@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
+import { dashboardApi } from '@/lib/api';
 import { ROUTES } from '@/lib/constants';
-import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen, Bell, ClipboardList, UsersRound } from 'lucide-react';
+import { Users, Building2, GitBranch, Link2, Settings, Shield, BookOpen, Bell, ClipboardList, UsersRound, Loader2 } from 'lucide-react';
 
 const adminSections = [
   {
@@ -71,6 +73,15 @@ const adminSections = [
 ];
 
 export default function AdminPage() {
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['admin-stats'],
+    queryFn: () => dashboardApi.adminStats(),
+    refetchInterval: 15000, // Auto-refresh every 15 seconds
+    refetchOnWindowFocus: true,
+  });
+
+  const stats = statsData?.data;
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -110,19 +121,27 @@ export default function AdminPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-500">Active Users</p>
-            <p className="text-2xl font-bold text-gray-900">--</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : stats?.activeUsers ?? '--'}
+            </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-500">Bank Accounts</p>
-            <p className="text-2xl font-bold text-gray-900">4</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : stats?.bankAccounts ?? '--'}
+            </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-500">Routing Rules</p>
-            <p className="text-2xl font-bold text-gray-900">6</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : stats?.routingRules ?? '--'}
+            </p>
           </div>
           <div className="p-4 bg-gray-50 rounded-lg">
             <p className="text-sm text-gray-500">Pending Access Requests</p>
-            <p className="text-2xl font-bold text-gray-900">--</p>
+            <p className="text-2xl font-bold text-gray-900">
+              {statsLoading ? <Loader2 className="h-6 w-6 animate-spin text-gray-400" /> : stats?.pendingAccessRequests ?? '--'}
+            </p>
           </div>
         </div>
       </div>

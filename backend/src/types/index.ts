@@ -5,6 +5,9 @@ import { Request } from 'express';
 // =====================================================
 export type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
 export type UserStatus = 'pending' | 'active' | 'suspended' | 'terminated';
+export type ApproverPool = 'group_or_treasury' | 'senior_or_treasury' | 'treasury_only';
+export type RoutingMode = 'approval_chain' | 'routing_rules';
+export type ApprovalChainOption = 'one_approver' | 'two_approvers';
 
 export interface User {
   id: string;
@@ -500,6 +503,8 @@ export interface PaymentApprovalRow {
   escalated_to_id?: string;
   ip_address?: string;
   user_agent?: string;
+  approver_pool?: string;
+  group_id?: string;
   created_at: Date;
 }
 

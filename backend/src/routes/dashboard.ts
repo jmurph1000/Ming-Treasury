@@ -37,6 +37,29 @@ router.get('/summary', hasRole('admin'), async (req: AuthenticatedRequest, res: 
   }
 });
 
+// Admin system overview — real-time counts for the admin dashboard
+router.get('/admin-stats', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows: usersRow } = await query(`SELECT COUNT(*) as count FROM users WHERE status = 'active'`);
+    const { rows: accountsRow } = await query(`SELECT COUNT(*) as count FROM accounts WHERE is_active = 1`);
+    const { rows: routingRow } = await query(`SELECT COUNT(*) as count FROM routing_rules WHERE is_active = 1`);
+    const { rows: requestsRow } = await query(`SELECT COUNT(*) as count FROM access_requests WHERE status = 'pending'`);
+
+    res.json({
+      success: true,
+      data: {
+        activeUsers: parseInt(usersRow[0].count, 10),
+        bankAccounts: parseInt(accountsRow[0].count, 10),
+        routingRules: parseInt(routingRow[0].count, 10),
+        pendingAccessRequests: parseInt(requestsRow[0].count, 10),
+      },
+    });
+  } catch (error) {
+    logger.error('Error getting admin stats', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
 router.get('/volume', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(`

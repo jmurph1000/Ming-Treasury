@@ -449,6 +449,27 @@ export function initializeSchema() {
   // Safe ALTER TABLE for existing databases that lack the new columns
   try { db.exec(`ALTER TABLE groups ADD COLUMN override_approval_flow INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE groups ADD COLUMN approval_trigger_mode TEXT DEFAULT 'flat'`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE groups ADD COLUMN routing_mode TEXT DEFAULT 'approval_chain'`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE groups ADD COLUMN approval_chain_option TEXT DEFAULT 'one_approver'`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE group_approval_steps ADD COLUMN approver_pool TEXT DEFAULT 'group_or_treasury'`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payment_approvals ADD COLUMN approver_pool TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payment_approvals ADD COLUMN group_id TEXT`); } catch (_) { /* column already exists */ }
+
+  // Group routing change log
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS group_routing_change_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      changed_by TEXT NOT NULL REFERENCES users(id),
+      changed_by_email TEXT,
+      change_type TEXT NOT NULL,
+      old_config TEXT,
+      new_config TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pa_group ON payment_approvals(group_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_grcl_group ON group_routing_change_log(group_id)`);
 
   // Migrate bank_holidays: remove old UNIQUE(date) constraint, add UNIQUE(date, country)
   try {

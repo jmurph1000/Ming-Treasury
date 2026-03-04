@@ -32,6 +32,33 @@ import {
   Hash,
 } from 'lucide-react';
 
+const POOL_LABELS: Record<string, string> = {
+  group_or_treasury: 'Any Group Member or Treasury',
+  senior_or_treasury: 'Sr Manager, Admin, or Treasury',
+  treasury_only: 'Treasury Only',
+};
+
+function getPoolLabel(approval: any): string {
+  if (approval.approver_pool) {
+    return POOL_LABELS[approval.approver_pool] || approval.approver_pool;
+  }
+  return getRoleLabel(approval.approver_role);
+}
+
+function getWaitTime(notifiedAt: string): string {
+  const now = new Date();
+  const notified = new Date(notifiedAt);
+  const diffMs = now.getTime() - notified.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  if (diffHours > 24) {
+    const days = Math.floor(diffHours / 24);
+    return `${days}d ${diffHours % 24}h`;
+  }
+  if (diffHours > 0) return `${diffHours}h ${diffMins}m`;
+  return `${diffMins}m`;
+}
+
 function getApprovalActionIcon(action: string) {
   switch (action) {
     case 'approved':
@@ -183,15 +210,18 @@ export default function PaymentDetailPage() {
         type: 'approval',
         date: approval.actioned_at,
         title: `Step ${approval.step_number}: ${getApprovalActionLabel(approval.action)}`,
-        description: `${approval.approver_name || getRoleLabel(approval.approver_role)}${approval.comment ? ` — "${approval.comment}"` : ''}`,
+        description: `${approval.approver_name || getPoolLabel(approval)}${approval.comment ? ` — "${approval.comment}"` : ''}`,
         icon: getApprovalActionIcon(approval.action),
       });
     } else if (approval.notified_at && approval.action === 'pending') {
+      const waitInfo = ` (waiting ${getWaitTime(approval.notified_at)})`;
       timeline.push({
         type: 'approval',
         date: approval.notified_at,
         title: `Step ${approval.step_number}: Awaiting Approval`,
-        description: `Notified ${approval.approver_name || getRoleLabel(approval.approver_role)}`,
+        description: approval.approver_pool
+          ? `Awaiting: ${getPoolLabel(approval)}${waitInfo}`
+          : `Notified ${approval.approver_name || getRoleLabel(approval.approver_role)}${waitInfo}`,
         icon: <Clock className="h-5 w-5 text-yellow-500" />,
       });
     }
@@ -278,7 +308,9 @@ export default function PaymentDetailPage() {
               {(payment as any).waiting_on && (
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <Clock className="h-3 w-3 mr-1" />
-                  Waiting on: {(payment as any).waiting_on.name || getRoleLabel((payment as any).waiting_on.role)}
+                  Waiting on: {(payment as any).waiting_on.pool
+                    ? (POOL_LABELS[(payment as any).waiting_on.pool] || (payment as any).waiting_on.pool)
+                    : ((payment as any).waiting_on.name || getRoleLabel((payment as any).waiting_on.role))}
                 </span>
               )}
             </div>
@@ -540,11 +572,20 @@ export default function PaymentDetailPage() {
                             </span>
                           </div>
                           <p className="text-sm font-medium text-gray-900 mt-1">
-                            {approval.approver_name || getRoleLabel(approval.approver_role)}
+                            {approval.action !== 'pending'
+                              ? (approval.approver_name || getPoolLabel(approval))
+                              : approval.approver_pool
+                                ? getPoolLabel(approval)
+                                : (approval.approver_name || getRoleLabel(approval.approver_role))}
                           </p>
-                          <p className="text-xs text-gray-500">
-                            {getRoleLabel(approval.approver_role)}
-                          </p>
+                          {!approval.approver_pool && (
+                            <p className="text-xs text-gray-500">
+                              {getRoleLabel(approval.approver_role)}
+                            </p>
+                          )}
+                          {approval.approver_pool && approval.action === 'pending' && (
+                            <p className="text-xs text-cyan-600">Pool-based approval</p>
+                          )}
                           {approval.comment && (
                             <p className="text-sm text-gray-600 mt-1 italic">
                               &ldquo;{approval.comment}&rdquo;
@@ -554,7 +595,7 @@ export default function PaymentDetailPage() {
                             {approval.actioned_at
                               ? formatDateTime(approval.actioned_at)
                               : approval.notified_at
-                                ? `Notified ${formatDateTime(approval.notified_at)}`
+                                ? `Notified ${formatDateTime(approval.notified_at)} (${getWaitTime(approval.notified_at)})`
                                 : 'Waiting'}
                           </p>
                         </div>

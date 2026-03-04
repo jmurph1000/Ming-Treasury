@@ -17,8 +17,9 @@ import {
   Loader2,
   Upload,
   FileSpreadsheet,
+  Download,
 } from 'lucide-react';
-import ExcelJS from 'exceljs';
+import readXlsxFile from 'read-excel-file/browser';
 
 // Matches the actual snake_case field names returned by GET /api/accounts
 interface AccountRow {
@@ -45,9 +46,16 @@ const ACCOUNT_TYPES = [
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
 
 interface ParsedRow {
+  name: string;
   bankName: string;
-  description: string;
-  lastFour: string;
+  accountNumber: string;
+  routingNumber: string;
+  accountType: string;
+  currency: string;
+  dailyLimit: string;
+  dualControlRequired: boolean;
+  dualControlMode: string;
+  errors: string[];
 }
 
 export default function BankAccountsPage() {
@@ -65,69 +73,96 @@ export default function BankAccountsPage() {
     setTimeout(() => setSuccessMessage(null), 8000);
   }, []);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const VALID_ACCOUNT_TYPES = ['checking', 'savings', 'operating', 'payroll'];
+  const VALID_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
+  const VALID_DC_MODES = ['all', 'wires_only', 'above_threshold'];
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const buffer = evt.target?.result as ArrayBuffer;
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const sheet = workbook.worksheets[0];
-        if (!sheet) {
-          setUploadError('No worksheet found in the Excel file.');
-          return;
-        }
-
-        const rows: ParsedRow[] = [];
-        const maxRows = Math.min(sheet.rowCount, 10);
-        for (let i = 1; i <= maxRows; i++) {
-          const row = sheet.getRow(i);
-          const bankName = String(row.getCell(1).value || '').trim();
-          const description = String(row.getCell(2).value || '').trim();
-          const lastFour = String(row.getCell(3).value || '').trim();
-          if (bankName || description || lastFour) {
-            rows.push({ bankName, description, lastFour });
-          }
-        }
-
-        if (rows.length === 0) {
-          setUploadError('No valid data found in the spreadsheet. Expected columns A (Bank Name), B (Account Description), C (Last 4 Digits).');
-          return;
-        }
-
-        for (let i = 0; i < rows.length; i++) {
-          if (!rows[i].bankName) {
-            setUploadError(`Row ${i + 1}: Bank Name (column A) is required`);
-            return;
-          }
-          if (!rows[i].description) {
-            setUploadError(`Row ${i + 1}: Account Description (column B) is required`);
-            return;
-          }
-          if (!/^\d{4}$/.test(rows[i].lastFour)) {
-            setUploadError(`Row ${i + 1}: Last 4 Digits (column C) must be exactly 4 digits`);
-            return;
-          }
-        }
-
-        setParsedRows(rows);
-        setShowUploadModal(true);
-      } catch {
-        setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx file.');
+    try {
+      const rawRows = await readXlsxFile(file);
+      if (!rawRows || rawRows.length === 0) {
+        setUploadError('No data found in the spreadsheet.');
+        return;
       }
-    };
-    reader.readAsArrayBuffer(file);
+
+      // Detect header row — skip it if the first cell looks like a header
+      const firstCell = String(rawRows[0][0] || '').toLowerCase().trim();
+      const hasHeader = firstCell.includes('account') || firstCell.includes('name') || firstCell === '#';
+      const dataRows = hasHeader ? rawRows.slice(1) : rawRows;
+
+      if (dataRows.length === 0) {
+        setUploadError('No data rows found. The spreadsheet only contains a header row.');
+        return;
+      }
+
+      if (dataRows.length > 50) {
+        setUploadError('Maximum 50 accounts can be uploaded at a time.');
+        return;
+      }
+
+      const parsed: ParsedRow[] = dataRows.map((row) => {
+        const name = String(row[0] || '').trim();
+        const bankName = String(row[1] || '').trim();
+        const accountNumber = String(row[2] || '').trim();
+        const routingNumber = String(row[3] || '').trim();
+        const rawType = String(row[4] || 'Checking').trim().toLowerCase();
+        const rawCurrency = String(row[5] || 'USD').trim().toUpperCase();
+        const rawLimit = String(row[6] || '').trim();
+        const rawDualControl = String(row[7] || 'Yes').trim().toLowerCase();
+        const rawDcMode = String(row[8] || 'All Payments').trim().toLowerCase();
+
+        // Normalize dual control mode
+        let dualControlMode = 'all';
+        if (rawDcMode.includes('wire')) dualControlMode = 'wires_only';
+        else if (rawDcMode.includes('threshold') || rawDcMode.includes('above')) dualControlMode = 'above_threshold';
+
+        const errors: string[] = [];
+        if (!name) errors.push('Account Name is required');
+        if (!bankName) errors.push('Bank Name is required');
+        if (!accountNumber || accountNumber.length < 4) errors.push('Account Number is required (min 4 digits)');
+        if (!routingNumber || !/^\d{9}$/.test(routingNumber)) errors.push('Routing Number must be 9 digits');
+        if (rawType && !VALID_ACCOUNT_TYPES.includes(rawType)) errors.push(`Invalid Account Type "${rawType}"`);
+        if (rawCurrency && !VALID_CURRENCIES.includes(rawCurrency)) errors.push(`Invalid Currency "${rawCurrency}"`);
+        if (rawLimit && isNaN(parseFloat(rawLimit))) errors.push('Daily Limit must be a number');
+
+        return {
+          name,
+          bankName,
+          accountNumber,
+          routingNumber,
+          accountType: VALID_ACCOUNT_TYPES.includes(rawType) ? rawType : 'checking',
+          currency: VALID_CURRENCIES.includes(rawCurrency) ? rawCurrency : 'USD',
+          dailyLimit: rawLimit,
+          dualControlRequired: rawDualControl !== 'no' && rawDualControl !== 'false' && rawDualControl !== '0',
+          dualControlMode,
+          errors,
+        };
+      }).filter((row) => row.name || row.bankName || row.accountNumber);
+
+      if (parsed.length === 0) {
+        setUploadError('No valid data rows found. Expected columns: Account Name, Bank Name, Account Number, Routing Number, ...');
+        return;
+      }
+
+      setParsedRows(parsed);
+      setShowUploadModal(true);
+    } catch {
+      setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx file.');
+    }
     e.target.value = '';
   }, []);
 
   const bulkUploadMutation = useMutation({
-    mutationFn: (accounts: ParsedRow[]) => accountsApi.bulkUpload(accounts),
+    mutationFn: (accounts: ParsedRow[]) => accountsApi.bulkUpload(
+      accounts.map(({ errors, ...rest }) => rest)
+    ),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       const count = data?.data?.length || parsedRows.length;
       showSuccess(`${count} new account(s) added successfully`);
       setShowUploadModal(false);
@@ -137,6 +172,21 @@ export default function BankAccountsPage() {
       setUploadError(error.message || 'Failed to upload accounts');
     },
   });
+
+  const hasRowErrors = parsedRows.some((r) => r.errors.length > 0);
+
+  const downloadTemplate = useCallback(() => {
+    const headers = ['Account Name', 'Bank Name', 'Account Number', 'Routing Number', 'Account Type', 'Currency', 'Daily Limit', 'Dual Control', 'Dual Control Mode'];
+    const sampleRow = ['Main Operating', 'Chase Bank', '123456789012', '021000021', 'Checking', 'USD', '1000000', 'Yes', 'All Payments'];
+    const csv = [headers.join(','), sampleRow.join(',')].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bank_accounts_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
 
   const { data, isLoading } = useQuery({
     queryKey: ['accounts'],
@@ -197,6 +247,13 @@ export default function BankAccountsPage() {
             onChange={handleFileSelect}
             className="hidden"
           />
+          <button
+            onClick={downloadTemplate}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-5 w-5" />
+            Download Template
+          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -347,7 +404,7 @@ export default function BankAccountsPage() {
       {/* UPLOAD FROM EXCEL MODAL */}
       {showUploadModal && parsedRows.length > 0 && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="bg-white rounded-xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -355,7 +412,14 @@ export default function BankAccountsPage() {
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-gray-900">Upload Accounts from Excel</h2>
-                  <p className="text-sm text-gray-500">{parsedRows.length} account(s) found</p>
+                  <p className="text-sm text-gray-500">
+                    {parsedRows.length} account(s) found
+                    {hasRowErrors && (
+                      <span className="text-red-600 ml-2">
+                        ({parsedRows.filter(r => r.errors.length > 0).length} with errors)
+                      </span>
+                    )}
+                  </p>
                 </div>
               </div>
               <button
@@ -373,32 +437,70 @@ export default function BankAccountsPage() {
               </div>
             )}
 
-            <div className="border rounded-lg overflow-hidden mb-4">
-              <table className="w-full">
+            {hasRowErrors && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>Some rows have validation errors (highlighted in red). Please fix them in your spreadsheet and re-upload, or they will be skipped.</span>
+              </div>
+            )}
+
+            <div className="border rounded-lg overflow-x-auto mb-4">
+              <table className="w-full min-w-[900px]">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bank Name (Col A)</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account Description (Col B)</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Last 4 Digits (Col C)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bank Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Account #</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Routing #</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Currency</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Daily Limit</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Dual Ctrl</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">DC Mode</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {parsedRows.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-500">{idx + 1}</td>
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{row.bankName}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{row.description}</td>
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">****{row.lastFour}</td>
-                    </tr>
-                  ))}
+                  {parsedRows.map((row, idx) => {
+                    const hasErrors = row.errors.length > 0;
+                    return (
+                      <tr key={idx} className={hasErrors ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                        <td className="px-3 py-2 text-sm text-gray-500">{idx + 1}</td>
+                        <td className="px-3 py-2 text-sm font-medium text-gray-900">{row.name || <span className="text-red-400 italic">Missing</span>}</td>
+                        <td className="px-3 py-2 text-sm text-gray-900">{row.bankName || <span className="text-red-400 italic">Missing</span>}</td>
+                        <td className="px-3 py-2 text-sm font-mono text-gray-900">
+                          {row.accountNumber ? `****${row.accountNumber.slice(-4)}` : <span className="text-red-400 italic">Missing</span>}
+                        </td>
+                        <td className="px-3 py-2 text-sm font-mono text-gray-900">
+                          {row.routingNumber || <span className="text-red-400 italic">Missing</span>}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-900 capitalize">{row.accountType}</td>
+                        <td className="px-3 py-2 text-sm text-gray-900">{row.currency}</td>
+                        <td className="px-3 py-2 text-sm text-gray-900">
+                          {row.dailyLimit ? formatCurrency(parseFloat(row.dailyLimit)) : '--'}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-900">{row.dualControlRequired ? 'Yes' : 'No'}</td>
+                        <td className="px-3 py-2 text-sm text-gray-900 capitalize">{row.dualControlMode.replace(/_/g, ' ')}</td>
+                        <td className="px-3 py-2 text-sm">
+                          {hasErrors ? (
+                            <span className="text-red-600 text-xs" title={row.errors.join('; ')}>
+                              {row.errors.length} error{row.errors.length > 1 ? 's' : ''}
+                            </span>
+                          ) : (
+                            <CheckCircle className="h-4 w-4 text-green-500" />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-sm text-blue-700">
-              Accounts will be created as <strong>Checking / USD</strong> with dual control enabled.
-              You can edit individual settings after upload.
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-sm text-yellow-800 flex items-start gap-2">
+              <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>Account and routing numbers will be encrypted at rest using AES-256 encryption.</span>
             </div>
 
             <div className="flex justify-end gap-3">
@@ -409,8 +511,15 @@ export default function BankAccountsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => bulkUploadMutation.mutate(parsedRows)}
-                disabled={bulkUploadMutation.isPending}
+                onClick={() => {
+                  const validRows = parsedRows.filter(r => r.errors.length === 0);
+                  if (validRows.length === 0) {
+                    setUploadError('No valid rows to upload. Please fix the errors and try again.');
+                    return;
+                  }
+                  bulkUploadMutation.mutate(validRows);
+                }}
+                disabled={bulkUploadMutation.isPending || parsedRows.filter(r => r.errors.length === 0).length === 0}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {bulkUploadMutation.isPending ? (
@@ -421,7 +530,8 @@ export default function BankAccountsPage() {
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    Upload {parsedRows.length} Account{parsedRows.length !== 1 ? 's' : ''}
+                    Upload {parsedRows.filter(r => r.errors.length === 0).length} Account{parsedRows.filter(r => r.errors.length === 0).length !== 1 ? 's' : ''}
+                    {hasRowErrors && ` (${parsedRows.filter(r => r.errors.length > 0).length} skipped)`}
                   </>
                 )}
               </button>
@@ -483,6 +593,7 @@ function AddEditAccountModal({
     mutationFn: (data: any) => accountsApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       onSuccess('Account created successfully');
     },
     onError: (error: any) => {
@@ -494,6 +605,7 @@ function AddEditAccountModal({
     mutationFn: ({ id, data }: { id: string; data: any }) => accountsApi.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       onSuccess('Account updated successfully');
     },
     onError: (error: any) => {

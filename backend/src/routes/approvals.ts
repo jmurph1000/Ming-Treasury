@@ -3,10 +3,12 @@ import { query, transaction } from '../config/sqlite.js';
 import { AuthenticatedRequest, PaymentApprovalRow } from '../types/index.js';
 import { validate, approvalActionSchema, rejectPaymentSchema, returnPaymentSchema } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS, getClientIp } from '../middleware/audit.js';
-import { canApprove, canApproveForRole } from '../middleware/rbac.js';
+import { canApprove, canApproveForRole, adminOnly } from '../middleware/rbac.js';
 import { approvalRateLimit } from '../middleware/rateLimit.js';
+import { checkPoolEligibility, isPaymentInitiator } from '../services/approvalEligibility.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
+import type { ApproverPool } from '../types/index.js';
 
 const router = Router();
 
@@ -18,10 +20,12 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
 
-    // Get approvals where user's role matches and it's their turn
+    // Get approvals where user is eligible (pool-based or legacy role/id match)
+    // Excludes payments where the user is the initiator (self-approval prevention)
     const { rows } = await query(
       `SELECT p.*,
               pa.id as approval_id, pa.step_number, pa.approver_role, pa.notified_at,
+              pa.approver_pool, pa.group_id,
               u.name as requester_name,
               a.name as account_name
        FROM payment_approvals pa
@@ -30,10 +34,20 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
        LEFT JOIN accounts a ON p.account_id = a.id
        WHERE pa.action = 'pending'
        AND pa.step_number = p.current_approval_step
-       AND (pa.approver_role = $1 OR pa.approver_id = $2)
        AND p.status = 'pending_approval'
+       AND p.requester_id != $1
+       AND (
+         pa.approver_id = $1
+         OR (pa.approver_pool IS NULL AND pa.approver_role = $2)
+         OR (pa.approver_pool = 'group_or_treasury' AND (
+           $2 = 'admin'
+           OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = pa.group_id AND gm.user_id = $1)
+         ))
+         OR (pa.approver_pool = 'senior_or_treasury' AND $2 IN ('sr_manager', 'admin'))
+         OR (pa.approver_pool = 'treasury_only' AND $2 = 'admin')
+       )
        ORDER BY pa.notified_at ASC NULLS LAST`,
-      [user.role, user.id]
+      [user.id, user.role]
     );
 
     res.json({
@@ -158,6 +172,17 @@ router.post('/:id/approve', canApprove, approvalRateLimit, async (req: Authentic
 
     const approval = approvalRows[0];
 
+    // Self-approval prevention
+    const isSelf = await isPaymentInitiator(approval.payment_id, user.id);
+    if (isSelf) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: ERROR_CODES.SELF_APPROVAL,
+        message: 'You cannot approve a request you initiated',
+      });
+      return;
+    }
+
     // Check if it's the user's turn
     if (approval.step_number !== approval.current_approval_step) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -178,8 +203,20 @@ router.post('/:id/approve', canApprove, approvalRateLimit, async (req: Authentic
       return;
     }
 
-    // Check role permission
-    if (!canApproveForRole(user.role, approval.approver_role as any)) {
+    // Pool-based eligibility check or legacy role check
+    if (approval.approver_pool) {
+      const eligible = await checkPoolEligibility(
+        user.id, user.role, approval.approver_pool as ApproverPool, approval.group_id || null
+      );
+      if (!eligible) {
+        res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          error: ERROR_CODES.FORBIDDEN,
+          message: 'You are not eligible to approve this payment based on the approval pool rules',
+        });
+        return;
+      }
+    } else if (!canApproveForRole(user.role, approval.approver_role as any)) {
       res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: ERROR_CODES.FORBIDDEN,
@@ -294,6 +331,17 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
 
     const approval = approvalRows[0];
 
+    // Self-approval prevention
+    const isSelfReject = await isPaymentInitiator(approval.payment_id, user.id);
+    if (isSelfReject && user.role !== 'admin') {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: ERROR_CODES.SELF_APPROVAL,
+        message: 'You cannot reject a request you initiated',
+      });
+      return;
+    }
+
     // Check if it's the user's turn
     if (approval.step_number !== approval.current_approval_step) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
@@ -313,8 +361,22 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
       return;
     }
 
+    // Pool-based eligibility check
+    if (approval.approver_pool) {
+      const eligible = await checkPoolEligibility(
+        user.id, user.role, approval.approver_pool as ApproverPool, approval.group_id || null
+      );
+      if (!eligible) {
+        res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          error: ERROR_CODES.FORBIDDEN,
+          message: 'You are not eligible to act on this payment',
+        });
+        return;
+      }
+    }
+
     await transaction(async (client) => {
-      // Update approval record
       await client.query(
         `UPDATE payment_approvals
          SET action = 'rejected',
@@ -326,7 +388,6 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
         [id, user.id, comment, clientIp]
       );
 
-      // Update payment status
       await client.query(
         `UPDATE payments
          SET status = 'rejected',
@@ -334,11 +395,8 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
          WHERE id = $1`,
         [approval.payment_id]
       );
-
-      // TODO: Notify requester via Gmail MCP
     });
 
-    // Log audit entry
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_REJECTED, {
       tableName: 'payment_approvals',
       recordId: id,
@@ -375,7 +433,6 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
     const user = req.user!;
     const clientIp = getClientIp(req);
 
-    // Get approval
     const { rows: approvalRows } = await query<PaymentApprovalRow & { current_approval_step: number }>(
       `SELECT pa.*, p.current_approval_step
        FROM payment_approvals pa
@@ -413,8 +470,22 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
       return;
     }
 
+    // Pool-based eligibility check
+    if (approval.approver_pool) {
+      const eligible = await checkPoolEligibility(
+        user.id, user.role, approval.approver_pool as ApproverPool, approval.group_id || null
+      );
+      if (!eligible) {
+        res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          error: ERROR_CODES.FORBIDDEN,
+          message: 'You are not eligible to act on this payment',
+        });
+        return;
+      }
+    }
+
     await transaction(async (client) => {
-      // Update approval record
       await client.query(
         `UPDATE payment_approvals
          SET action = 'returned',
@@ -426,7 +497,6 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
         [id, user.id, comment, clientIp]
       );
 
-      // Update payment status
       await client.query(
         `UPDATE payments
          SET status = 'returned',
@@ -434,11 +504,8 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
          WHERE id = $1`,
         [approval.payment_id]
       );
-
-      // TODO: Notify requester via Gmail MCP
     });
 
-    // Log audit entry
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_RETURNED, {
       tableName: 'payment_approvals',
       recordId: id,
@@ -518,6 +585,121 @@ router.post('/:id/comment', async (req: AuthenticatedRequest, res: Response) => 
       success: false,
       error: ERROR_CODES.INTERNAL_ERROR,
       message: 'Failed to add comment',
+    });
+  }
+});
+
+/**
+ * POST /api/approvals/:id/reassign
+ * Reassign a pending approval to a different approver (admin only)
+ */
+router.post('/:id/reassign', adminOnly, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { newApproverId } = req.body;
+    const user = req.user!;
+    const clientIp = getClientIp(req);
+
+    if (!newApproverId) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'newApproverId is required',
+      });
+      return;
+    }
+
+    // Get approval
+    const { rows: approvalRows } = await query<PaymentApprovalRow>(
+      `SELECT pa.*, p.requester_id
+       FROM payment_approvals pa
+       JOIN payments p ON pa.payment_id = p.id
+       WHERE pa.id = $1`,
+      [id]
+    );
+
+    if (approvalRows.length === 0) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({
+        success: false,
+        error: ERROR_CODES.NOT_FOUND,
+        message: 'Approval not found',
+      });
+      return;
+    }
+
+    const approval = approvalRows[0] as any;
+
+    if (approval.action !== 'pending') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.ALREADY_APPROVED,
+        message: 'Cannot reassign an approval that has already been processed',
+      });
+      return;
+    }
+
+    // Ensure new approver is not the initiator
+    if (newApproverId === approval.requester_id) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.SELF_APPROVAL,
+        message: 'Cannot reassign to the payment initiator',
+      });
+      return;
+    }
+
+    // Validate new approver is eligible per pool rules
+    if (approval.approver_pool) {
+      const { rows: newApprover } = await query<{ role: string }>(
+        'SELECT role FROM users WHERE id = $1 AND status = $2',
+        [newApproverId, 'active']
+      );
+      if (newApprover.length === 0) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: 'New approver not found or inactive',
+        });
+        return;
+      }
+      const eligible = await checkPoolEligibility(
+        newApproverId, newApprover[0].role as any, approval.approver_pool as ApproverPool, approval.group_id || null
+      );
+      if (!eligible) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: 'New approver is not eligible for this approval pool',
+        });
+        return;
+      }
+    }
+
+    const oldApproverId = approval.approver_id;
+
+    await query(
+      `UPDATE payment_approvals SET approver_id = $2, notified_at = datetime('now') WHERE id = $1`,
+      [id, newApproverId]
+    );
+
+    await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.APPROVAL_REASSIGNED, {
+      tableName: 'payment_approvals',
+      recordId: id,
+      oldValues: { approverId: oldApproverId },
+      newValues: { approverId: newApproverId, paymentId: approval.payment_id },
+      ipAddress: clientIp,
+    });
+
+    res.json({
+      success: true,
+      message: 'Approval reassigned successfully',
+    });
+  } catch (error) {
+    logger.error('Error reassigning approval', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to reassign approval',
     });
   }
 });

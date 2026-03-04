@@ -74,6 +74,7 @@ export default function RoutingRulesPage() {
     mutationFn: (id: string) => routingApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routing-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
     },
   });
 
@@ -358,6 +359,7 @@ function RuleModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['routing-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
       onClose();
     },
   });
