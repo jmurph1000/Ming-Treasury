@@ -487,17 +487,26 @@ function DailyTab({ initialStatus }: { initialStatus?: string }) {
 // ─── Tab 3: Weekly ─────────────────────────────────────────────────────────
 
 function WeeklyTab() {
+  // Format a Date as YYYY-MM-DD in local timezone (avoids toISOString UTC shift)
+  const toLocalDate = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const getMonday = (d: Date) => {
     const date = new Date(d);
     const day = date.getDay();
     const diff = date.getDate() - day + (day === 0 ? -6 : 1);
     date.setDate(diff);
-    return date.toISOString().slice(0, 10);
+    return toLocalDate(date);
   };
+
   const getSunday = (monday: string) => {
-    const d = new Date(monday);
-    d.setDate(d.getDate() + 6);
-    return d.toISOString().slice(0, 10);
+    const [y, m, d] = monday.split('-').map(Number);
+    const date = new Date(y, m - 1, d + 6);
+    return toLocalDate(date);
   };
 
   const [startDate, setStartDate] = useState(getMonday(new Date()));
@@ -505,7 +514,7 @@ function WeeklyTab() {
   const endDate = getSunday(startDate);
 
   const { data, isLoading } = usePayments({
-    page: 1, limit: 200,
+    page: 1, limit: 100,
     startDate,
     endDate,
     paymentType: adminFilters.paymentType || undefined,
@@ -514,6 +523,9 @@ function WeeklyTab() {
   });
 
   const payments = data?.data || [];
+
+  // Debug log for weekly query verification
+  console.log('[WeeklyTab] Date range:', startDate, 'to', endDate, '| Payments found:', payments.length, '| API total:', data?.meta?.total ?? 'N/A');
 
   // Group by date(created_at)
   const grouped: Record<string, any[]> = {};
