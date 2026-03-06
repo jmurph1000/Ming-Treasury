@@ -6,7 +6,7 @@ import { runEscalationJob } from './jobs/escalationJob.js';
 import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
 import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
 import { runUserPermissionsReportJob } from './jobs/userPermissionsReportJob.js';
-import { runEodReportJob } from './jobs/eodReportJob.js';
+import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -55,13 +55,30 @@ async function startServer(): Promise<void> {
   // Schedule background jobs
   scheduleJobs();
 
-  // Run pending payments summary on startup so today's report is always current
+  // Run startup catch-up tasks after a short delay to let the server stabilize
   setTimeout(async () => {
+    // Generate any missed EOD reports from server downtime
+    try {
+      await runMissedEodReports();
+      logger.info('Startup missed EOD report catch-up completed');
+    } catch (error) {
+      logger.error('Startup missed EOD report catch-up failed', { error: (error as Error).message });
+    }
+
+    // Run pending payments summary so today's report is always current
     try {
       await runPendingPaymentsSummaryJob();
       logger.info('Startup pending payments summary completed');
     } catch (error) {
       logger.error('Startup pending payments summary failed', { error: (error as Error).message });
+    }
+
+    // Generate today's EOD report if it doesn't exist yet
+    try {
+      await runEodReportJob();
+      logger.info('Startup EOD report for today completed');
+    } catch (error) {
+      logger.error('Startup EOD report for today failed', { error: (error as Error).message });
     }
   }, 5000);
 
