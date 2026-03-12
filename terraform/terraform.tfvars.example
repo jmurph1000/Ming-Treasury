@@ -1,0 +1,59 @@
+# ===========================================================================
+# Treasury Payment Portal — Terraform Variables
+#
+# Copy this file to terraform.tfvars and fill in your environment values:
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Also update the S3 backend block in main.tf with your state bucket/key,
+# then run:
+#
+#   terraform init
+#   terraform plan
+#   terraform apply
+#
+# terraform.tfvars is gitignored and will not be committed.
+# ===========================================================================
+
+# -- General ----------------------------------------------------------------
+aws_region  = "us-west-2"
+aws_profile = "MyProfile-123456789012"    # AWS CLI profile with credentials/SSO
+app_name    = "treasury-portal"
+environment = "sandbox"                   # e.g. sandbox, staging, production
+
+# -- Networking -------------------------------------------------------------
+vpc_id = "vpc-XXXXXXXXXXXXXXXXX"
+
+private_subnet_ids = [
+  "subnet-XXXXXXXXXXXXXXXXX",            # AZ-a
+  "subnet-XXXXXXXXXXXXXXXXX",            # AZ-b
+  "subnet-XXXXXXXXXXXXXXXXX",            # AZ-c
+]
+
+ecs_cluster_name = "eait-sandbox-ecs"     # Existing ECS cluster name
+alb_name         = "eait-sandbox-ecs-alb" # Existing ALB name
+
+ecs_security_group_id = "sg-XXXXXXXXXXXXXXXXX"  # Security group for ECS tasks
+alb_security_group_id = "sg-XXXXXXXXXXXXXXXXX"  # ALB security group (ingress source)
+
+# -- DNS --------------------------------------------------------------------
+dns_zone_name = "sandbox.it-services.gustocorp.com"
+dns_name      = "treasury-portal.sandbox.it-services.gustocorp.com"
+
+# -- ALB listener rule priorities -------------------------------------------
+# Must not conflict with other apps on the same ALB.
+# Lower number = higher priority.
+backend_listener_priority  = 100
+frontend_listener_priority = 200
+
+# -- Container config: Backend ---------------------------------------------
+backend_cpu           = 512               # CPU units (1 vCPU = 1024)
+backend_memory        = 1024              # Memory in MiB
+backend_desired_count = 1
+backend_image_tag     = "latest"
+
+# -- Container config: Frontend --------------------------------------------
+frontend_cpu           = 256
+frontend_memory        = 512
+frontend_desired_count = 1
+frontend_image_tag     = "latest"
