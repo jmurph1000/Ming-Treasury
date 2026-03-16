@@ -23,11 +23,13 @@ export async function checkPoolEligibility(
     case 'group_or_treasury':
       if (userRole === 'admin') return true;
       if (!groupId) return false;
-      const { rows } = await query<{ user_id: string }>(
-        'SELECT user_id FROM group_members WHERE group_id = $1 AND user_id = $2',
+      // Must be in the group AND have initiator_approver role (not requestor_only)
+      const { rows } = await query<{ user_id: string; role: string }>(
+        `SELECT user_id, role FROM group_members WHERE group_id = $1 AND user_id = $2`,
         [groupId, userId]
       );
-      return rows.length > 0;
+      if (rows.length === 0) return false;
+      return rows[0].role !== 'requestor_only';
 
     default:
       return false;
@@ -79,7 +81,7 @@ export async function getEligibleApprovers(
       sql = `SELECT DISTINCT u.id, u.name, u.email, u.role FROM users u
              LEFT JOIN group_members gm ON gm.user_id = u.id AND gm.group_id = $2
              WHERE u.status = 'active' AND u.id != $1
-               AND (u.role = 'admin' OR gm.user_id IS NOT NULL)
+               AND (u.role = 'admin' OR (gm.user_id IS NOT NULL AND gm.role = 'initiator_approver'))
              ORDER BY u.name`;
       params = [excludeUserId, groupId];
       break;

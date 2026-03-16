@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, NextFunction } from 'express';
 import { query, transaction } from '../config/sqlite.js';
 import { AuthenticatedRequest, Payment, ExecutionConfirmation } from '../types/index.js';
 import { validate, confirmExecutionSchema, bankRejectSchema, emergencyHaltSchema } from '../utils/validators.js';
@@ -11,8 +11,28 @@ import { maskAccountNumber, maskRoutingNumber } from '../utils/masks.js';
 
 const router = Router();
 
-// All execution routes require treasury role
+// All execution routes require treasury role (admin)
 router.use(canExecute);
+
+// Additional check: must be a Treasury group member with is_supervisor=true
+async function requireTreasurySupervisor(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  const user = req.user!;
+  const { rows } = await query<{ is_supervisor: number }>(
+    `SELECT is_supervisor FROM group_members WHERE group_id = 'grp-treasury' AND user_id = $1`,
+    [user.id]
+  );
+  if (rows.length === 0 || !rows[0].is_supervisor) {
+    res.status(HTTP_STATUS.FORBIDDEN).json({
+      success: false,
+      error: ERROR_CODES.FORBIDDEN,
+      message: 'Only Treasury supervisors can execute payments',
+    });
+    return;
+  }
+  next();
+}
+
+router.use(requireTreasurySupervisor);
 
 /**
  * GET /api/execution/queue
@@ -29,7 +49,7 @@ router.get('/queue', async (req: AuthenticatedRequest, res: Response) => {
        FROM payments p
        LEFT JOIN users u ON p.requester_id = u.id
        LEFT JOIN accounts a ON p.account_id = a.id
-       WHERE p.status IN ('ready_to_execute', 'pending_confirmation')
+       WHERE p.status = 'ready_to_execute'
        ORDER BY p.requested_date ASC, p.created_at ASC`
     );
 
@@ -122,46 +142,18 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       return;
     }
 
-    // Dual control is always required (hardcoded system rule)
-    const requiresDualControl = true;
-
-    // Check for existing confirmation by this user
-    const { rows: existingConfirms } = await query<ExecutionConfirmation>(
-      'SELECT * FROM execution_confirmations WHERE payment_id = $1',
-      [id]
-    );
-
-    const userAlreadyConfirmed = existingConfirms.some(
-      (c) => (c as any).confirmer_id === user.id && !(c as any).is_emergency_halt
-    );
-
-    if (userAlreadyConfirmed) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'You have already confirmed this payment',
-      });
-      return;
-    }
-
-    // Determine confirmation type
-    const hasPrimaryConfirm = existingConfirms.some(
-      (c) => (c as any).confirmation_type === 'primary' && !(c as any).is_emergency_halt
-    );
-    const confirmationType = hasPrimaryConfirm ? 'secondary' : 'primary';
-
+    // Single-step execution: no dual control required
     await transaction(async (client) => {
-      // Insert confirmation
+      // Insert execution confirmation record
       await client.query(
         `INSERT INTO execution_confirmations (
           payment_id, confirmer_id, confirmation_type,
           bank_reference, actual_amount, actual_date,
           ip_address, user_agent
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        ) VALUES ($1, $2, 'primary', $3, $4, $5, $6, $7)`,
         [
           id,
           user.id,
-          confirmationType,
           data.bankReference,
           data.actualAmount,
           data.actualDate,
@@ -170,31 +162,21 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
         ]
       );
 
-      // If dual control not required or this is the second confirmation, execute
-      if (!requiresDualControl || confirmationType === 'secondary') {
-        await client.query(
-          `UPDATE payments
-           SET status = 'executed',
-               bank_reference = $2,
-               actual_execution_date = $3,
-               executed_at = datetime('now'),
-               updated_at = datetime('now')
-           WHERE id = $1`,
-          [id, data.bankReference, data.actualDate]
-        );
-
-        // TODO: Create NetSuite journal entry via MCP
-        // TODO: Send Slack notification via MCP
-      } else {
-        // Move to pending confirmation for second approval
-        await client.query(
-          `UPDATE payments
-           SET status = 'pending_confirmation',
-               updated_at = datetime('now')
-           WHERE id = $1`,
-          [id]
-        );
-      }
+      // Mark payment as executed with executor metadata
+      await client.query(
+        `UPDATE payments
+         SET status = 'executed',
+             bank_reference = $2,
+             bank_reference_number = $2,
+             actual_execution_date = $3,
+             executed_at = datetime('now'),
+             executed_by_user_id = $4,
+             executed_by_name = $5,
+             execution_notes = $6,
+             updated_at = datetime('now')
+         WHERE id = $1`,
+        [id, data.bankReference, data.actualDate, user.id, user.name || user.email, data.notes || null]
+      );
     });
 
     // Log audit entry
@@ -202,25 +184,22 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       tableName: 'execution_confirmations',
       recordId: id,
       newValues: {
-        confirmationType,
+        executedBy: user.name || user.email,
+        executedByUserId: user.id,
         bankReference: data.bankReference,
         actualAmount: data.actualAmount,
-        requiresDualControl,
+        paymentId: id,
       },
       ipAddress: clientIp,
     });
 
-    const isComplete = !requiresDualControl || confirmationType === 'secondary';
-
     res.json({
       success: true,
-      message: isComplete
-        ? 'Payment executed successfully'
-        : 'First confirmation recorded. Awaiting second confirmation.',
+      message: 'Payment executed successfully',
       data: {
-        confirmationType,
-        isComplete,
-        requiresSecondConfirmation: requiresDualControl && confirmationType === 'primary',
+        confirmationType: 'primary',
+        isComplete: true,
+        requiresSecondConfirmation: false,
       },
     });
   } catch (error) {
@@ -445,16 +424,19 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
 
     await transaction(async (client) => {
       for (const payment of payments) {
-        // Update payment status
+        // Update payment status with executor metadata
         await client.query(
           `UPDATE payments
            SET status = 'executed',
                bank_reference = $2,
+               bank_reference_number = $2,
                actual_execution_date = date('now'),
                executed_at = datetime('now'),
+               executed_by_user_id = $3,
+               executed_by_name = $4,
                updated_at = datetime('now')
            WHERE id = $1`,
-          [payment.id, batchReference]
+          [payment.id, batchReference, user.id, user.name || user.email]
         );
 
         // Record confirmation

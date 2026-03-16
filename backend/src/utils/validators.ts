@@ -41,11 +41,11 @@ export const createPaymentSchema = z.object({
   paymentType: paymentTypeSchema,
   fundingType: fundingTypeSchema,
   destinationAccountId: uuidSchema.optional(),
-  extBankName: z.string().max(30).optional(),
-  extRoutingNumber: z.string().max(30).optional(),
-  extBankAccount: z.string().max(30).optional(),
-  extRecipientAddress: z.string().max(30).optional(),
-  extSpecialInstructions: z.string().max(30).optional(),
+  extBankName: z.string().max(255).optional(),
+  extRoutingNumber: z.string().max(50).optional(),
+  extBankAccount: z.string().max(50).optional(),
+  extRecipientAddress: z.string().max(500).optional(),
+  extSpecialInstructions: z.string().max(500).optional(),
   businessJustification: z
     .string()
     .min(
@@ -107,6 +107,7 @@ export const confirmExecutionSchema = z.object({
     .max(100),
   actualAmount: z.number().positive(),
   actualDate: dateSchema,
+  notes: z.string().max(1000).optional(),
 });
 
 export const bankRejectSchema = z.object({
@@ -145,7 +146,7 @@ export const createAccountSchema = z.object({
   bankName: z.string().min(1).max(255),
   accountNumber: z.string().min(4).max(20),
   routingNumber: z.string().length(9, 'Routing number must be 9 digits'),
-  accountType: z.enum(['checking', 'savings', 'payroll', 'operating']),
+  accountType: z.enum(['checking', 'savings', 'payroll', 'operating', 'investment']),
   currency: currencySchema.default('USD'),
   dailyLimit: z.number().positive().optional(),
   dualControlRequired: z.boolean().default(true),

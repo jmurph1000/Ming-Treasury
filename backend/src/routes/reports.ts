@@ -18,45 +18,82 @@ const router = Router();
  */
 router.get('/dashboard', hasRole('admin', 'manager', 'sr_manager'), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const user = req.user!;
     const today = new Date().toISOString().slice(0, 10);
     const monthStart = today.slice(0, 7) + '-01';
 
+    // For non-admin users, scope to own payments + payments from users in same groups
+    const isAdmin = user.role === 'admin';
+
+    // Pre-fetch visible user IDs for non-admin users (parameterized)
+    let visibleUserIds: string[] | null = null;
+    if (!isAdmin) {
+      const { rows: groupUserRows } = await query<{ user_id: string }>(
+        `SELECT DISTINCT gm2.user_id FROM group_members gm
+         JOIN group_members gm2 ON gm2.group_id = gm.group_id
+         WHERE gm.user_id = $1`,
+        [user.id]
+      );
+      visibleUserIds = [...new Set([user.id, ...groupUserRows.map(r => r.user_id)])];
+    }
+
+    // Build a scope filter using IN (?) placeholders
+    function scopedQuery<T>(sql: string, params: unknown[] = []): ReturnType<typeof query<T>> {
+      if (isAdmin) return query<T>(sql, params);
+      const placeholders = visibleUserIds!.map((_, i) => `$${params.length + i + 1}`).join(',');
+      const scopedSql = sql.replace('/*SCOPE*/', `AND p.requester_id IN (${placeholders})`);
+      return query<T>(scopedSql, [...params, ...visibleUserIds!]);
+    }
+
     // Pending approvals count
-    const { rows: pendingRows } = await query<{ count: number }>(`
-      SELECT COUNT(*) AS count FROM payments WHERE status = 'pending_approval'
+    const { rows: pendingRows } = await scopedQuery<{ count: number }>(`
+      SELECT COUNT(*) AS count FROM payments p WHERE status = 'pending_approval' /*SCOPE*/
     `);
 
     // MTD payments (submitted this month)
-    const { rows: mtdRows } = await query<{ count: number; total: number }>(`
+    const { rows: mtdRows } = await scopedQuery<{ count: number; total: number }>(`
       SELECT COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
-      FROM payments WHERE date(created_at) >= $1
+      FROM payments p WHERE date(created_at) >= $1 /*SCOPE*/
     `, [monthStart]);
 
     // Executed today
-    const { rows: execRows } = await query<{ count: number; total: number }>(`
+    const { rows: execRows } = await scopedQuery<{ count: number; total: number }>(`
       SELECT COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
-      FROM payments WHERE status = 'executed' AND date(executed_at) = $1
+      FROM payments p WHERE status = 'executed' AND date(executed_at) = $1 /*SCOPE*/
     `, [today]);
 
     // Ready to execute
-    const { rows: readyRows } = await query<{ count: number }>(`
-      SELECT COUNT(*) AS count FROM payments WHERE status IN ('ready_to_execute', 'pending_confirmation')
+    const { rows: readyRows } = await scopedQuery<{ count: number }>(`
+      SELECT COUNT(*) AS count FROM payments p WHERE status IN ('ready_to_execute', 'pending_confirmation') /*SCOPE*/
     `);
 
     // Pipeline breakdown by status
-    const { rows: pipelineRows } = await query<{ status: string; count: number; total: number }>(`
+    const { rows: pipelineRows } = await scopedQuery<{ status: string; count: number; total: number }>(`
       SELECT status, COUNT(*) AS count, COALESCE(SUM(usd_equivalent), 0) AS total
-      FROM payments
+      FROM payments p
+      WHERE 1=1 /*SCOPE*/
       GROUP BY status
       ORDER BY count DESC
     `);
 
     // Escalations count (pending approvals older than 24h)
-    const { rows: escRows } = await query<{ count: number }>(`
-      SELECT COUNT(*) AS count FROM payment_approvals
-      WHERE action = 'pending'
-        AND datetime(created_at, '+24 hours') < datetime('now')
-    `);
+    const { rows: escRows } = isAdmin
+      ? await query<{ count: number }>(`
+          SELECT COUNT(*) AS count FROM payment_approvals
+          WHERE action = 'pending'
+            AND datetime(created_at, '+24 hours') < datetime('now')
+        `)
+      : await (async () => {
+          const placeholders = visibleUserIds!.map((_, i) => `$${i + 1}`).join(',');
+          return query<{ count: number }>(`
+            SELECT COUNT(*) AS count FROM payment_approvals pa
+            WHERE pa.action = 'pending'
+              AND datetime(pa.created_at, '+24 hours') < datetime('now')
+              AND pa.payment_id IN (
+                SELECT p.id FROM payments p WHERE p.requester_id IN (${placeholders})
+              )
+          `, visibleUserIds!);
+        })();
 
     res.json({
       success: true,

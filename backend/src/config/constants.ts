@@ -193,7 +193,7 @@ export const NOTIFICATION_TYPES = {
 // =====================================================
 // TREASURY ADMIN EMAILS
 // =====================================================
-export const TREASURY_ADMIN_EMAILS = ['john.murphy@gusto.com', 'ming.huey@gusto.com'] as const;
+export const TREASURY_ADMIN_EMAILS = ['john.murphy@gusto.com', 'ming.huey@gusto.com', 'bobby.cajucom@gusto.com'] as const;
 
 // =====================================================
 // ACCOUNT ACCESS AUDIT ACTIONS

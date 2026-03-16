@@ -5,7 +5,7 @@ import cron from 'node-cron';
 import { runEscalationJob } from './jobs/escalationJob.js';
 import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
 import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
-import { runUserPermissionsReportJob } from './jobs/userPermissionsReportJob.js';
+import { runUserPermissionsReportJob, runMissedUserPermissionsReports } from './jobs/userPermissionsReportJob.js';
 import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
 
 // Use SQLite for local development
@@ -65,12 +65,28 @@ async function startServer(): Promise<void> {
       logger.error('Startup missed EOD report catch-up failed', { error: (error as Error).message });
     }
 
+    // Generate any missed user permissions reports from server downtime
+    try {
+      await runMissedUserPermissionsReports();
+      logger.info('Startup missed user permissions report catch-up completed');
+    } catch (error) {
+      logger.error('Startup missed user permissions report catch-up failed', { error: (error as Error).message });
+    }
+
     // Run pending payments summary so today's report is always current
     try {
       await runPendingPaymentsSummaryJob();
       logger.info('Startup pending payments summary completed');
     } catch (error) {
       logger.error('Startup pending payments summary failed', { error: (error as Error).message });
+    }
+
+    // Generate today's user permissions report if it doesn't exist yet
+    try {
+      await runUserPermissionsReportJob();
+      logger.info('Startup user permissions report for today completed');
+    } catch (error) {
+      logger.error('Startup user permissions report for today failed', { error: (error as Error).message });
     }
 
     // Generate today's EOD report if it doesn't exist yet

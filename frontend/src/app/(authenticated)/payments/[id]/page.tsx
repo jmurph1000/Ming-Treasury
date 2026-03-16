@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { usePayment, useSubmitPayment, useCancelPayment } from '@/hooks/usePayments';
+import { usePayment, useSubmitPayment, useCancelPayment, useApprovePayment, useRejectPayment, useReturnPayment } from '@/hooks/usePayments';
 import { useAuth } from '@/hooks/useAuth';
 import {
   formatCurrency,
@@ -113,8 +113,14 @@ export default function PaymentDetailPage() {
   const { data, isLoading, error } = usePayment(id);
   const submitPayment = useSubmitPayment();
   const cancelPayment = useCancelPayment();
+  const approvePayment = useApprovePayment();
+  const rejectPayment = useRejectPayment();
+  const returnPayment = useReturnPayment();
 
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showApprovalActions, setShowApprovalActions] = useState(false);
+  const [approvalComment, setApprovalComment] = useState('');
+  const [approvalAction, setApprovalAction] = useState<'approve' | 'reject' | 'return' | null>(null);
 
   const payment = data?.data;
   const approvals = (payment as any)?.approvals || [];
@@ -134,6 +140,28 @@ export default function PaymentDetailPage() {
       setShowCancelConfirm(false);
     } catch (err) {
       console.error('Cancel failed:', err);
+    }
+  }
+
+  const approvalEligibility = (payment as any)?.approval_eligibility;
+  const canApprovePayment = approvalEligibility?.can_approve === true;
+  const approvalId = approvalEligibility?.approval_id;
+
+  async function handleApprovalAction() {
+    if (!approvalId || !approvalAction) return;
+    try {
+      if (approvalAction === 'approve') {
+        await approvePayment.mutateAsync({ id: approvalId, comment: approvalComment || undefined });
+      } else if (approvalAction === 'reject') {
+        await rejectPayment.mutateAsync({ id: approvalId, comment: approvalComment });
+      } else if (approvalAction === 'return') {
+        await returnPayment.mutateAsync({ id: approvalId, comment: approvalComment });
+      }
+      setShowApprovalActions(false);
+      setApprovalComment('');
+      setApprovalAction(null);
+    } catch (err) {
+      console.error('Approval action failed:', err);
     }
   }
 
@@ -268,6 +296,31 @@ export default function PaymentDetailPage() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
+          {canApprovePayment && (
+            <>
+              <button
+                onClick={() => { setApprovalAction('approve'); setShowApprovalActions(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Approve
+              </button>
+              <button
+                onClick={() => { setApprovalAction('return'); setShowApprovalActions(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-orange-300 text-orange-700 rounded-md hover:bg-orange-50 transition-colors"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Return
+              </button>
+              <button
+                onClick={() => { setApprovalAction('reject'); setShowApprovalActions(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-red-300 text-red-700 rounded-md hover:bg-red-50 transition-colors"
+              >
+                <XCircle className="h-4 w-4" />
+                Reject
+              </button>
+            </>
+          )}
           {canSubmit && (
             <button
               onClick={handleSubmit}
@@ -636,6 +689,57 @@ export default function PaymentDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Approval Action Modal */}
+      {showApprovalActions && approvalAction && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              {approvalAction === 'approve' && <><CheckCircle className="h-5 w-5 text-green-500" /> Approve Payment</>}
+              {approvalAction === 'reject' && <><XCircle className="h-5 w-5 text-red-500" /> Reject Payment</>}
+              {approvalAction === 'return' && <><RotateCcw className="h-5 w-5 text-orange-500" /> Return Payment</>}
+            </h3>
+            <p className="text-gray-500 mt-2">
+              {approvalAction === 'approve' && 'Add an optional comment and confirm approval.'}
+              {approvalAction === 'reject' && 'Please provide a reason for rejection.'}
+              {approvalAction === 'return' && 'Please explain what information is needed.'}
+            </p>
+            <textarea
+              value={approvalComment}
+              onChange={(e) => setApprovalComment(e.target.value)}
+              placeholder={approvalAction === 'approve' ? 'Optional comment...' : 'Required comment...'}
+              className="w-full mt-3 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              rows={3}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => { setShowApprovalActions(false); setApprovalComment(''); setApprovalAction(null); }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleApprovalAction}
+                disabled={
+                  (approvalAction !== 'approve' && !approvalComment.trim()) ||
+                  approvePayment.isPending || rejectPayment.isPending || returnPayment.isPending
+                }
+                className={`px-4 py-2 text-white rounded-md disabled:opacity-50 ${
+                  approvalAction === 'approve' ? 'bg-green-600 hover:bg-green-700' :
+                  approvalAction === 'reject' ? 'bg-red-600 hover:bg-red-700' :
+                  'bg-orange-600 hover:bg-orange-700'
+                }`}
+              >
+                {approvePayment.isPending || rejectPayment.isPending || returnPayment.isPending
+                  ? 'Processing...'
+                  : approvalAction === 'approve' ? 'Confirm Approval'
+                  : approvalAction === 'reject' ? 'Confirm Rejection'
+                  : 'Confirm Return'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Confirmation Modal */}
       {showCancelConfirm && (

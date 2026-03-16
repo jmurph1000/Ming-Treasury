@@ -6,6 +6,7 @@ import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { getUserPaymentLimit } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS, PAGINATION } from '../config/constants.js';
+import { determineApprovalChain, validatePayrollAccountAccess, getApprovalEligibility } from '../services/approvalRules.js';
 
 const router = Router();
 
@@ -36,6 +37,28 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     if (user.role === 'staff') {
       conditions.push(`p.requester_id = $${paramIndex++}`);
       params.push(user.id);
+    } else if (user.role === 'manager' || user.role === 'sr_manager') {
+      // Non-admin/treasury: see own payments OR payments from users in same groups
+      // OR payments pending their approval (via approval eligibility)
+      conditions.push(`(p.requester_id = $${paramIndex} OR p.requester_id IN (
+        SELECT gm2.user_id FROM group_members gm
+        JOIN group_members gm2 ON gm2.group_id = gm.group_id
+        WHERE gm.user_id = $${paramIndex}
+        AND gm.role = 'initiator_approver'
+      ) OR p.id IN (
+        SELECT pa.payment_id FROM payment_approvals pa
+        WHERE pa.action = 'pending'
+        AND (
+          pa.approver_id = $${paramIndex}
+          OR (pa.approver_pool = 'group_or_treasury' AND EXISTS (
+            SELECT 1 FROM group_members gm3 WHERE gm3.group_id = pa.group_id AND gm3.user_id = $${paramIndex}
+            AND gm3.role = 'initiator_approver'
+          ))
+          OR (pa.approver_pool = 'senior_or_treasury')
+        )
+      ))`);
+      params.push(user.id);
+      paramIndex++;
     }
 
     if (filters.status) {
@@ -202,6 +225,7 @@ router.get('/calendar', async (req: AuthenticatedRequest, res: Response) => {
         SELECT gm2.user_id FROM group_members gm
         JOIN group_members gm2 ON gm2.group_id = gm.group_id
         WHERE gm.user_id = $${paramIndex}
+        AND gm.role = 'initiator_approver'
       ))`;
       params.push(user.id);
       paramIndex++;
@@ -238,6 +262,19 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
         success: false,
         error: ERROR_CODES.PAYMENT_LIMIT_EXCEEDED,
         message: `Payment amount exceeds your limit of $${limit.toLocaleString()}`,
+      });
+      return;
+    }
+
+    // Validate Payroll account restrictions
+    const payrollCheck = await validatePayrollAccountAccess(
+      user.id, data.accountId, data.destinationAccountId || null, data.fundingType
+    );
+    if (!payrollCheck.valid) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        error: ERROR_CODES.FORBIDDEN,
+        message: payrollCheck.error,
       });
       return;
     }
@@ -314,14 +351,25 @@ router.post('/', async (req: AuthenticatedRequest, res: Response) => {
 
     const payment = rows[0];
 
+    // Enhanced audit: capture initiator group, accounts, payment type per Section 5
+    const { rows: initiatorGroups } = await query<{ group_name: string }>(
+      `SELECT g.name as group_name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id = $1`,
+      [user.id]
+    );
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_CREATED, {
       tableName: 'payments',
       recordId: payment.id,
       newValues: {
         referenceNumber: payment.reference_number,
+        initiatorName: user.name || user.email,
+        initiatorGroup: initiatorGroups.map(g => g.group_name).join(', ') || 'None',
         payeeName: payment.payee_name,
         amount: payment.amount,
         currency: payment.currency,
+        paymentType: payment.payment_type,
+        originationAccountId: payment.account_id,
+        destinationAccountId: payment.destination_account_id,
+        fundingType: payment.funding_type,
       },
     });
 
@@ -384,6 +432,42 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
+    // Manager/Sr Manager: can only view own payments, same-group payments, or payments they can approve
+    if ((user.role === 'manager' || user.role === 'sr_manager') && payment.requester_id !== user.id) {
+      const { rows: sharedGroups } = await query<{ cnt: number }>(
+        `SELECT COUNT(*) as cnt FROM group_members gm
+         JOIN group_members gm2 ON gm2.group_id = gm.group_id
+         WHERE gm.user_id = $1 AND gm2.user_id = $2
+         AND gm.role = 'initiator_approver'`,
+        [user.id, payment.requester_id]
+      );
+      // Also check if user has pending approval eligibility for this payment
+      let hasApprovalAccess = false;
+      if (!sharedGroups[0]?.cnt) {
+        const { rows: approvalAccess } = await query<{ cnt: number }>(
+          `SELECT COUNT(*) as cnt FROM payment_approvals pa
+           WHERE pa.payment_id = $1
+           AND (
+             pa.approver_id = $2
+             OR (pa.approver_pool = 'group_or_treasury' AND EXISTS (
+               SELECT 1 FROM group_members gm WHERE gm.group_id = pa.group_id AND gm.user_id = $2
+               AND gm.role = 'initiator_approver'
+             ))
+           )`,
+          [id, user.id]
+        );
+        hasApprovalAccess = (approvalAccess[0]?.cnt ?? 0) > 0;
+      }
+      if (!sharedGroups[0]?.cnt && !hasApprovalAccess) {
+        res.status(HTTP_STATUS.FORBIDDEN).json({
+          success: false,
+          error: ERROR_CODES.FORBIDDEN,
+          message: 'You can only view payments from your own groups',
+        });
+        return;
+      }
+    }
+
     const { rows: approvals } = await query(
       `SELECT pa.*, u.name as approver_name
        FROM payment_approvals pa
@@ -418,9 +502,18 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
       }
     }
 
+    // Check if current user can approve this payment
+    let approval_eligibility: { can_approve: boolean; approval_id: string | null; reason?: string } = {
+      can_approve: false, approval_id: null,
+    };
+    if (payment.status === 'pending_approval') {
+      const elig = await getApprovalEligibility(user.id, user.email, user.role, id);
+      approval_eligibility = { can_approve: elig.canApprove, approval_id: elig.approvalId, reason: elig.reason };
+    }
+
     res.json({
       success: true,
-      data: { ...payment, approvals, comments, waiting_on },
+      data: { ...payment, approvals, comments, waiting_on, approval_eligibility },
     });
   } catch (error) {
     logger.error('Error getting payment', { error: (error as Error).message });
@@ -526,207 +619,35 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    // --- Group-level approval flow override ---
-    // Check if the requester belongs to a group with override_approval_flow = 1
-    let groupOverrideUsed = false;
-    let groupOverrideName: string | null = null;
-    let groupId: string | null = null;
-    let chain: ApprovalChainRow[] = [];
-    // Extended chain info for pool-based approvals
-    let poolChain: Array<{ step: number; approver_role: string; approver_pool: string | null; group_id: string | null; specific_approver_id: string | null }> = [];
-
-    const { rows: userGroups } = await query<{
-      group_id: string; group_name: string; approval_trigger_mode: string;
-      routing_mode: string; approval_chain_option: string;
-    }>(
-      `SELECT g.id AS group_id, g.name AS group_name, g.approval_trigger_mode,
-              g.routing_mode, g.approval_chain_option
-       FROM group_members gm
-       JOIN groups g ON g.id = gm.group_id
-       WHERE gm.user_id = $1 AND g.override_approval_flow = 1
-       ORDER BY g.name
-       LIMIT 1`,
-      [payment.requester_id]
+    // --- Determine approval chain using centralized rules ---
+    const approvalConfig = await determineApprovalChain(
+      id, payment.requester_id, payment.usd_equivalent,
+      payment.account_id, payment.destination_account_id,
     );
 
-    if (userGroups.length > 0) {
-      const grp = userGroups[0];
-      groupId = grp.group_id;
-      const routingMode = grp.routing_mode || (grp.approval_trigger_mode === 'flat' ? 'approval_chain' : 'routing_rules');
-
-      if (routingMode === 'approval_chain') {
-        // Approval Chain mode: 1 or 2 approvers, pool = group_or_treasury
-        const numApprovers = grp.approval_chain_option === 'two_approvers' ? 2 : 1;
-        for (let s = 1; s <= numApprovers; s++) {
-          poolChain.push({
-            step: s,
-            approver_role: 'any',
-            approver_pool: 'group_or_treasury',
-            group_id: grp.group_id,
-            specific_approver_id: null,
-          });
-        }
-        // Build legacy chain for total_approval_steps count
-        chain = poolChain.map(s => ({
-          id: `group-chain-${s.step}`,
-          rule_id: `group-override-${grp.group_id}`,
-          step: s.step,
-          approver_role: 'any',
-          approver_id: null,
-        } as unknown as ApprovalChainRow));
-        groupOverrideUsed = true;
-        groupOverrideName = `${grp.group_name} (Approval Chain - ${numApprovers} approver${numApprovers > 1 ? 's' : ''})`;
-        logger.info('Using group approval chain override', {
-          paymentId: id, groupId: grp.group_id, groupName: grp.group_name,
-          chainOption: grp.approval_chain_option, steps: numApprovers,
-        });
-      } else {
-        // Routing Rules mode: find matching tier by payment amount
-        const tierQuery = `SELECT * FROM group_approval_tiers
-                           WHERE group_id = $1
-                             AND (min_amount IS NULL OR min_amount <= $2)
-                             AND (max_amount IS NULL OR max_amount >= $2)
-                           ORDER BY sort_order LIMIT 1`;
-        const { rows: tiers } = await query(tierQuery, [grp.group_id, payment.usd_equivalent]);
-
-        if (tiers.length > 0) {
-          const tier = tiers[0];
-          const { rows: steps } = await query(
-            `SELECT * FROM group_approval_steps WHERE tier_id = $1 ORDER BY step`,
-            [tier.id]
-          );
-
-          if (steps.length > 0) {
-            poolChain = steps.map((s: any) => ({
-              step: s.step,
-              approver_role: s.approver_pool ? 'any' : (s.approver_mode === 'role' ? s.approver_role : s.approver_role || 'manager'),
-              approver_pool: s.approver_pool || null,
-              group_id: grp.group_id,
-              specific_approver_id: s.approver_mode === 'specific_user' ? s.specific_approver_id : null,
-            }));
-            chain = poolChain.map(s => ({
-              id: `group-tier-${s.step}`,
-              rule_id: `group-override-${grp.group_id}`,
-              step: s.step,
-              approver_role: s.approver_role,
-              approver_id: null,
-            } as unknown as ApprovalChainRow));
-            groupOverrideUsed = true;
-            groupOverrideName = `${grp.group_name} (Routing Rules - ${tier.label})`;
-            logger.info('Using group routing rules override', {
-              paymentId: id, groupId: grp.group_id, groupName: grp.group_name,
-              tierLabel: tier.label, steps: steps.length,
-            });
-          }
-        }
-      }
-    }
-
-    // --- Fall through to global routing rules if no group override matched ---
-    let matchedRule: RoutingRuleRow | null = null;
-
-    if (!groupOverrideUsed) {
-      // Find matching routing rule
-      const { rows: rules } = await query<RoutingRuleRow>(
-        `SELECT * FROM routing_rules WHERE is_active = 1 ORDER BY priority LIMIT 50`
-      );
-
-      for (const rule of rules) {
-        let matches = false;
-        switch (rule.trigger_type) {
-          case 'account':
-            matches = rule.account_id === payment.account_id;
-            break;
-          case 'payment_type':
-            matches = rule.payment_type === payment.payment_type;
-            break;
-          case 'amount_range':
-            matches =
-              (rule.min_amount == null || payment.usd_equivalent >= rule.min_amount) &&
-              (rule.max_amount == null || payment.usd_equivalent <= rule.max_amount);
-            break;
-          default:
-            break;
-        }
-        if (matches) { matchedRule = rule; break; }
-      }
-
-      // If no rule matched, use a default 1-step approval
-      if (!matchedRule) {
-        logger.warn('No routing rule matched, using default approval', { paymentId: id });
-      }
-
-      // Get approval chain
-      if (matchedRule) {
-        const { rows } = await query<ApprovalChainRow>(
-          `SELECT * FROM approval_chains WHERE rule_id = $1 ORDER BY step`,
-          [matchedRule.id]
-        );
-        chain = rows;
-      }
-
-      // If chain is empty, create a default single-step approval
-      if (chain.length === 0) {
-        chain = [{ id: 'default', rule_id: matchedRule?.id || 'default', step: 1, approver_role: 'manager', approver_id: null } as unknown as ApprovalChainRow];
-      }
-    }
-
-    const routingRuleId = groupOverrideUsed ? null : (matchedRule?.id || null);
-
-    // Update payment status using SQLite query (no PostgreSQL pool needed)
+    // Update payment status
     await query(
       `UPDATE payments
        SET status = 'pending_approval',
-           routing_rule_id = $2,
+           routing_rule_id = NULL,
            current_approval_step = 1,
-           total_approval_steps = $3,
+           total_approval_steps = $2,
            submitted_at = datetime('now'),
            updated_at = datetime('now')
        WHERE id = $1`,
-      [id, routingRuleId, chain.length]
+      [id, approvalConfig.steps.length]
     );
 
     // Create approval records for each step
-    for (let i = 0; i < chain.length; i++) {
-      const step = chain[i];
-      const poolStep = poolChain.length > i ? poolChain[i] : null;
-
-      let approverId: string | null = null;
-      let approverRole = step.approver_role;
-      let approverPool: string | null = null;
-      let approvalGroupId: string | null = null;
-
-      if (poolStep?.approver_pool) {
-        // Pool-based: leave approver_id NULL, set pool + group
-        approverPool = poolStep.approver_pool;
-        approvalGroupId = poolStep.group_id;
-        approverRole = poolStep.approver_role || 'any';
-        // Use specific approver if set even in pool mode
-        if (poolStep.specific_approver_id) {
-          approverId = poolStep.specific_approver_id;
-        }
-      } else {
-        // Legacy: pre-assign approver by role or specific user
-        approverId = (step as any).specific_approver_id || null;
-        if (!approverId && step.approver_role && step.approver_role !== 'any') {
-          const { rows: approverUsers } = await query<{ id: string }>(
-            `SELECT id FROM users WHERE role = $1 AND status = 'active' LIMIT 1`,
-            [step.approver_role]
-          );
-          approverId = approverUsers.length > 0 ? approverUsers[0].id : null;
-        }
-      }
-
+    for (const step of approvalConfig.steps) {
       await query(
         `INSERT INTO payment_approvals (payment_id, approver_id, approver_role, step_number, action, notified_at, approver_pool, group_id)
-         VALUES ($1, $2, $3, $4, 'pending', datetime('now'), $5, $6)`,
-        [id, approverId, approverRole, step.step, approverPool, approvalGroupId]
+         VALUES ($1, NULL, $2, $3, 'pending', datetime('now'), $4, $5)`,
+        [id, step.approver_role, step.step, step.approver_pool, step.group_id]
       );
     }
 
-    const routingRuleName = groupOverrideUsed
-      ? groupOverrideName!
-      : (matchedRule?.name || 'Default Approval');
+    const routingRuleName = approvalConfig.description;
 
     // Log audit entry
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_SUBMITTED, {
@@ -734,12 +655,9 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       recordId: id,
       newValues: {
         status: 'pending_approval',
-        routingRuleId: routingRuleId,
-        groupOverride: groupOverrideUsed ? groupOverrideName : undefined,
-        groupId: groupOverrideUsed ? groupId : undefined,
-        routingMode: groupOverrideUsed ? (userGroups[0]?.routing_mode || 'approval_chain') : 'global',
-        approverPools: poolChain.map(s => s.approver_pool).filter(Boolean),
-        totalApprovalSteps: chain.length,
+        approvalRule: approvalConfig.description,
+        groupId: approvalConfig.groupId,
+        totalApprovalSteps: approvalConfig.steps.length,
       },
     });
 
@@ -748,7 +666,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
       message: 'Payment submitted for approval',
       data: {
         routingRule: routingRuleName,
-        approvalSteps: chain.length,
+        approvalSteps: approvalConfig.steps.length,
       },
     });
   } catch (error) {

@@ -493,6 +493,19 @@ export function initializeSchema() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pa_group ON payment_approvals(group_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_grcl_group ON group_routing_change_log(group_id)`);
 
+  // ── Section 1: sort_order on accounts ──
+  try { db.exec(`ALTER TABLE accounts ADD COLUMN sort_order INTEGER DEFAULT 100`); } catch (_) { /* column already exists */ }
+
+  // ── Section 2: role & is_supervisor on group_members ──
+  try { db.exec(`ALTER TABLE group_members ADD COLUMN role TEXT DEFAULT 'initiator_approver' CHECK (role IN ('requestor_only', 'initiator_approver'))`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE group_members ADD COLUMN is_supervisor INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
+
+  // ── Section 5: execution metadata on payments ──
+  try { db.exec(`ALTER TABLE payments ADD COLUMN executed_by_user_id TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN executed_by_name TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN execution_notes TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN bank_reference_number TEXT`); } catch (_) { /* column already exists */ }
+
   // End-of-day report snapshots
   db.exec(`
     CREATE TABLE IF NOT EXISTS eod_reports (
@@ -1081,6 +1094,90 @@ A: Contact treasury-admin@gusto.com or your IT help desk.
   } else {
     logger.info('Data already exists, skipping seed');
   }
+
+  // ── Post-seed migrations (run every startup, idempotent) ──
+
+  // Section 1: Ensure JPM Corporate Master -9811 exists
+  const jpmExists = db.prepare("SELECT id FROM accounts WHERE id = 'acct-jpm-9811'").get();
+  if (!jpmExists) {
+    db.prepare(`
+      INSERT INTO accounts (id, name, bank_name, account_number_encrypted, routing_number_encrypted,
+                            account_type, currency, daily_limit, dual_control_required, dual_control_threshold, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'acct-jpm-9811',
+      'JPM Corporate Master -9811',
+      'JPMorgan Chase',
+      'encrypted:****9811',
+      'encrypted:****0001',
+      'operating',
+      'USD',
+      50000000, // $50M daily limit
+      1,
+      0,
+      1 // sort_order = 1, first in all dropdowns
+    );
+    logger.info('Created JPM Corporate Master -9811 account');
+
+    // Grant universal access to all groups
+    const allGroups = db.prepare('SELECT id FROM groups').all() as Array<{ id: string }>;
+    const insertGA = db.prepare(
+      `INSERT OR IGNORE INTO group_accounts (group_id, account_id, direction, funding_type) VALUES (?, ?, 'both', 'both')`
+    );
+    for (const g of allGroups) {
+      insertGA.run(g.id, 'acct-jpm-9811');
+    }
+    logger.info('Granted JPM Corporate Master -9811 access to all groups');
+  }
+
+  // Section 2: Populate role/is_supervisor flags for existing group_members
+  // Set requestor-only users in Payroll
+  const requestorOnlyEmails = [
+    'clarice.norman-mclean@gusto.com',
+    'glydel.arioste@gusto.com',
+    'colin.robbins@gusto.com',
+  ];
+  for (const email of requestorOnlyEmails) {
+    db.prepare(`
+      UPDATE group_members SET role = 'requestor_only'
+      WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = ?)
+      AND group_id = 'grp-payroll'
+      AND role != 'requestor_only'
+    `).run(email.toLowerCase());
+  }
+
+  // Glydel has full rights in AP (initiator_approver), so ensure that's set
+  db.prepare(`
+    UPDATE group_members SET role = 'initiator_approver'
+    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'glydel.arioste@gusto.com')
+    AND group_id != 'grp-payroll'
+    AND role = 'requestor_only'
+  `).run();
+
+  // Set is_supervisor for Treasury members (all are supervisors)
+  db.prepare(`
+    UPDATE group_members SET is_supervisor = 1
+    WHERE group_id = 'grp-treasury'
+  `).run();
+
+  // Set is_supervisor for known supervisors in other groups
+  // KC Deatsch is a supervisor in Accounting and Payroll
+  db.prepare(`
+    UPDATE group_members SET is_supervisor = 1
+    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'kc.deatsch@gusto.com')
+  `).run();
+
+  // Maria Rodriguez is senior in AP
+  db.prepare(`
+    UPDATE group_members SET is_supervisor = 1
+    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'maria.rodriguez@gusto.com')
+  `).run();
+
+  // James Park is manager in AP
+  db.prepare(`
+    UPDATE group_members SET is_supervisor = 1
+    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'james.park@gusto.com')
+  `).run();
 }
 
 // Query helper that matches the pg interface

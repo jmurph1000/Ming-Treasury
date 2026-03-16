@@ -604,6 +604,12 @@ export const groupsApi = {
       body: JSON.stringify({ accounts }),
     }),
 
+  addAccounts: (groupId: string, accounts: Array<{ accountId: string; direction: string; fundingType: string }>) =>
+    fetchApi<void>(`/api/groups/${groupId}/accounts`, {
+      method: 'POST',
+      body: JSON.stringify({ accounts }),
+    }),
+
   userMemberships: (userId: string) =>
     fetchApi<any[]>(`/api/groups/user/${userId}/memberships`),
 

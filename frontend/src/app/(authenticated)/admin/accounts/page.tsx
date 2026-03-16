@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { accountsApi } from '@/lib/api';
+import { accountsApi, groupsApi } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import {
   Building2,
@@ -66,6 +66,8 @@ export default function BankAccountsPage() {
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showGroupAssignModal, setShowGroupAssignModal] = useState(false);
+  const [newAccountIds, setNewAccountIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showSuccess = useCallback((message: string) => {
@@ -77,13 +79,45 @@ export default function BankAccountsPage() {
   const VALID_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
   const VALID_DC_MODES = ['all', 'wires_only', 'above_threshold'];
 
+  const parseCSV = useCallback((text: string): (string | null)[][] => {
+    return text
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => {
+        const values: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (inQuotes) {
+            if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+            else if (ch === '"') { inQuotes = false; }
+            else { current += ch; }
+          } else {
+            if (ch === '"') { inQuotes = true; }
+            else if (ch === ',') { values.push(current); current = ''; }
+            else { current += ch; }
+          }
+        }
+        values.push(current);
+        return values.map((v) => v.trim() || null);
+      });
+  }, []);
+
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
-      const rawRows = await readXlsxFile(file);
+      let rawRows: (string | number | boolean | Date | null)[][];
+      const isCSV = file.name.toLowerCase().endsWith('.csv');
+      if (isCSV) {
+        const text = await file.text();
+        rawRows = parseCSV(text);
+      } else {
+        rawRows = await readXlsxFile(file);
+      }
       if (!rawRows || rawRows.length === 0) {
         setUploadError('No data found in the spreadsheet.');
         return;
@@ -151,22 +185,28 @@ export default function BankAccountsPage() {
       setParsedRows(parsed);
       setShowUploadModal(true);
     } catch {
-      setUploadError('Failed to read the Excel file. Please ensure it is a valid .xlsx file.');
+      setUploadError('Failed to read the file. Please ensure it is a valid .xlsx or .csv file.');
     }
     e.target.value = '';
-  }, []);
+  }, [parseCSV]);
 
   const bulkUploadMutation = useMutation({
     mutationFn: (accounts: ParsedRow[]) => accountsApi.bulkUpload(
       accounts.map(({ errors, ...rest }) => rest)
     ),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
       queryClient.invalidateQueries({ queryKey: ['admin-stats'] });
-      const count = data?.data?.length || parsedRows.length;
+      const created = data?.data || [];
+      const count = created.length || parsedRows.length;
       showSuccess(`${count} new account(s) added successfully`);
       setShowUploadModal(false);
       setParsedRows([]);
+      // Prompt admin to assign new accounts to a group
+      if (created.length > 0) {
+        setNewAccountIds(created.map((a: any) => a.id));
+        setShowGroupAssignModal(true);
+      }
     },
     onError: (error: any) => {
       setUploadError(error.message || 'Failed to upload accounts');
@@ -242,7 +282,7 @@ export default function BankAccountsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls,.csv"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -258,7 +298,7 @@ export default function BankAccountsPage() {
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Upload className="h-5 w-5" />
-            Upload from Excel
+            Upload from Excel / CSV
           </button>
           <button
             onClick={() => { setEditingAccount(null); setShowAddModal(true); }}
@@ -381,6 +421,17 @@ export default function BankAccountsPage() {
           )}
         </div>
       </div>
+
+      {/* Upload Error (shown outside modal so it's visible even if parsing fails) */}
+      {uploadError && !showUploadModal && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">{uploadError}</div>
+          <button onClick={() => setUploadError(null)} className="text-red-400 hover:text-red-600">
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* SOX Compliance Notice */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
@@ -531,6 +582,19 @@ export default function BankAccountsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* GROUP ASSIGNMENT MODAL (after bulk upload) */}
+      {showGroupAssignModal && newAccountIds.length > 0 && (
+        <GroupAssignModal
+          accountIds={newAccountIds}
+          onClose={() => { setShowGroupAssignModal(false); setNewAccountIds([]); }}
+          onSuccess={(msg) => {
+            showSuccess(msg);
+            setShowGroupAssignModal(false);
+            setNewAccountIds([]);
+          }}
+        />
       )}
 
       {/* ADD / EDIT ACCOUNT MODAL */}
@@ -798,6 +862,164 @@ function AddEditAccountModal({
               <>
                 <CheckCircle className="h-4 w-4" />
                 {isEditing ? 'Save Changes' : 'Add Account'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────
+// Group Assignment Modal (shown after bulk upload)
+// ───────────────────────────────────────────────────────────
+function GroupAssignModal({
+  accountIds,
+  onClose,
+  onSuccess,
+}: {
+  accountIds: string[];
+  onClose: () => void;
+  onSuccess: (msg: string) => void;
+}) {
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [direction, setDirection] = useState('both');
+  const [fundingType, setFundingType] = useState('both');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const { data: groupsData } = useQuery({
+    queryKey: ['groups'],
+    queryFn: () => groupsApi.list(),
+  });
+
+  const groups = groupsData?.data || [];
+
+  const assignMutation = useMutation({
+    mutationFn: () => groupsApi.addAccounts(
+      selectedGroupId,
+      accountIds.map((id) => ({ accountId: id, direction, fundingType }))
+    ),
+    onSuccess: () => {
+      onSuccess(`${accountIds.length} account(s) assigned to group — now available for payments`);
+    },
+    onError: (error: any) => {
+      setErrorMessage(error.message || 'Failed to assign accounts');
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Shield className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Assign to Group</h2>
+              <p className="text-sm text-gray-500">
+                {accountIds.length} new account(s) need group access to appear in payment forms
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+
+        {errorMessage && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+              Group *
+            </label>
+            <select
+              value={selectedGroupId}
+              onChange={(e) => setSelectedGroupId(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            >
+              <option value="">Select a group...</option>
+              {groups.map((g: any) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} ({g.member_count} members)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Direction
+              </label>
+              <select
+                value={direction}
+                onChange={(e) => setDirection(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="both">Both (From &amp; To)</option>
+                <option value="from">From (Source Only)</option>
+                <option value="to">To (Destination Only)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Funding Type
+              </label>
+              <select
+                value={fundingType}
+                onChange={(e) => setFundingType(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              >
+                <option value="both">Both (Internal &amp; External)</option>
+                <option value="internal">Internal Only</option>
+                <option value="external">External Only</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800 flex items-start gap-2">
+            <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <span>Members of the selected group will be able to use these accounts when creating payments. You can skip this and assign later from the Groups page.</span>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Skip for Now
+          </button>
+          <button
+            onClick={() => {
+              if (!selectedGroupId) {
+                setErrorMessage('Please select a group');
+                return;
+              }
+              assignMutation.mutate();
+            }}
+            disabled={assignMutation.isPending || !selectedGroupId}
+            className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 inline-flex items-center gap-2"
+          >
+            {assignMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Assigning...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Assign to Group
               </>
             )}
           </button>

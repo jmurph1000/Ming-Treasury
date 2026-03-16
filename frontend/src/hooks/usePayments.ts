@@ -113,6 +113,7 @@ export function useApprovePayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment'] });
       queryClient.invalidateQueries({ queryKey: ['execution'] });
     },
   });
@@ -127,6 +128,7 @@ export function useRejectPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment'] });
     },
   });
 }
@@ -140,6 +142,7 @@ export function useReturnPayment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['approvals'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment'] });
     },
   });
 }

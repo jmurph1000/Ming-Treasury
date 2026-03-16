@@ -369,7 +369,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
                   is_active, created_at
            FROM accounts
            WHERE is_active = 1 AND id IN (${placeholders})
-           ORDER BY name`,
+           ORDER BY COALESCE(sort_order, 100), name`,
           effectiveIds
         );
         rows = result.rows;
@@ -384,7 +384,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
                 is_active, created_at
          FROM accounts
          WHERE is_active = 1
-         ORDER BY name`
+         ORDER BY COALESCE(sort_order, 100), name`
       );
       rows = result.rows;
     }

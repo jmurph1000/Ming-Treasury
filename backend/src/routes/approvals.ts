@@ -6,6 +6,7 @@ import { logAuditEntry, AUDIT_ACTIONS, getClientIp } from '../middleware/audit.j
 import { canApprove, canApproveForRole, adminOnly } from '../middleware/rbac.js';
 import { approvalRateLimit } from '../middleware/rateLimit.js';
 import { checkPoolEligibility, isPaymentInitiator } from '../services/approvalEligibility.js';
+import { canUserApprovePayment } from '../services/approvalRules.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import type { ApproverPool } from '../types/index.js';
@@ -41,7 +42,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
          OR (pa.approver_pool IS NULL AND pa.approver_role = $2)
          OR (pa.approver_pool = 'group_or_treasury' AND (
            $2 = 'admin'
-           OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = pa.group_id AND gm.user_id = $1)
+           OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = pa.group_id AND gm.user_id = $1 AND gm.role = 'initiator_approver')
          ))
          OR (pa.approver_pool = 'senior_or_treasury' AND $2 IN ('sr_manager', 'admin'))
          OR (pa.approver_pool = 'treasury_only' AND $2 = 'admin')
@@ -172,13 +173,15 @@ router.post('/:id/approve', canApprove, approvalRateLimit, async (req: Authentic
 
     const approval = approvalRows[0];
 
-    // Self-approval prevention
-    const isSelf = await isPaymentInitiator(approval.payment_id, user.id);
-    if (isSelf) {
+    // Comprehensive approval eligibility check (self-approval, payroll requestor-only, duplicate approver)
+    const approvalCheck = await canUserApprovePayment(
+      user.id, user.email, approval.payment_id, approval.group_id || null
+    );
+    if (!approvalCheck.allowed) {
       res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: ERROR_CODES.SELF_APPROVAL,
-        message: 'You cannot approve a request you initiated',
+        message: approvalCheck.reason || 'You are not authorized to approve this payment',
       });
       return;
     }
@@ -272,12 +275,19 @@ router.post('/:id/approve', canApprove, approvalRateLimit, async (req: Authentic
       }
     });
 
-    // Log audit entry
+    // Enhanced audit: capture approver group and sequence per Section 5
+    const { rows: approverGroups } = await query<{ group_name: string }>(
+      `SELECT g.name as group_name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id = $1`,
+      [user.id]
+    );
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_APPROVED, {
       tableName: 'payment_approvals',
       recordId: id,
       newValues: {
         paymentId: approval.payment_id,
+        approverName: user.name || user.email,
+        approverGroup: approverGroups.map(g => g.group_name).join(', ') || 'None',
+        approvalSequence: `Step ${approval.step_number} of ${approval.total_approval_steps}`,
         step: approval.step_number,
         comment,
       },
@@ -331,13 +341,15 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
 
     const approval = approvalRows[0];
 
-    // Self-approval prevention
-    const isSelfReject = await isPaymentInitiator(approval.payment_id, user.id);
-    if (isSelfReject && user.role !== 'admin') {
+    // Comprehensive eligibility check for rejection
+    const rejectCheck = await canUserApprovePayment(
+      user.id, user.email, approval.payment_id, approval.group_id || null
+    );
+    if (!rejectCheck.allowed) {
       res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
         error: ERROR_CODES.SELF_APPROVAL,
-        message: 'You cannot reject a request you initiated',
+        message: rejectCheck.reason || 'You are not authorized to reject this payment',
       });
       return;
     }
@@ -397,13 +409,15 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
       );
     });
 
+    // Enhanced audit: capture rejector name and reason per Section 5
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.PAYMENT_REJECTED, {
       tableName: 'payment_approvals',
       recordId: id,
       newValues: {
         paymentId: approval.payment_id,
+        rejectorName: user.name || user.email,
+        reason: comment,
         step: approval.step_number,
-        comment,
       },
       ipAddress: clientIp,
     });

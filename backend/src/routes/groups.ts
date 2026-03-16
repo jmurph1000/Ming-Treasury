@@ -47,7 +47,9 @@ router.get('/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: Resp
 
     const { rows: members } = await query(`
       SELECT u.id, u.name, u.email, u.role, u.status, u.department, u.title,
-             gm.created_at AS added_at
+             gm.created_at AS added_at,
+             gm.role AS group_role,
+             gm.is_supervisor
       FROM group_members gm
       JOIN users u ON u.id = gm.user_id
       WHERE gm.group_id = $1
@@ -80,7 +82,7 @@ router.get('/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: Resp
 router.post('/:id/members', treasuryOnly, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
+    const { userId, role: memberRole, isSupervisor } = req.body;
     const admin = req.user!;
 
     if (!userId) {
@@ -88,9 +90,12 @@ router.post('/:id/members', treasuryOnly, async (req: AuthenticatedRequest, res:
       return;
     }
 
+    const gmRole = memberRole === 'requestor_only' ? 'requestor_only' : 'initiator_approver';
+    const gmSupervisor = isSupervisor ? 1 : 0;
+
     await query(
-      'INSERT OR IGNORE INTO group_members (group_id, user_id, added_by) VALUES ($1, $2, $3)',
-      [id, userId, admin.id]
+      'INSERT OR IGNORE INTO group_members (group_id, user_id, added_by, role, is_supervisor) VALUES ($1, $2, $3, $4, $5)',
+      [id, userId, admin.id, gmRole, gmSupervisor]
     );
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
@@ -185,6 +190,72 @@ router.put('/:id/accounts', treasuryOnly, async (req: AuthenticatedRequest, res:
     res.json({ success: true, message: 'Group account access updated' });
   } catch (error) {
     logger.error('Error updating group accounts', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
+ * POST /api/groups/:id/accounts
+ * Add accounts to a group without removing existing assignments (admin only)
+ * (PUT replaces all, POST adds incrementally)
+ */
+router.post('/:id/accounts', treasuryOnly, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { accounts } = req.body; // Array of { accountId, direction, fundingType }
+    const admin = req.user!;
+
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: ERROR_CODES.VALIDATION_ERROR, message: 'accounts array is required and must not be empty' });
+      return;
+    }
+
+    // Verify group exists
+    const { rows: groupRows } = await query('SELECT id, name FROM groups WHERE id = $1', [id]);
+    if (groupRows.length === 0) {
+      res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: ERROR_CODES.NOT_FOUND, message: 'Group not found' });
+      return;
+    }
+
+    for (const a of accounts) {
+      if (!a.accountId || !['from', 'to', 'both'].includes(a.direction) || !['internal', 'external', 'both'].includes(a.fundingType)) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
+          success: false,
+          error: ERROR_CODES.VALIDATION_ERROR,
+          message: 'Each account must have accountId, direction (from/to/both), and fundingType (internal/external/both)',
+        });
+        return;
+      }
+    }
+
+    let addedCount = 0;
+    for (const a of accounts) {
+      // Skip if already assigned with same direction
+      const { rows: existing } = await query(
+        'SELECT id FROM group_accounts WHERE group_id = $1 AND account_id = $2 AND direction = $3',
+        [id, a.accountId, a.direction]
+      );
+      if (existing.length > 0) continue;
+
+      await query(
+        'INSERT INTO group_accounts (group_id, account_id, direction, funding_type, added_by) VALUES ($1, $2, $3, $4, $5)',
+        [id, a.accountId, a.direction, a.fundingType, admin.id]
+      );
+      addedCount++;
+    }
+
+    await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.ACCOUNT_UPDATED, {
+      tableName: 'group_accounts',
+      recordId: id,
+      newValues: { accountsAdded: accounts, addedCount },
+    });
+
+    // Sync account access for all members of this group
+    await syncGroupMembers(id, admin.id, admin.email);
+
+    res.json({ success: true, message: `${addedCount} account(s) added to group "${groupRows[0].name}"` });
+  } catch (error) {
+    logger.error('Error adding accounts to group', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
   }
 });
