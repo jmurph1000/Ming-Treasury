@@ -73,7 +73,8 @@
       "Bash(sqlite3 treasury.db \"SELECT id, name FROM accounts ORDER BY sort_order, name;\")",
       "Bash(sqlite3 treasury.db \"SELECT id, name, slug FROM groups ORDER BY name;\")",
       "Bash(node -e \":*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(node -e \"console.log\\(JSON.parse\\(require\\(''fs''\\).readFileSync\\(''C:/tmp/fe_login.json'',''utf8''\\)\\).success\\)\")"
     ]
   }
 }
