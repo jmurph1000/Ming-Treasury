@@ -57,9 +57,109 @@ export async function getUserGroups(userId: string): Promise<Array<{ group_id: s
   return rows;
 }
 
+const UNIVERSAL_ACCOUNT_ID = 'acct-jpm-9811';
+const OTHER_GROUP_ID = 'grp-other';
+
+/**
+ * Classify a payment's group based on the SOURCE and DESTINATION accounts used.
+ *
+ * Rules:
+ *  - JPM Corporate Master -9811 is a universal account shared across all groups.
+ *    When used as source, use the DESTINATION account to determine group.
+ *  - Look up which non-Treasury groups have permission to use the destination
+ *    account (direction 'to' or 'both'). That determines the payment's group.
+ *  - For external payments with no destination account, use the source account
+ *    (direction 'from' or 'both') for group classification.
+ *  - Treasury is excluded from classification (they're always eligible as approvers).
+ *  - "Other" group is lowest priority — only used if no other group matches.
+ */
+async function classifyPaymentGroup(
+  accountId: string,
+  destinationAccountId: string | null,
+): Promise<{ groupId: string | null; groupName: string }> {
+  const isUniversalSource = accountId === UNIVERSAL_ACCOUNT_ID;
+
+  // If source is universal and there's a destination, classify by destination
+  if (isUniversalSource && destinationAccountId) {
+    const { rows: destGroups } = await query<{ group_id: string; group_name: string; acct_count: number }>(
+      `SELECT ga.group_id, g.name as group_name,
+              (SELECT COUNT(*) FROM group_accounts ga2 WHERE ga2.group_id = ga.group_id) as acct_count
+       FROM group_accounts ga
+       JOIN groups g ON g.id = ga.group_id
+       WHERE ga.account_id = $1 AND ga.direction IN ('to', 'both')
+         AND ga.group_id NOT IN ($2, $3)
+       ORDER BY acct_count ASC`,
+      [destinationAccountId, TREASURY_GROUP_ID, OTHER_GROUP_ID]
+    );
+    if (destGroups.length > 0) {
+      return { groupId: destGroups[0].group_id, groupName: destGroups[0].group_name };
+    }
+    // Fall through: check "Other" group
+    const { rows: otherGroups } = await query<{ group_id: string; group_name: string }>(
+      `SELECT ga.group_id, g.name as group_name
+       FROM group_accounts ga JOIN groups g ON g.id = ga.group_id
+       WHERE ga.account_id = $1 AND ga.direction IN ('to', 'both') AND ga.group_id = $2`,
+      [destinationAccountId, OTHER_GROUP_ID]
+    );
+    if (otherGroups.length > 0) {
+      return { groupId: otherGroups[0].group_id, groupName: otherGroups[0].group_name };
+    }
+  }
+
+  // If there's a destination and source is NOT universal, find groups with access to BOTH
+  if (destinationAccountId && !isUniversalSource) {
+    const { rows: bothGroups } = await query<{ group_id: string; group_name: string; acct_count: number }>(
+      `SELECT ga_src.group_id, g.name as group_name,
+              (SELECT COUNT(*) FROM group_accounts ga2 WHERE ga2.group_id = ga_src.group_id) as acct_count
+       FROM group_accounts ga_src
+       JOIN group_accounts ga_dst ON ga_dst.group_id = ga_src.group_id AND ga_dst.account_id = $2 AND ga_dst.direction IN ('to', 'both')
+       JOIN groups g ON g.id = ga_src.group_id
+       WHERE ga_src.account_id = $1 AND ga_src.direction IN ('from', 'both')
+         AND ga_src.group_id NOT IN ($3, $4)
+       ORDER BY acct_count ASC`,
+      [accountId, destinationAccountId, TREASURY_GROUP_ID, OTHER_GROUP_ID]
+    );
+    if (bothGroups.length > 0) {
+      return { groupId: bothGroups[0].group_id, groupName: bothGroups[0].group_name };
+    }
+    // Fallback: just destination account
+    const { rows: destOnly } = await query<{ group_id: string; group_name: string; acct_count: number }>(
+      `SELECT ga.group_id, g.name as group_name,
+              (SELECT COUNT(*) FROM group_accounts ga2 WHERE ga2.group_id = ga.group_id) as acct_count
+       FROM group_accounts ga JOIN groups g ON g.id = ga.group_id
+       WHERE ga.account_id = $1 AND ga.direction IN ('to', 'both')
+         AND ga.group_id NOT IN ($2, $3)
+       ORDER BY acct_count ASC`,
+      [destinationAccountId, TREASURY_GROUP_ID, OTHER_GROUP_ID]
+    );
+    if (destOnly.length > 0) {
+      return { groupId: destOnly[0].group_id, groupName: destOnly[0].group_name };
+    }
+  }
+
+  // No destination (external payment) or no match yet — classify by source account
+  if (accountId !== UNIVERSAL_ACCOUNT_ID) {
+    const { rows: srcGroups } = await query<{ group_id: string; group_name: string; acct_count: number }>(
+      `SELECT ga.group_id, g.name as group_name,
+              (SELECT COUNT(*) FROM group_accounts ga2 WHERE ga2.group_id = ga.group_id) as acct_count
+       FROM group_accounts ga JOIN groups g ON g.id = ga.group_id
+       WHERE ga.account_id = $1 AND ga.direction IN ('from', 'both')
+         AND ga.group_id NOT IN ($2, $3)
+       ORDER BY acct_count ASC`,
+      [accountId, TREASURY_GROUP_ID, OTHER_GROUP_ID]
+    );
+    if (srcGroups.length > 0) {
+      return { groupId: srcGroups[0].group_id, groupName: srcGroups[0].group_name };
+    }
+  }
+
+  // Last resort: universal source with no destination — Treasury
+  return { groupId: TREASURY_GROUP_ID, groupName: 'Treasury' };
+}
+
 /**
  * Determine approval steps for a payment based on Section 4 rules.
- * Returns the pool chain configuration.
+ * Group classification is driven ENTIRELY by the accounts used, not the submitter.
  */
 export async function determineApprovalChain(
   paymentId: string,
@@ -72,62 +172,24 @@ export async function determineApprovalChain(
   description: string;
   groupId: string | null;
 }> {
-  const isTreasury = await isTreasuryMember(requesterId);
-  const userGroups = await getUserGroups(requesterId);
   const isHighValue = usdEquivalent >= HIGH_VALUE_THRESHOLD;
 
-  // Check if user is in Payroll
-  const payrollGroup = userGroups.find(g => g.group_id === PAYROLL_GROUP_ID);
-  // Find the primary non-treasury group for the user
-  const nonTreasuryGroups = userGroups.filter(g => g.group_id !== TREASURY_GROUP_ID);
-  const primaryGroup = nonTreasuryGroups.length > 0 ? nonTreasuryGroups[0] : null;
+  // Classify group by accounts, not by submitter
+  const { groupId, groupName } = await classifyPaymentGroup(accountId, destinationAccountId);
 
-  if (isTreasury) {
-    // Treasury superuser: 1 approver (different Treasury member) for any amount
-    // For $1M+, require 2 approvers
-    if (isHighValue) {
-      return {
-        steps: [
-          { step: 1, approver_pool: 'group_or_treasury', group_id: TREASURY_GROUP_ID, approver_role: 'any' },
-          { step: 2, approver_pool: 'group_or_treasury', group_id: TREASURY_GROUP_ID, approver_role: 'any' },
-        ],
-        description: `Treasury (2 approvers - payment >= $1M)`,
-        groupId: TREASURY_GROUP_ID,
-      };
-    }
-    return {
-      steps: [
-        { step: 1, approver_pool: 'group_or_treasury', group_id: TREASURY_GROUP_ID, approver_role: 'any' },
-      ],
-      description: 'Treasury (1 approver)',
-      groupId: TREASURY_GROUP_ID,
-    };
-  }
+  const numSteps = isHighValue ? 2 : 1;
+  const steps = Array.from({ length: numSteps }, (_, i) => ({
+    step: i + 1,
+    approver_pool: 'group_or_treasury',
+    group_id: groupId,
+    approver_role: 'any',
+  }));
 
-  // Non-Treasury users
-  const groupId = primaryGroup?.group_id || null;
-  const groupName = primaryGroup?.group_name || 'Unknown';
+  const desc = isHighValue
+    ? `${groupName} (2 approvers - payment >= $1M)`
+    : `${groupName} (1 approver)`;
 
-  if (isHighValue) {
-    // $1M+: 2 separate approvers required
-    return {
-      steps: [
-        { step: 1, approver_pool: 'group_or_treasury', group_id: groupId, approver_role: 'any' },
-        { step: 2, approver_pool: 'group_or_treasury', group_id: groupId, approver_role: 'any' },
-      ],
-      description: `${groupName} (2 approvers - payment >= $1M)`,
-      groupId,
-    };
-  }
-
-  // Under $1M: 1 approver from same group or Treasury
-  return {
-    steps: [
-      { step: 1, approver_pool: 'group_or_treasury', group_id: groupId, approver_role: 'any' },
-    ],
-    description: `${groupName} (1 approver)`,
-    groupId,
-  };
+  return { steps, description: desc, groupId };
 }
 
 /**
