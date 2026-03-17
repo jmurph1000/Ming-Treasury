@@ -47,7 +47,7 @@ router.post('/bulk-upload', adminOnly, async (req: AuthenticatedRequest, res: Re
     }
 
     const validAccountTypes = ['checking', 'savings', 'operating', 'payroll'];
-    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
+    const validCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY', 'MXN', 'TRY', 'ILS'];
     const validDualControlModes = ['all', 'wires_only', 'above_threshold'];
 
     // Validate each row

@@ -43,7 +43,7 @@ const ACCOUNT_TYPES = [
   { value: 'payroll', label: 'Payroll' },
 ];
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
+const CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY', 'MXN', 'TRY', 'ILS'];
 
 interface ParsedRow {
   name: string;
@@ -76,7 +76,7 @@ export default function BankAccountsPage() {
   }, []);
 
   const VALID_ACCOUNT_TYPES = ['checking', 'savings', 'operating', 'payroll'];
-  const VALID_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'];
+  const VALID_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY', 'MXN', 'TRY', 'ILS'];
   const VALID_DC_MODES = ['all', 'wires_only', 'above_threshold'];
 
   const parseCSV = useCallback((text: string): (string | null)[][] => {

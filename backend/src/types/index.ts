@@ -51,7 +51,7 @@ export type PaymentStatus =
   | 'bank_rejected'
   | 'cancelled';
 
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'SGD' | 'JPY';
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'SGD' | 'JPY' | 'MXN' | 'TRY' | 'ILS';
 
 export interface Payment {
   id: string;

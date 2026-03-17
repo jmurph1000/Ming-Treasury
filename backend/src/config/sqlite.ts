@@ -806,6 +806,9 @@ export function seedData() {
       ['AUD', 'USD', 0.65],
       ['JPY', 'USD', 0.0067],
       ['SGD', 'USD', 0.74],
+      ['MXN', 'USD', 0.058],
+      ['TRY', 'USD', 0.031],
+      ['ILS', 'USD', 0.28],
     ];
 
     const insertFx = db.prepare(`

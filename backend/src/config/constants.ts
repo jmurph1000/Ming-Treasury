@@ -60,7 +60,7 @@ export const PAYMENT_STATUSES = {
 // =====================================================
 // SUPPORTED CURRENCIES
 // =====================================================
-export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY'] as const;
+export const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'JPY', 'MXN', 'TRY', 'ILS'] as const;
 
 export const CURRENCY_DECIMALS: Record<string, number> = {
   USD: 2,
@@ -70,6 +70,9 @@ export const CURRENCY_DECIMALS: Record<string, number> = {
   AUD: 2,
   SGD: 2,
   JPY: 0, // Japanese Yen has no decimal places
+  MXN: 2,
+  TRY: 2,
+  ILS: 2,
 };
 
 // =====================================================

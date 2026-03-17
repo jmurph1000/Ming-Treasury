@@ -6,6 +6,9 @@ export const CURRENCIES = [
   { value: 'AUD', label: 'AUD - Australian Dollar', symbol: 'A$' },
   { value: 'SGD', label: 'SGD - Singapore Dollar', symbol: 'S$' },
   { value: 'JPY', label: 'JPY - Japanese Yen', symbol: '¥' },
+  { value: 'MXN', label: 'MXN - Mexican Peso', symbol: 'MX$' },
+  { value: 'TRY', label: 'TRY - Turkish Lira', symbol: '₺' },
+  { value: 'ILS', label: 'ILS - Israeli Shekel', symbol: '₪' },
 ] as const;
 
 export const PAYMENT_TYPES = [
