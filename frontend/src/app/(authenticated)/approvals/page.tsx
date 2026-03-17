@@ -205,7 +205,7 @@ export default function ApprovalsPage() {
                       </button>
                     )}
                     <Link
-                      href={`/approvals/${approval.approval_id}`}
+                      href={ROUTES.PAYMENT_DETAIL(approval.id)}
                       className="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
                     >
                       View Details
