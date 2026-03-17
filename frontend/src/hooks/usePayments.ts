@@ -19,6 +19,7 @@ export function usePayments(params?: PaginationParams & {
   return useQuery({
     queryKey: ['payments', params],
     queryFn: () => paymentsApi.list(params),
+    staleTime: 10000, // Refetch after 10 seconds to keep list fresh
   });
 }
 

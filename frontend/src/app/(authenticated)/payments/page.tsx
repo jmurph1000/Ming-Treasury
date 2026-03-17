@@ -17,7 +17,20 @@ export default function PaymentsPage() {
     limit: 25,
     search: search || undefined,
     status: statusFilter || undefined,
+    sortBy: 'created_at',
+    sortOrder: 'desc',
   });
+
+  // Reset to page 1 when filters change
+  const handleStatusChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
   const payments = data?.data || [];
   const meta = data?.meta;
@@ -51,7 +64,7 @@ export default function PaymentsPage() {
               type="text"
               placeholder="Search by payee or reference..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary focus:border-transparent"
             />
           </div>
@@ -61,7 +74,7 @@ export default function PaymentsPage() {
             <Filter className="h-4 w-4 text-gray-400" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusChange(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
             >
               <option value="">All Statuses</option>
