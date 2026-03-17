@@ -75,3 +75,4 @@ terraform/crash.log
 *.key
 credentials.json
 secrets.json
+cookies*.txt

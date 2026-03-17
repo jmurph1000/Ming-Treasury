@@ -64,6 +64,11 @@ export default function NewPaymentPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isDuplicateWarning, setIsDuplicateWarning] = useState(false);
+  const [duplicateConfirmed, setDuplicateConfirmed] = useState(false);
+
+  // Snapshot of original payment data for change detection in edit mode
+  type FormDataSnapshot = typeof formData;
+  const [originalFormData, setOriginalFormData] = useState<FormDataSnapshot | null>(null);
 
   // Queries
   const { data: accountsData } = useQuery({
@@ -93,6 +98,7 @@ export default function NewPaymentPage() {
       setIsDuplicateWarning(true);
     } else {
       setIsDuplicateWarning(false);
+      setDuplicateConfirmed(false);
     }
   }, [duplicatesData]);
 
@@ -124,8 +130,39 @@ export default function NewPaymentPage() {
         recurringEndDate: p.recurring_end_date ? p.recurring_end_date.slice(0, 10) : '',
       });
       setEditLoaded(true);
+      // Snapshot original values for change detection
+      setOriginalFormData({
+        payeeName: p.payee_name || '',
+        payeeId: p.payee_id || '',
+        amount: p.amount?.toString() || '',
+        currency: (p.currency as Currency) || 'USD',
+        accountId: p.account_id || '',
+        paymentType: (p.payment_type as PaymentType) || 'ach',
+        fundingType: (p.funding_type as FundingType) || 'external',
+        destinationAccountId: p.destination_account_id || '',
+        extBankName: p.ext_bank_name || '',
+        extRoutingNumber: p.ext_routing_number || '',
+        extBankAccount: p.ext_bank_account || '',
+        extRecipientAddress: p.ext_recipient_address || '',
+        extSpecialInstructions: p.ext_special_instructions || '',
+        businessJustification: p.business_justification || '',
+        requestedDate: p.requested_date ? p.requested_date.slice(0, 10) : '',
+        isRecurring: !!p.is_recurring,
+        recurringFrequency: p.recurring_frequency || '',
+        recurringEndDate: p.recurring_end_date ? p.recurring_end_date.slice(0, 10) : '',
+      });
     }
   }, [isEditMode, editPaymentData, editLoaded]);
+
+  // Tracked fields for change detection in edit mode
+  const TRACKED_FIELDS: (keyof FormDataSnapshot)[] = [
+    'amount', 'accountId', 'destinationAccountId', 'paymentType',
+    'requestedDate', 'businessJustification', 'payeeName',
+  ];
+
+  const hasChanges = !isEditMode || !originalFormData || TRACKED_FIELDS.some(
+    (key) => formData[key]?.toString() !== originalFormData[key]?.toString()
+  );
 
   // Date warning is now handled by BusinessDayPicker component
 
@@ -338,7 +375,22 @@ export default function NewPaymentPage() {
               <p className="text-yellow-700 text-sm mt-1">
                 A similar payment to this payee for this amount was made in the last 90 days.
               </p>
+              <label className="flex items-center gap-2 mt-2 text-sm text-yellow-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={duplicateConfirmed}
+                  onChange={(e) => setDuplicateConfirmed(e.target.checked)}
+                  className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300 rounded"
+                />
+                I confirm this is not a duplicate payment
+              </label>
             </div>
+          </div>
+        )}
+
+        {isEditMode && !hasChanges && (
+          <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">
+            Please update at least one field before resubmitting {'\u2014'} the approver returned this payment for more information.
           </div>
         )}
 
@@ -721,7 +773,7 @@ export default function NewPaymentPage() {
           <button
             type="button"
             onClick={handleSaveDraft}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (isDuplicateWarning && !duplicateConfirmed)}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -730,7 +782,7 @@ export default function NewPaymentPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (isEditMode && !hasChanges) || (isDuplicateWarning && !duplicateConfirmed)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

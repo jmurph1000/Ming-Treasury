@@ -657,19 +657,24 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
 
     // If resubmitting a returned payment, log what changed in the comment thread
     if (wasReturned) {
+      const fmtAmt = (v: number | string) => {
+        const n = typeof v === 'string' ? parseFloat(v) : v;
+        return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      };
+
       const changes: string[] = [];
-      if (current.amount !== payment.amount) changes.push(`amount: ${payment.amount} → ${current.amount}`);
-      if (current.currency !== payment.currency) changes.push(`currency: ${payment.currency} → ${current.currency}`);
-      if (current.payee_name !== payment.payee_name) changes.push(`payee: ${payment.payee_name} → ${current.payee_name}`);
-      if (current.account_id !== payment.account_id) changes.push(`source account changed`);
-      if (current.destination_account_id !== payment.destination_account_id) changes.push(`destination account changed`);
-      if (current.payment_type !== payment.payment_type) changes.push(`payment type: ${payment.payment_type} → ${current.payment_type}`);
-      if (current.business_justification !== payment.business_justification) changes.push(`justification updated`);
-      if (current.requested_date?.toString() !== payment.requested_date?.toString()) changes.push(`requested date changed`);
+      if (current.amount !== payment.amount) changes.push(`Amount changed from ${fmtAmt(payment.amount)} to ${fmtAmt(current.amount)}`);
+      if (current.currency !== payment.currency) changes.push(`Currency changed from ${payment.currency} to ${current.currency}`);
+      if (current.payee_name !== payment.payee_name) changes.push(`Payee changed from "${payment.payee_name}" to "${current.payee_name}"`);
+      if (current.account_id !== payment.account_id) changes.push(`Source account changed`);
+      if (current.destination_account_id !== payment.destination_account_id) changes.push(`Destination account changed`);
+      if (current.payment_type !== payment.payment_type) changes.push(`Payment type changed from ${payment.payment_type} to ${current.payment_type}`);
+      if (current.business_justification !== payment.business_justification) changes.push(`Business justification updated`);
+      if (current.requested_date?.toString() !== payment.requested_date?.toString()) changes.push(`Requested date changed`);
 
       const commentText = changes.length > 0
-        ? `Payment updated and resubmitted by ${user.name || user.email}. Changes: ${changes.join('; ')}`
-        : `Payment resubmitted by ${user.name || user.email} (no field changes)`;
+        ? `Payment updated and resubmitted. Changes: ${changes.join('; ')}`
+        : `Payment resubmitted (no field changes)`;
 
       await query(
         `INSERT INTO approval_comments (payment_id, user_id, comment, is_internal, created_at)
