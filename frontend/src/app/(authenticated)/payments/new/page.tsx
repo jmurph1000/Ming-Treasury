@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { useCreatePayment, useSubmitPayment, useCheckDuplicates } from '@/hooks/usePayments';
+import { useCreatePayment, useSubmitPayment, useUpdatePayment, useCheckDuplicates, usePayment } from '@/hooks/usePayments';
 import { useAuth, usePaymentLimit } from '@/hooks/useAuth';
 import { accountsApi, payeesApi, templatesApi } from '@/lib/api';
 import { formatCurrency, debounce } from '@/lib/utils';
@@ -15,8 +15,12 @@ import type { Currency, PaymentType, FundingType } from '@/types';
 
 export default function NewPaymentPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editPaymentId = searchParams.get('edit');
+  const isEditMode = !!editPaymentId;
   const { user } = useAuth();
   const paymentLimit = usePaymentLimit();
+  const updatePayment = useUpdatePayment();
 
   const [formData, setFormData] = useState<{
     payeeName: string;
@@ -91,6 +95,37 @@ export default function NewPaymentPage() {
       setIsDuplicateWarning(false);
     }
   }, [duplicatesData]);
+
+  // Load existing payment data when in edit mode
+  const { data: editPaymentData } = usePayment(editPaymentId || '');
+  const [editLoaded, setEditLoaded] = useState(false);
+
+  useEffect(() => {
+    if (isEditMode && editPaymentData?.data && !editLoaded) {
+      const p = editPaymentData.data;
+      setFormData({
+        payeeName: p.payee_name || '',
+        payeeId: p.payee_id || '',
+        amount: p.amount?.toString() || '',
+        currency: (p.currency as Currency) || 'USD',
+        accountId: p.account_id || '',
+        paymentType: (p.payment_type as PaymentType) || 'ach',
+        fundingType: (p.funding_type as FundingType) || 'external',
+        destinationAccountId: p.destination_account_id || '',
+        extBankName: p.ext_bank_name || '',
+        extRoutingNumber: p.ext_routing_number || '',
+        extBankAccount: p.ext_bank_account || '',
+        extRecipientAddress: p.ext_recipient_address || '',
+        extSpecialInstructions: p.ext_special_instructions || '',
+        businessJustification: p.business_justification || '',
+        requestedDate: p.requested_date ? p.requested_date.slice(0, 10) : '',
+        isRecurring: !!p.is_recurring,
+        recurringFrequency: p.recurring_frequency || '',
+        recurringEndDate: p.recurring_end_date ? p.recurring_end_date.slice(0, 10) : '',
+      });
+      setEditLoaded(true);
+    }
+  }, [isEditMode, editPaymentData, editLoaded]);
 
   // Date warning is now handled by BusinessDayPicker component
 
@@ -207,33 +242,41 @@ export default function NewPaymentPage() {
     return Object.keys(newErrors).length === 0;
   }
 
+  function buildPaymentPayload() {
+    return {
+      payeeName: formData.payeeName,
+      payeeId: formData.payeeId || undefined,
+      amount: parseFloat(formData.amount),
+      currency: formData.currency,
+      accountId: formData.accountId,
+      paymentType: formData.paymentType,
+      fundingType: formData.fundingType,
+      destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
+      extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
+      extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
+      extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
+      extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
+      extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
+      businessJustification: formData.businessJustification,
+      requestedDate: formData.requestedDate,
+      isRecurring: formData.isRecurring,
+      recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
+      recurringEndDate: formData.isRecurring ? formData.recurringEndDate : undefined,
+    };
+  }
+
   async function handleSaveDraft() {
     if (!validateForm()) return;
 
     try {
-      const response = await createPayment.mutateAsync({
-        payeeName: formData.payeeName,
-        payeeId: formData.payeeId || undefined,
-        amount: parseFloat(formData.amount),
-        currency: formData.currency,
-        accountId: formData.accountId,
-        paymentType: formData.paymentType,
-        fundingType: formData.fundingType,
-        destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
-        extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
-        extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
-        extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
-        extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
-        extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
-        businessJustification: formData.businessJustification,
-        requestedDate: formData.requestedDate,
-        isRecurring: formData.isRecurring,
-        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
-        recurringEndDate: formData.isRecurring ? formData.recurringEndDate : undefined,
-      });
-
-      if (response.data) {
-        router.push(ROUTES.PAYMENT_DETAIL(response.data.id));
+      if (isEditMode && editPaymentId) {
+        await updatePayment.mutateAsync({ id: editPaymentId, data: buildPaymentPayload() });
+        router.push(ROUTES.PAYMENT_DETAIL(editPaymentId));
+      } else {
+        const response = await createPayment.mutateAsync(buildPaymentPayload());
+        if (response.data) {
+          router.push(ROUTES.PAYMENT_DETAIL(response.data.id));
+        }
       }
     } catch (error: any) {
       setErrors({ submit: error.message });
@@ -244,48 +287,38 @@ export default function NewPaymentPage() {
     if (!validateForm()) return;
 
     try {
-      const createResponse = await createPayment.mutateAsync({
-        payeeName: formData.payeeName,
-        payeeId: formData.payeeId || undefined,
-        amount: parseFloat(formData.amount),
-        currency: formData.currency,
-        accountId: formData.accountId,
-        paymentType: formData.paymentType,
-        fundingType: formData.fundingType,
-        destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
-        extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
-        extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
-        extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
-        extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
-        extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
-        businessJustification: formData.businessJustification,
-        requestedDate: formData.requestedDate,
-        isRecurring: formData.isRecurring,
-        recurringFrequency: formData.isRecurring ? formData.recurringFrequency : undefined,
-        recurringEndDate: formData.isRecurring ? formData.recurringEndDate : undefined,
-      });
-
-      if (createResponse.data) {
-        await submitPayment.mutateAsync(createResponse.data.id);
-        router.push(ROUTES.PAYMENTS);
+      if (isEditMode && editPaymentId) {
+        await updatePayment.mutateAsync({ id: editPaymentId, data: buildPaymentPayload() });
+        await submitPayment.mutateAsync(editPaymentId);
+        router.push(ROUTES.PAYMENT_DETAIL(editPaymentId));
+      } else {
+        const createResponse = await createPayment.mutateAsync(buildPaymentPayload());
+        if (createResponse.data) {
+          await submitPayment.mutateAsync(createResponse.data.id);
+          router.push(ROUTES.PAYMENTS);
+        }
       }
     } catch (error: any) {
       setErrors({ submit: error.message });
     }
   }
 
-  const isSubmitting = createPayment.isPending || submitPayment.isPending;
+  const isSubmitting = createPayment.isPending || submitPayment.isPending || updatePayment.isPending;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href={ROUTES.PAYMENTS} className="p-2 hover:bg-gray-100 rounded-md">
+        <Link href={isEditMode && editPaymentId ? ROUTES.PAYMENT_DETAIL(editPaymentId) : ROUTES.PAYMENTS} className="p-2 hover:bg-gray-100 rounded-md">
           <ArrowLeft className="h-5 w-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Payment Request</h1>
-          <p className="text-gray-500 mt-1">Create a new payment for approval</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isEditMode ? 'Edit Payment' : 'New Payment Request'}
+          </h1>
+          <p className="text-gray-500 mt-1">
+            {isEditMode ? 'Update payment details and resubmit for approval' : 'Create a new payment for approval'}
+          </p>
         </div>
       </div>
 
@@ -692,7 +725,7 @@ export default function NewPaymentPage() {
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Draft
+            {isEditMode ? 'Save Changes' : 'Save Draft'}
           </button>
           <button
             type="button"
@@ -701,7 +734,7 @@ export default function NewPaymentPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark disabled:opacity-50"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Submit for Approval
+            {isEditMode ? 'Save & Resubmit' : 'Submit for Approval'}
           </button>
         </div>
       </div>

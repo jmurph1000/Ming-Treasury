@@ -30,6 +30,7 @@ import {
   DollarSign,
   Building,
   Hash,
+  Pencil,
 } from 'lucide-react';
 
 const POOL_LABELS: Record<string, string> = {
@@ -197,6 +198,8 @@ export default function PaymentDetailPage() {
   const isRequester = user?.id === payment.requester_id;
   const canSubmit =
     isRequester && (payment.status === 'draft' || payment.status === 'returned');
+  const canEdit =
+    isRequester && payment.status === 'returned';
   const canCancel =
     payment.status !== 'executed' &&
     payment.status !== 'cancelled' &&
@@ -320,6 +323,15 @@ export default function PaymentDetailPage() {
                 Reject
               </button>
             </>
+          )}
+          {canEdit && (
+            <Link
+              href={`${ROUTES.NEW_PAYMENT}?edit=${payment.id}`}
+              className="inline-flex items-center gap-2 px-4 py-2 border border-blue-300 text-blue-700 rounded-md hover:bg-blue-50 transition-colors"
+            >
+              <Pencil className="h-4 w-4" />
+              Edit Payment
+            </Link>
           )}
           {canSubmit && (
             <button
