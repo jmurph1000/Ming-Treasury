@@ -83,7 +83,13 @@ function exportPaymentsCSV(payments: any[], filename?: string) {
 function getDaysPending(p: any): number {
   const ref = p.submitted_at || p.created_at;
   if (!ref) return 0;
-  return Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+  const start = new Date(ref);
+  const completed = ['executed', 'cancelled', 'rejected', 'bank_rejected'].includes(p.status);
+  const end = completed && p.executed_at ? new Date(p.executed_at) : new Date();
+  // Compare calendar dates only to avoid timezone / partial-day issues
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  return Math.max(0, Math.floor((endDay.getTime() - startDay.getTime()) / 86400000));
 }
 
 // ─── Shared Payment Table ──────────────────────────────────────────────────
@@ -153,7 +159,7 @@ function PaymentTable({ payments, showSummary = true }: { payments: any[]; showS
                         {p.waiting_on.name || getRoleLabel(p.waiting_on.role)}
                       </span>
                     ) : (
-                      <span className="text-gray-400">\u2014</span>
+                      <span className="text-gray-400">{'\u2014'}</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
@@ -168,7 +174,7 @@ function PaymentTable({ payments, showSummary = true }: { payments: any[]; showS
                         {daysPending}
                       </span>
                     ) : (
-                      <span className="text-gray-400">\u2014</span>
+                      <span className="text-gray-400">{'\u2014'}</span>
                     )}
                   </td>
                 </tr>
@@ -582,7 +588,7 @@ function WeeklyTab() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-gray-900">{formatDate(date)}</h3>
                   <span className="text-sm text-gray-500">
-                    {dayRows.length} payment{dayRows.length !== 1 ? 's' : ''} \u2014 {formatCurrency(dayTotal, 'USD')}
+                    {dayRows.length} payment{dayRows.length !== 1 ? 's' : ''} {'\u2014'} {formatCurrency(dayTotal, 'USD')}
                   </span>
                 </div>
                 <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -809,7 +815,7 @@ function LifetimeTab() {
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                               {p.waiting_on.name || getRoleLabel(p.waiting_on.role)}
                             </span>
-                          ) : <span className="text-gray-400">\u2014</span>}
+                          ) : <span className="text-gray-400">{'\u2014'}</span>}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500">
                           {p.submitted_at ? formatDate(p.submitted_at) : formatDate(p.created_at)}
@@ -820,7 +826,7 @@ function LifetimeTab() {
                             <span className={`font-medium ${daysPending > 3 ? 'text-red-600' : daysPending > 1 ? 'text-yellow-600' : 'text-gray-600'}`}>
                               {daysPending}
                             </span>
-                          ) : <span className="text-gray-400">\u2014</span>}
+                          ) : <span className="text-gray-400">{'\u2014'}</span>}
                         </td>
                       </tr>
                     );
@@ -920,7 +926,7 @@ function EodArchiveTab() {
                   {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRightIcon className="h-5 w-5 text-gray-400" />}
                   <Archive className="h-5 w-5 text-indigo-500" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900">End of Day \u2014 {report.report_date}</p>
+                    <p className="font-medium text-gray-900">End of Day {'\u2014'} {report.report_date}</p>
                     <p className="text-sm text-gray-500">{dateStr}</p>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -1016,7 +1022,7 @@ function PermissionsTab() {
       )}
 
       <div className="flex justify-between items-center">
-        <p className="text-sm text-gray-500">Daily snapshot of all users and their system access \u2014 generated at 6:00 PM ET</p>
+        <p className="text-sm text-gray-500">Daily snapshot of all users and their system access {'\u2014'} generated at 6:00 PM ET</p>
         <button onClick={() => runNowMutation.mutate()} disabled={runNowMutation.isPending}
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm disabled:opacity-50">
           {runNowMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</> : <><Play className="h-4 w-4" /> Generate Now</>}
