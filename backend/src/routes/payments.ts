@@ -34,11 +34,13 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
     const params: unknown[] = [];
     let paramIndex = 1;
 
+    // Treasury group members (admin role + in grp-treasury) see all payments
+    // Non-Treasury admin users also see all payments (backward compat)
     if (user.role === 'staff') {
       conditions.push(`p.requester_id = $${paramIndex++}`);
       params.push(user.id);
-    } else if (user.role === 'manager' || user.role === 'sr_manager') {
-      // Non-admin/treasury: see own payments OR payments from users in same groups
+    } else if (user.role !== 'admin') {
+      // Non-admin: see own payments OR payments from users in same groups
       // OR payments pending their approval (via approval eligibility)
       conditions.push(`(p.requester_id = $${paramIndex} OR p.requester_id IN (
         SELECT gm2.user_id FROM group_members gm

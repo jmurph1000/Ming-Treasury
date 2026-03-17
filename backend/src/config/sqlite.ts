@@ -1131,52 +1131,14 @@ A: Contact treasury-admin@gusto.com or your IT help desk.
   }
 
   // Section 2: Populate role/is_supervisor flags for existing group_members
-  // Set requestor-only users in Payroll
-  const requestorOnlyEmails = [
-    'clarice.norman-mclean@gusto.com',
-    'glydel.arioste@gusto.com',
-    'colin.robbins@gusto.com',
-  ];
-  for (const email of requestorOnlyEmails) {
-    db.prepare(`
-      UPDATE group_members SET role = 'requestor_only'
-      WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = ?)
-      AND group_id = 'grp-payroll'
-      AND role != 'requestor_only'
-    `).run(email.toLowerCase());
-  }
-
-  // Glydel has full rights in AP (initiator_approver), so ensure that's set
-  db.prepare(`
-    UPDATE group_members SET role = 'initiator_approver'
-    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'glydel.arioste@gusto.com')
-    AND group_id != 'grp-payroll'
-    AND role = 'requestor_only'
-  `).run();
+  // As of March 2026: ALL Payroll members (Clarice, Glydel, Colin, KC) are
+  // initiator_approver — the previous requestor_only restriction is removed.
+  // Flags are now managed by the migration script and should not be overridden here.
 
   // Set is_supervisor for Treasury members (all are supervisors)
   db.prepare(`
     UPDATE group_members SET is_supervisor = 1
     WHERE group_id = 'grp-treasury'
-  `).run();
-
-  // Set is_supervisor for known supervisors in other groups
-  // KC Deatsch is a supervisor in Accounting and Payroll
-  db.prepare(`
-    UPDATE group_members SET is_supervisor = 1
-    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'kc.deatsch@gusto.com')
-  `).run();
-
-  // Maria Rodriguez is senior in AP
-  db.prepare(`
-    UPDATE group_members SET is_supervisor = 1
-    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'maria.rodriguez@gusto.com')
-  `).run();
-
-  // James Park is manager in AP
-  db.prepare(`
-    UPDATE group_members SET is_supervisor = 1
-    WHERE user_id IN (SELECT id FROM users WHERE LOWER(email) = 'james.park@gusto.com')
   `).run();
 }
 

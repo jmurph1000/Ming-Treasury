@@ -41,11 +41,14 @@ router.get('/', async (req: AuthenticatedRequest, res: Response) => {
          pa.approver_id = $1
          OR (pa.approver_pool IS NULL AND pa.approver_role = $2)
          OR (pa.approver_pool = 'group_or_treasury' AND (
-           $2 = 'admin'
+           EXISTS (SELECT 1 FROM group_members tm WHERE tm.group_id = 'grp-treasury' AND tm.user_id = $1)
            OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = pa.group_id AND gm.user_id = $1 AND gm.role = 'initiator_approver')
          ))
-         OR (pa.approver_pool = 'senior_or_treasury' AND $2 IN ('sr_manager', 'admin'))
-         OR (pa.approver_pool = 'treasury_only' AND $2 = 'admin')
+         OR (pa.approver_pool = 'senior_or_treasury' AND (
+           $2 = 'sr_manager'
+           OR EXISTS (SELECT 1 FROM group_members tm WHERE tm.group_id = 'grp-treasury' AND tm.user_id = $1)
+         ))
+         OR (pa.approver_pool = 'treasury_only' AND EXISTS (SELECT 1 FROM group_members tm WHERE tm.group_id = 'grp-treasury' AND tm.user_id = $1))
        )
        ORDER BY pa.notified_at ASC NULLS LAST`,
       [user.id, user.role]
