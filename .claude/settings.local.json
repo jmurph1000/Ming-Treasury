@@ -72,7 +72,8 @@
       "Bash(sqlite3 treasury.db \"SELECT u.name, u.email, gm.group_id, gm.role, gm.is_supervisor FROM group_members gm JOIN users u ON u.id = gm.user_id ORDER BY gm.group_id, u.name;\")",
       "Bash(sqlite3 treasury.db \"SELECT id, name FROM accounts ORDER BY sort_order, name;\")",
       "Bash(sqlite3 treasury.db \"SELECT id, name, slug FROM groups ORDER BY name;\")",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(gh api:*)"
     ]
   }
 }
