@@ -570,7 +570,7 @@ function ManageAccountsForm({
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!initialized && currentAccounts.length >= 0) {
+    if (!initialized) {
       setAssignments(
         currentAccounts.map((a) => ({
           accountId: a.id,
@@ -599,7 +599,7 @@ function ManageAccountsForm({
   };
 
   const saveMutation = useMutation({
-    mutationFn: () => groupsApi.updateAccounts(groupId, assignments),
+    mutationFn: (currentAssignments: AccountAssignment[]) => groupsApi.updateAccounts(groupId, currentAssignments),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group-detail', groupId] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
@@ -694,7 +694,7 @@ function ManageAccountsForm({
             Cancel
           </button>
           <button
-            onClick={() => saveMutation.mutate()}
+            onClick={() => saveMutation.mutate(assignments)}
             disabled={saveMutation.isPending}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
