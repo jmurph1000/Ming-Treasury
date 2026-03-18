@@ -79,3 +79,6 @@ cookies*.txt
 
 # Database backups (local only)
 backups/
+
+# Claude Code local settings
+.claude/settings.local.json
