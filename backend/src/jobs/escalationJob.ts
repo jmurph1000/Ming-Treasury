@@ -1,5 +1,6 @@
 import { query } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
+import { logNotification } from '../services/notificationLogger.js';
 
 export async function runEscalationJob(): Promise<void> {
   try {
@@ -46,6 +47,14 @@ export async function runEscalationJob(): Promise<void> {
         ]
       );
 
+      // Log escalation notification
+      logNotification({
+        notificationType: 'escalation_alert',
+        recipientEmail: 'john.murphy@gusto.com',
+        channel: 'both',
+        subject: `Payment ${approval.reference_number} escalated — approval overdue`,
+        paymentId: approval.payment_id,
+      });
       // TODO: Send escalation notification via Gmail MCP
       // TODO: Send Slack alert via MCP
     }

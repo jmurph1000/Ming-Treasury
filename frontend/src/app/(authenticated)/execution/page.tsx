@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useExecutionQueue, useConfirmExecution, useHaltExecution } from '@/hooks/usePayments';
 import { formatCurrency, formatDate, getPaymentTypeLabel, maskAccountNumber } from '@/lib/utils';
-import { Send, AlertTriangle, CheckCircle2, Copy, Loader2, StopCircle } from 'lucide-react';
+import { Send, AlertTriangle, CheckCircle2, Copy, Loader2, StopCircle, FileCheck } from 'lucide-react';
 
 export default function ExecutionPage() {
   const { data, isLoading, error } = useExecutionQueue();
@@ -17,6 +18,39 @@ export default function ExecutionPage() {
     actualDate: new Date().toISOString().split('T')[0],
   });
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
+  const [confirmForm, setConfirmForm] = useState({
+    confirmationType: 'Wire Confirmation',
+    confirmationReference: '',
+    amount: '',
+    notes: '',
+  });
+  const queryClient = useQueryClient();
+
+  const recentExecuted = useQuery({
+    queryKey: ['recent-executed'],
+    queryFn: async () => {
+      const res = await fetch('/api/payments?status=executed&limit=10', { credentials: 'include' });
+      return res.json();
+    },
+  });
+
+  const logConfirmation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch('/api/confirmations', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      setConfirmPaymentId(null);
+      setConfirmForm({ confirmationType: 'Wire Confirmation', confirmationReference: '', amount: '', notes: '' });
+      queryClient.invalidateQueries({ queryKey: ['recent-executed'] });
+    },
+  });
 
   const queue = data?.data || [];
 
@@ -252,6 +286,113 @@ export default function ExecutionPage() {
               <p className="text-gray-500">Select a payment to execute</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Recently Executed — Bank Confirmation */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Recently Executed — Log Bank Confirmation</h2>
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b">
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Reference</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Payee</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">Amount</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Executed</th>
+                <th className="px-4 py-3 text-center font-medium text-gray-600">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(recentExecuted.data?.data || []).map((p: any) => (
+                <tr key={p.id} className="border-b hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium">{p.reference_number}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.payee_name || 'N/A'}</td>
+                  <td className="px-4 py-3 text-right font-mono">{formatCurrency(p.amount, p.currency)}</td>
+                  <td className="px-4 py-3 text-gray-500">{p.executed_at ? formatDate(p.executed_at) : 'N/A'}</td>
+                  <td className="px-4 py-3 text-center">
+                    {confirmPaymentId === p.id ? (
+                      <div className="text-left space-y-2 p-2 bg-gray-50 rounded">
+                        <select
+                          value={confirmForm.confirmationType}
+                          onChange={(e) => setConfirmForm({ ...confirmForm, confirmationType: e.target.value })}
+                          className="w-full border rounded px-2 py-1 text-sm"
+                        >
+                          <option>Wire Confirmation</option>
+                          <option>ACH Confirmation</option>
+                          <option>Book Transfer</option>
+                          <option>Check Cleared</option>
+                        </select>
+                        <input
+                          type="text"
+                          placeholder="Bank reference #"
+                          value={confirmForm.confirmationReference}
+                          onChange={(e) => setConfirmForm({ ...confirmForm, confirmationReference: e.target.value })}
+                          className="w-full border rounded px-2 py-1 text-sm"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Confirmed amount"
+                          value={confirmForm.amount || p.amount}
+                          onChange={(e) => setConfirmForm({ ...confirmForm, amount: e.target.value })}
+                          className="w-full border rounded px-2 py-1 text-sm text-right font-mono"
+                          step="0.01"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Notes (optional)"
+                          value={confirmForm.notes}
+                          onChange={(e) => setConfirmForm({ ...confirmForm, notes: e.target.value })}
+                          className="w-full border rounded px-2 py-1 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setConfirmPaymentId(null)}
+                            className="flex-1 px-2 py-1 text-xs border rounded hover:bg-gray-100"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => logConfirmation.mutate({
+                              paymentId: p.id,
+                              bankName: p.bank_name || p.account_name || 'Unknown',
+                              confirmationType: confirmForm.confirmationType,
+                              confirmationReference: confirmForm.confirmationReference,
+                              amount: parseFloat(confirmForm.amount || p.amount),
+                              currency: p.currency || 'USD',
+                              notes: confirmForm.notes,
+                            })}
+                            disabled={logConfirmation.isPending}
+                            className="flex-1 px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {logConfirmation.isPending ? 'Saving...' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setConfirmPaymentId(p.id);
+                          setConfirmForm({ ...confirmForm, amount: p.amount?.toString() || '' });
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                      >
+                        <FileCheck className="h-3 w-3" />
+                        Log Confirmation
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {(!recentExecuted.data?.data || recentExecuted.data.data.length === 0) && (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                    No recently executed payments
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

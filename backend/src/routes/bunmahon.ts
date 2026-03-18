@@ -76,6 +76,51 @@ function getAdminPortalData(): string {
     data += `- ${u.name} (${u.email}) | Role: ${u.role} | Group: ${u.group_name}\n`;
   });
 
+  // Escalated payments
+  const { rows: escalated } = query<any>(
+    `SELECT p.reference_number, p.payee_name, p.amount, p.currency, p.sla_hours, p.submitted_at, p.escalated_at, u.name as requester_name
+     FROM payments p LEFT JOIN users u ON u.id = p.requester_id
+     WHERE p.is_escalated = 1 ORDER BY p.escalated_at DESC`
+  );
+  data += `\nESCALATED PAYMENTS (SLA exceeded):\n`;
+  if (escalated.length === 0) { data += `- None\n`; }
+  escalated.forEach((e: any) => {
+    data += `- ${e.reference_number} | ${e.payee_name || 'N/A'} | ${e.currency} ${e.amount} | SLA: ${e.sla_hours}h | Submitted: ${e.submitted_at} | Escalated: ${e.escalated_at} | by ${e.requester_name}\n`;
+  });
+
+  // Today's logins
+  const { rows: sessions } = query<any>(
+    `SELECT user_name, user_group, login_at, last_active_at FROM user_sessions WHERE date(login_at) = date('now') ORDER BY login_at DESC`
+  );
+  data += `\nTODAY'S LOGINS:\n`;
+  if (sessions.length === 0) { data += `- None\n`; }
+  sessions.forEach((s: any) => {
+    data += `- ${s.user_name} (${s.user_group || 'N/A'}) logged in at ${s.login_at}, last active: ${s.last_active_at}\n`;
+  });
+
+  // Recent bank confirmations (last 7 days)
+  const { rows: confirmations } = query<any>(
+    `SELECT bc.confirmation_type, bc.bank_name, bc.confirmation_reference, bc.confirmed_at, bc.confirmed_by_name, bc.amount, bc.currency, p.reference_number
+     FROM bank_confirmations bc LEFT JOIN payments p ON p.id = bc.payment_id
+     WHERE bc.confirmed_at >= datetime('now', '-7 days') ORDER BY bc.confirmed_at DESC LIMIT 20`
+  );
+  data += `\nRECENT BANK CONFIRMATIONS (Last 7 Days):\n`;
+  if (confirmations.length === 0) { data += `- None\n`; }
+  confirmations.forEach((c: any) => {
+    data += `- ${c.confirmation_type} | ${c.bank_name} | Ref: ${c.confirmation_reference || 'N/A'} | ${c.currency} ${c.amount || 'N/A'} | Payment: ${c.reference_number || 'N/A'} | by ${c.confirmed_by_name} | ${c.confirmed_at}\n`;
+  });
+
+  // Recent notifications (last 24 hours)
+  const { rows: notifications } = query<any>(
+    `SELECT notification_type, recipient_email, channel, subject, delivery_status, sent_at FROM notification_log
+     WHERE sent_at >= datetime('now', '-24 hours') ORDER BY sent_at DESC LIMIT 20`
+  );
+  data += `\nRECENT NOTIFICATIONS (Last 24 Hours):\n`;
+  if (notifications.length === 0) { data += `- None\n`; }
+  notifications.forEach((n: any) => {
+    data += `- ${n.notification_type} | To: ${n.recipient_email || 'N/A'} | ${n.channel} | ${n.subject || 'N/A'} | ${n.delivery_status} | ${n.sent_at}\n`;
+  });
+
   return data;
 }
 
@@ -138,6 +183,34 @@ function getStandardUserPortalData(userId: string, groupId: string): string {
       data += `- ${a.name} (${a.bank_name}) | Type: ${a.account_type} | Direction: ${a.direction} | Funding: ${a.funding_type}\n`;
     });
   }
+
+  // User's pending payments with SLA info
+  const { rows: pendingSla } = query<any>(
+    `SELECT p.reference_number, p.payee_name, p.amount, p.currency, p.sla_hours, p.submitted_at, p.is_escalated,
+            ROUND((julianday('now') - julianday(p.submitted_at)) * 24, 1) as hours_waiting
+     FROM payments p
+     WHERE p.requester_id = $1 AND p.status = 'pending_approval'`,
+    [userId]
+  );
+  data += `\nYOUR PENDING PAYMENTS (SLA Status):\n`;
+  if (pendingSla.length === 0) { data += `- None pending\n`; }
+  pendingSla.forEach((p: any) => {
+    const deadline = p.sla_hours ? `${p.sla_hours}h SLA` : 'No SLA';
+    const status = p.is_escalated ? 'ESCALATED' : `${p.hours_waiting}h waiting`;
+    data += `- ${p.reference_number} | ${p.payee_name || 'N/A'} | ${p.currency} ${p.amount} | ${deadline} | ${status}\n`;
+  });
+
+  // Notifications sent to this user in last 7 days
+  const { rows: userNotifs } = query<any>(
+    `SELECT notification_type, subject, channel, sent_at, delivery_status FROM notification_log
+     WHERE recipient_user_id = $1 AND sent_at >= datetime('now', '-7 days') ORDER BY sent_at DESC LIMIT 10`,
+    [userId]
+  );
+  data += `\nYOUR RECENT NOTIFICATIONS (Last 7 Days):\n`;
+  if (userNotifs.length === 0) { data += `- None\n`; }
+  userNotifs.forEach((n: any) => {
+    data += `- ${n.notification_type} | ${n.subject || 'N/A'} | ${n.channel} | ${n.delivery_status} | ${n.sent_at}\n`;
+  });
 
   return data;
 }

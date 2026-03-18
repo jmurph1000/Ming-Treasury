@@ -92,4 +92,107 @@ router.get('/access-requests', async (req: AuthenticatedRequest, res: Response) 
   }
 });
 
+// ── Session Tracking Endpoints ──
+
+/**
+ * GET /api/admin/sessions/today
+ * All users who logged in today
+ */
+router.get('/sessions/today', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT user_id, user_name, user_group, login_at, logout_at, last_active_at, ip_address
+       FROM user_sessions
+       WHERE date(login_at) = date('now')
+       ORDER BY login_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting today sessions', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
+ * GET /api/admin/sessions/active
+ * Users whose last_active_at is within the last 15 minutes
+ */
+router.get('/sessions/active', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT user_id, user_name, user_group, login_at, last_active_at, ip_address
+       FROM user_sessions
+       WHERE logout_at IS NULL
+         AND last_active_at >= datetime('now', '-15 minutes')
+       ORDER BY last_active_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting active sessions', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+// ── Escalation Endpoints ──
+
+/**
+ * GET /api/admin/escalations
+ * All currently escalated payments
+ */
+router.get('/escalations', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT p.id, p.reference_number, p.payee_name, p.amount, p.currency, p.usd_equivalent,
+              p.payment_type, p.status, p.sla_hours, p.submitted_at, p.escalated_at, p.escalation_reason,
+              u.name as requester_name
+       FROM payments p
+       LEFT JOIN users u ON u.id = p.requester_id
+       WHERE p.is_escalated = 1
+       ORDER BY p.escalated_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting escalations', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+// ── Notification Log Endpoints ──
+
+/**
+ * GET /api/admin/notifications/today
+ * All notifications sent today
+ */
+router.get('/notifications/today', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { rows } = await query(
+      `SELECT * FROM notification_log
+       WHERE date(sent_at) = date('now')
+       ORDER BY sent_at DESC`
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting today notifications', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+/**
+ * GET /api/admin/notifications/:paymentId
+ * All notifications related to a specific payment
+ */
+router.get('/notifications/:paymentId', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { paymentId } = req.params;
+    const { rows } = await query(
+      `SELECT * FROM notification_log WHERE payment_id = $1 ORDER BY sent_at DESC`,
+      [paymentId]
+    );
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error getting payment notifications', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
 export default router;

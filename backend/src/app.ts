@@ -29,6 +29,7 @@ import adminRoutes from './routes/admin.js';
 import notificationRoutes from './routes/notifications.js';
 import groupRoutes from './routes/groups.js';
 import bunmahonRoutes from './routes/bunmahon.js';
+import confirmationRoutes from './routes/confirmations.js';
 
 export function createApp(): Express {
   const app = express();
@@ -112,6 +113,7 @@ export function createApp(): Express {
   app.use('/api/notifications', authenticate, notificationRoutes);
   app.use('/api/groups', authenticate, groupRoutes);
   app.use('/api/bunmahon', authenticate, bunmahonRoutes);
+  app.use('/api/confirmations', authenticate, confirmationRoutes);
 
   // 404 handler
   app.use((req: Request, res: Response) => {

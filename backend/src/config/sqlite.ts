@@ -506,6 +506,87 @@ export function initializeSchema() {
   try { db.exec(`ALTER TABLE payments ADD COLUMN execution_notes TEXT`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE payments ADD COLUMN bank_reference_number TEXT`); } catch (_) { /* column already exists */ }
 
+  // ── SLA / Escalation columns on payments ──
+  try { db.exec(`ALTER TABLE payments ADD COLUMN sla_hours INTEGER DEFAULT 24`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN escalated_at TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN escalation_reason TEXT`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE payments ADD COLUMN is_escalated INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
+
+  // ── Session tracking ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      user_group TEXT,
+      login_at TEXT NOT NULL DEFAULT (datetime('now')),
+      logout_at TEXT,
+      last_active_at TEXT NOT NULL DEFAULT (datetime('now')),
+      ip_address TEXT,
+      user_agent TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_usess_user ON user_sessions(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_usess_login ON user_sessions(login_at)`);
+
+  // ── Payment SLA log ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS payment_sla_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      payment_id TEXT NOT NULL,
+      sla_hours INTEGER NOT NULL,
+      submitted_at TEXT NOT NULL,
+      sla_deadline TEXT NOT NULL,
+      escalated_at TEXT,
+      resolved_at TEXT,
+      resolution_type TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_sla_payment ON payment_sla_log(payment_id)`);
+
+  // ── Bank confirmations ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS bank_confirmations (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      payment_id TEXT,
+      account_id TEXT,
+      bank_name TEXT NOT NULL,
+      confirmation_type TEXT NOT NULL,
+      confirmation_reference TEXT,
+      confirmed_at TEXT NOT NULL DEFAULT (datetime('now')),
+      confirmed_by_user_id TEXT NOT NULL,
+      confirmed_by_name TEXT NOT NULL,
+      confirmation_notes TEXT,
+      amount REAL,
+      currency TEXT DEFAULT 'USD',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bc_payment ON bank_confirmations(payment_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_bc_confirmed ON bank_confirmations(confirmed_at)`);
+
+  // ── Notification log ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS notification_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      notification_type TEXT NOT NULL,
+      recipient_user_id TEXT,
+      recipient_name TEXT,
+      recipient_email TEXT,
+      recipient_slack_id TEXT,
+      channel TEXT NOT NULL,
+      subject TEXT,
+      message_body TEXT,
+      payment_id TEXT,
+      sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+      delivery_status TEXT DEFAULT 'sent',
+      error_message TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_nlog_type ON notification_log(notification_type)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_nlog_sent ON notification_log(sent_at)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_nlog_payment ON notification_log(payment_id)`);
+
   // End-of-day report snapshots
   db.exec(`
     CREATE TABLE IF NOT EXISTS eod_reports (

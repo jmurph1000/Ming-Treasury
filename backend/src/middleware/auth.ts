@@ -5,6 +5,7 @@ import { query } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import { redis } from '../config/sessions.js';
+import { updateLastActive } from '../services/sessionTracker.js';
 
 // JWT secret from environment
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-change-in-production';
@@ -119,6 +120,17 @@ export async function authenticate(
 
     // Extend session TTL (sliding window)
     await redis.pexpire(sessionKey, SESSION_TIMEOUT_MS);
+
+    // Update last_active_at in user_sessions (throttle to every 5 minutes via session data)
+    try {
+      const session = JSON.parse(sessionData);
+      const lastTrack = session.lastActivityTrack ? new Date(session.lastActivityTrack).getTime() : 0;
+      if (Date.now() - lastTrack > 5 * 60 * 1000) {
+        updateLastActive(payload.userId);
+        session.lastActivityTrack = new Date().toISOString();
+        await redis.set(sessionKey, JSON.stringify(session), 'PX', SESSION_TIMEOUT_MS);
+      }
+    } catch (_) { /* non-critical */ }
 
     // Attach user to request
     req.user = user;

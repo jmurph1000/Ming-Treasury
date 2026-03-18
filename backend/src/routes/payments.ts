@@ -7,6 +7,7 @@ import { getUserPaymentLimit } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS, PAGINATION } from '../config/constants.js';
 import { determineApprovalChain, validatePayrollAccountAccess, getApprovalEligibility } from '../services/approvalRules.js';
+import { assignSla } from '../services/slaService.js';
 
 const router = Router();
 
@@ -654,6 +655,9 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
         [id, step.approver_role, step.step, step.approver_pool, step.group_id]
       );
     }
+
+    // Assign SLA based on amount and payment type
+    assignSla(id, current.usd_equivalent || current.amount, current.payment_type, new Date().toISOString());
 
     // If resubmitting a returned payment, log what changed in the comment thread
     if (wasReturned) {

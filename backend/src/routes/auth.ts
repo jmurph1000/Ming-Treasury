@@ -13,6 +13,7 @@ import { logAuditEntry, AUDIT_ACTIONS, getClientIp } from '../middleware/audit.j
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import { AuthenticatedRequest, User } from '../types/index.js';
+import { trackLogin, trackLogout } from '../services/sessionTracker.js';
 
 const router = Router();
 
@@ -86,6 +87,13 @@ router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
     // Generate tokens
     const { accessToken, refreshToken } = generateToken(user, sessionId);
 
+    // Track session in user_sessions table
+    const userGroupResult = await query<{ name: string }>(
+      `SELECT g.name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id = $1 LIMIT 1`,
+      [user.id]
+    );
+    trackLogin(user.id, user.name, userGroupResult.rows[0]?.name || null, clientIp, userAgent);
+
     // Log the login
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.USER_LOGIN, {
       ipAddress: clientIp,
@@ -144,6 +152,11 @@ router.post('/logout', authenticate, async (req: AuthenticatedRequest, res: Resp
   try {
     if (req.sessionId) {
       await invalidateSession(req.sessionId);
+
+      // Track logout in user_sessions
+      if (req.user?.id) {
+        trackLogout(req.user.id);
+      }
 
       // Log the logout
       await logAuditEntry(req.user?.id, req.user?.email, AUDIT_ACTIONS.USER_LOGOUT, {

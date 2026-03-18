@@ -1,6 +1,7 @@
 import { query } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
 import { sendEmail } from '../services/emailService.js';
+import { logNotification } from '../services/notificationLogger.js';
 
 const RECIPIENTS = [
   'john.murphy@gusto.com',
@@ -98,6 +99,17 @@ export async function runPendingPaymentsSummaryJob(): Promise<void> {
     const html = buildHtml(pendingRows, completedRows, today);
 
     const sent = await sendEmail(RECIPIENTS, subject, html);
+
+    // Log notification
+    for (const recipient of RECIPIENTS) {
+      logNotification({
+        notificationType: 'eod_report',
+        recipientEmail: recipient,
+        channel: 'email',
+        subject,
+        deliveryStatus: sent ? 'sent' : 'failed',
+      });
+    }
 
     if (sent) {
       logger.info('Daily payments summary email sent successfully');

@@ -8,6 +8,7 @@ import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.j
 import { runUserPermissionsReportJob, runMissedUserPermissionsReports } from './jobs/userPermissionsReportJob.js';
 import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
 import { runStartupBackup } from './jobs/backupJob.js';
+import { checkSlaEscalations } from './services/slaService.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -155,6 +156,19 @@ function scheduleJobs(): void {
       await runEscalationJob();
     } catch (error) {
       logger.error('Escalation job failed', { error: (error as Error).message });
+    }
+  });
+
+  // SLA escalation check - every 30 minutes
+  cron.schedule('*/30 * * * *', () => {
+    logger.debug('Running SLA escalation check');
+    try {
+      const count = checkSlaEscalations();
+      if (count > 0) {
+        logger.info(`SLA check: ${count} payments escalated`);
+      }
+    } catch (error) {
+      logger.error('SLA escalation check failed', { error: (error as Error).message });
     }
   });
 
