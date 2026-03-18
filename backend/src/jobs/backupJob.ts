@@ -3,6 +3,12 @@ import fs from 'fs';
 import { db } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
 
+const MAX_BACKUPS = 10;
+
+function safeQuery(sql: string): any[] {
+  try { return db.prepare(sql).all(); } catch (_) { return []; }
+}
+
 export function runStartupBackup(): void {
   try {
     const backupsDir = path.join(process.cwd(), 'backups');
@@ -11,46 +17,40 @@ export function runStartupBackup(): void {
     }
 
     const now = new Date();
-    const timestamp = now.toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
-    const filename = `backup_${timestamp}.json`;
+    const timestamp = now.toISOString().replace(/[:.]/g, '-');
+    const filename = `backup-${timestamp}.json`;
     const filepath = path.join(backupsDir, filename);
-
-    const payments = db.prepare('SELECT * FROM payments').all();
-    const users = db.prepare('SELECT * FROM users').all();
-    const groupMembers = db.prepare('SELECT * FROM group_members').all();
-    const groups = db.prepare('SELECT * FROM groups').all();
-    const accounts = db.prepare('SELECT * FROM accounts').all();
-    const groupAccounts = db.prepare('SELECT * FROM group_accounts').all();
-
-    let paymentApprovals: any[] = [];
-    try {
-      paymentApprovals = db.prepare('SELECT * FROM payment_approvals').all();
-    } catch (_) { /* table may not exist */ }
 
     const backup = {
       timestamp: now.toISOString(),
-      counts: {
-        payments: payments.length,
-        users: users.length,
-        group_members: groupMembers.length,
-        groups: groups.length,
-        accounts: accounts.length,
-        group_accounts: groupAccounts.length,
-        payment_approvals: paymentApprovals.length,
-      },
-      data: {
-        payments,
-        users,
-        group_members: groupMembers,
-        groups,
-        accounts,
-        group_accounts: groupAccounts,
-        payment_approvals: paymentApprovals,
-      },
+      counts: {} as Record<string, number>,
+      data: {} as Record<string, any[]>,
     };
 
+    const tables = [
+      'payments', 'users', 'groups', 'group_members',
+      'accounts', 'group_accounts', 'payment_approvals', 'audit_logs',
+    ];
+
+    for (const table of tables) {
+      const rows = safeQuery(`SELECT * FROM ${table}`);
+      backup.data[table] = rows;
+      backup.counts[table] = rows.length;
+    }
+
     fs.writeFileSync(filepath, JSON.stringify(backup, null, 2));
-    logger.info(`Startup backup saved: ${filename}`, { counts: backup.counts });
+    logger.info(`Database backup created: ${filename}`, { counts: backup.counts });
+
+    // Rotate: keep only last MAX_BACKUPS
+    const files = fs.readdirSync(backupsDir)
+      .filter(f => f.startsWith('backup-') && f.endsWith('.json'))
+      .sort()
+      .reverse();
+
+    for (const old of files.slice(MAX_BACKUPS)) {
+      fs.unlinkSync(path.join(backupsDir, old));
+      logger.info(`Deleted old backup: ${old}`);
+    }
   } catch (error) {
     logger.error('Startup backup failed', { error: (error as Error).message });
   }
