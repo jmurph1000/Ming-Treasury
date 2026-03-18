@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthenticatedRequest } from '../types/index.js';
 import { query } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 const router = Router();
 
@@ -220,15 +221,13 @@ function buildAdminSystemPrompt(userName: string, portalData: string, today: str
 
 You have a professional tone with occasional Irish wit — knowledgeable, precise, and occasionally charming in a distinctly Irish way. Never overdo the Irish references. Never use fake Irish spellings or stereotypes. Think of yourself as a sharp, warm Irish colleague who happens to know everything about Gusto's treasury operation.
 
-You are speaking with ${userName}, a Treasury Administrator with full access to all portal data, Google Drive, Slack, and Gmail.
+You are speaking with ${userName}, a Treasury Administrator with full access to all portal data.
 
 CAPABILITIES:
 - Answer questions about any payment using the CURRENT PORTAL DATA below
-- Search Google Drive for treasury documents using your Drive tool
-- Search Slack for past treasury conversations using your Slack tool
-- Search Gmail for bank communications using your Gmail tool
 - Explain portal features, approval workflows, account permissions
 - Provide payment statistics across all users and groups
+- Summarize escalations, SLA status, bank confirmations, and notifications
 
 RULES:
 - Always be accurate — never guess at amounts, dates, or statuses
@@ -271,6 +270,10 @@ ${portalData}
 Today is ${today}. Logged-in user: ${userName}, ${groupName} group.`;
 }
 
+// AWS Bedrock client — uses default credential chain (SSO profile, env vars, etc.)
+const bedrockClient = new BedrockRuntimeClient({ region: 'us-west-2' });
+const BEDROCK_MODEL_ID = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+
 // POST /api/bunmahon/chat
 router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -282,20 +285,8 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
       return;
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      res.json({
-        success: true,
-        data: {
-          response: "I'm not quite ready yet — ask your Treasury admin to set up my API key and I'll be right with ya!"
-        }
-      });
-      return;
-    }
-
     const isAdmin = isTreasuryAdmin(user.id);
     const today = new Date().toISOString().split('T')[0];
-    const firstName = user.name.split(' ')[0];
 
     // Build system prompt
     let systemPrompt: string;
@@ -325,61 +316,23 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
       history.shift();
     }
 
-    // Build Anthropic API request
-    const requestBody: any = {
-      model: 'claude-sonnet-4-20250514',
+    // Build Bedrock request body (Anthropic Messages API format)
+    const requestBody = {
+      anthropic_version: 'bedrock-2023-05-31',
       max_tokens: 1024,
       system: systemPrompt,
       messages: history,
     };
 
-    // Add MCP servers for treasury admins
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    };
-
-    if (isAdmin) {
-      headers['anthropic-beta'] = 'mcp-client-2025-04-04';
-      requestBody.mcp_servers = [
-        {
-          type: 'url',
-          url: 'https://gusto.runlayer.com/api/v1/proxy/eb61d550-9562-4a2c-bb8f-f32ce5e59f37/mcp',
-          name: 'Gdrive_Gusto'
-        },
-        {
-          type: 'url',
-          url: 'https://gusto.runlayer.com/api/v1/proxy/1ceccfb7-3fea-4c7d-a82f-673dac326434/mcp',
-          name: 'Slack_Gusto'
-        },
-        {
-          type: 'url',
-          url: 'https://gusto.runlayer.com/api/v1/proxy/cb9bacf6-95bb-464f-a7d7-c1a6925208ad/mcp',
-          name: 'Gmail_Gusto'
-        }
-      ];
-    }
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers,
+    const command = new InvokeModelCommand({
+      modelId: BEDROCK_MODEL_ID,
+      contentType: 'application/json',
+      accept: 'application/json',
       body: JSON.stringify(requestBody),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('Anthropic API error', { status: response.status, body: errorText });
-      res.json({
-        success: true,
-        data: {
-          response: "Ah, I seem to be having a bit of trouble connecting to my thinking cap. Give it another go in a moment."
-        }
-      });
-      return;
-    }
-
-    const result = await response.json() as any;
+    const bedrockResponse = await bedrockClient.send(command);
+    const result = JSON.parse(new TextDecoder().decode(bedrockResponse.body));
 
     // Extract text from response
     let assistantMessage = '';
@@ -411,10 +364,21 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
       }
     });
   } catch (error) {
-    logger.error('Bunmahon chat error', { error: (error as Error).message });
-    res.status(500).json({
-      success: false,
-      message: 'Failed to process chat message',
+    const errMsg = (error as Error).message;
+    logger.error('Bunmahon chat error (Bedrock)', { error: errMsg });
+
+    // Friendly fallback for credential or service errors
+    let friendlyMessage = "Ah, I seem to be having a bit of trouble connecting to my thinking cap. Give it another go in a moment.";
+    if (errMsg.includes('Could not load credentials') || errMsg.includes('ExpiredToken')) {
+      friendlyMessage = "My AWS credentials seem to have expired — ask your admin to refresh the SSO session and I'll be right with ya!";
+    }
+
+    res.json({
+      success: true,
+      data: {
+        response: friendlyMessage,
+        isAdmin: false,
+      }
     });
   }
 });
@@ -427,7 +391,7 @@ router.get('/welcome', (req: AuthenticatedRequest, res: Response) => {
 
   let welcomeMessage: string;
   if (isAdmin) {
-    welcomeMessage = `Good day to ya, ${firstName}! I'm Bunmahon, your treasury assistant. I can search your payments, dive into Google Drive, check Slack, pull reports — the full run of it. What can I help you with?`;
+    welcomeMessage = `Good day to ya, ${firstName}! I'm Bunmahon, your treasury assistant. I can search your payments, pull reports, check escalations — the full run of it. What can I help you with?`;
   } else {
     welcomeMessage = `Good day to ya, ${firstName}! I'm Bunmahon, your treasury assistant. Ask me anything about your payments, your group's activity, or how to use the portal. What can I get for ya?`;
   }
