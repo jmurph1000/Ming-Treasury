@@ -7,6 +7,7 @@ import { runTokenCleanupJob } from './jobs/tokenCleanupJob.js';
 import { runPendingPaymentsSummaryJob } from './jobs/pendingPaymentsSummaryJob.js';
 import { runUserPermissionsReportJob, runMissedUserPermissionsReports } from './jobs/userPermissionsReportJob.js';
 import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
+import { runStartupBackup } from './jobs/backupJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -24,6 +25,9 @@ async function startServer(): Promise<void> {
     initializeSchema();
     seedData();
     logger.info('SQLite database initialized');
+
+    // Run startup backup immediately after DB init
+    runStartupBackup();
   } catch (error) {
     logger.error('Failed to initialize SQLite database', { error: (error as Error).message });
     process.exit(1);

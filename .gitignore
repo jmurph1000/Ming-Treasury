@@ -76,3 +76,6 @@ terraform/crash.log
 credentials.json
 secrets.json
 cookies*.txt
+
+# Database backups (local only)
+backups/
