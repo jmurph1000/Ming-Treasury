@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, FormEvent } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { X } from 'lucide-react';
 
@@ -118,6 +119,122 @@ export function Bunmahon() {
 
   if (!user) return null;
 
+  const chatPanel = isOpen ? createPortal(
+    <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] w-[620px] max-h-[520px] bg-white rounded-b-xl shadow-2xl flex flex-col border border-gray-200">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-xl">
+        <div className="flex items-center gap-2">
+          <ShamrockIcon size={24} color={IRISH_GREEN} />
+          <div>
+            <span className="font-semibold text-gray-900">Bunmahon</span>
+            <span className="ml-1 text-xs text-gray-500">Gusto Treasury Assistant</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAbout(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+          >
+            About
+          </button>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[300px] max-h-[390px]">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'assistant' && (
+              <div className="flex-shrink-0 mr-2 mt-1">
+                <ShamrockIcon size={18} color={IRISH_GREEN} />
+              </div>
+            )}
+            <div
+              className={`max-w-[80%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
+                msg.role === 'user'
+                  ? 'text-white'
+                  : 'bg-gray-100 text-gray-800'
+              }`}
+              style={msg.role === 'user' ? { backgroundColor: IRISH_GREEN } : undefined}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="flex-shrink-0 mr-2 mt-1">
+              <ShamrockIcon size={18} color={IRISH_GREEN} />
+            </div>
+            <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-500">
+              <span className="inline-flex gap-1">
+                Bunmahon is thinking
+                <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+              </span>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSend} className="border-t px-4 py-3 flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onMouseDown={e => e.stopPropagation()}
+          placeholder="Ask me anything about treasury..."
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+          style={{ '--tw-ring-color': IRISH_GREEN, position: 'relative', zIndex: 10000 } as any}
+          disabled={isLoading}
+          autoComplete="off"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || !input.trim()}
+          style={{ backgroundColor: IRISH_GREEN }}
+          className="px-4 py-2 text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          Send
+        </button>
+      </form>
+    </div>,
+    document.body
+  ) : null;
+
+  const aboutModal = showAbout ? createPortal(
+    <div className="fixed inset-0 z-[10000] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAbout(false)}>
+      <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-xl">
+          <h2 className="text-lg font-bold text-gray-900">About Bunmahon</h2>
+          <button onClick={() => setShowAbout(false)} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="px-6 py-6">
+          <div className="flex justify-center mb-4">
+            <ShamrockIcon size={48} color={IRISH_GREEN} />
+          </div>
+          <h3 className="text-center text-xl font-bold text-gray-900 mb-1">Your Gusto Treasury Assistant</h3>
+          <div className="mt-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+            {ABOUT_TEXT}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
   return (
     <>
       {/* Bunmahon Button - positioned in nav center */}
@@ -132,119 +249,8 @@ export function Bunmahon() {
         </button>
       )}
 
-      {/* Chat Panel */}
-      {isOpen && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-[620px] max-h-[520px] bg-white rounded-b-xl shadow-2xl flex flex-col border border-gray-200">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 rounded-t-xl">
-            <div className="flex items-center gap-2">
-              <ShamrockIcon size={24} color={IRISH_GREEN} />
-              <div>
-                <span className="font-semibold text-gray-900">Bunmahon</span>
-                <span className="ml-1 text-xs text-gray-500">Gusto Treasury Assistant</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAbout(true)}
-                className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
-              >
-                About
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-[300px] max-h-[390px]">
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {msg.role === 'assistant' && (
-                  <div className="flex-shrink-0 mr-2 mt-1">
-                    <ShamrockIcon size={18} color={IRISH_GREEN} />
-                  </div>
-                )}
-                <div
-                  className={`max-w-[80%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${
-                    msg.role === 'user'
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                  style={msg.role === 'user' ? { backgroundColor: IRISH_GREEN } : undefined}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="flex-shrink-0 mr-2 mt-1">
-                  <ShamrockIcon size={18} color={IRISH_GREEN} />
-                </div>
-                <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-500">
-                  <span className="inline-flex gap-1">
-                    Bunmahon is thinking
-                    <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
-                    <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
-                    <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
-                  </span>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Input */}
-          <form onSubmit={handleSend} className="border-t px-4 py-3 flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              placeholder="Ask me anything about treasury..."
-              className="flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ '--tw-ring-color': IRISH_GREEN } as any}
-              disabled={isLoading}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !input.trim()}
-              style={{ backgroundColor: IRISH_GREEN }}
-              className="px-4 py-2 text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-            >
-              Send
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* About Modal */}
-      {showAbout && (
-        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4" onClick={() => setShowAbout(false)}>
-          <div className="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between rounded-t-xl">
-              <h2 className="text-lg font-bold text-gray-900">About Bunmahon</h2>
-              <button onClick={() => setShowAbout(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            <div className="px-6 py-6">
-              <div className="flex justify-center mb-4">
-                <ShamrockIcon size={48} color={IRISH_GREEN} />
-              </div>
-              <h3 className="text-center text-xl font-bold text-gray-900 mb-1">Your Gusto Treasury Assistant</h3>
-              <div className="mt-4 text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-                {ABOUT_TEXT}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {chatPanel}
+      {aboutModal}
     </>
   );
 }
