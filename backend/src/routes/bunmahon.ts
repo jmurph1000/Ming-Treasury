@@ -122,6 +122,45 @@ function getAdminPortalData(): string {
     data += `- ${n.notification_type} | To: ${n.recipient_email || 'N/A'} | ${n.channel} | ${n.subject || 'N/A'} | ${n.delivery_status} | ${n.sent_at}\n`;
   });
 
+  // Treasury Dashboard data
+  const { rows: cashSummary } = query<any>(
+    `SELECT account_type, COUNT(DISTINCT account_name) as accounts, SUM(balance) as total_balance, MAX(balance_date) as as_of
+     FROM cash_balance_snapshots
+     WHERE balance_date = (SELECT MAX(balance_date) FROM cash_balance_snapshots)
+     GROUP BY account_type`
+  );
+  data += `\nTREASURY DASHBOARD - CASH BALANCES:\n`;
+  if (cashSummary.length === 0) { data += `- No cash balance data ingested yet\n`; }
+  cashSummary.forEach((s: any) => {
+    data += `- ${s.account_type}: $${(s.total_balance || 0).toLocaleString()} across ${s.accounts} accounts (as of ${s.as_of})\n`;
+  });
+
+  const { rows: forecastAlerts } = query<any>(
+    `SELECT f.account_name, f.forecast_amount, f.min_balance
+     FROM corp_forecast_snapshots f
+     WHERE f.forecast_date = (SELECT MAX(forecast_date) FROM corp_forecast_snapshots)
+     AND f.min_balance IS NOT NULL AND f.forecast_amount < f.min_balance`
+  );
+  data += `\nCORP FORECAST - ACCOUNTS BELOW MINIMUM:\n`;
+  if (forecastAlerts.length === 0) { data += `- None (all accounts above minimum)\n`; }
+  forecastAlerts.forEach((a: any) => {
+    data += `- ${a.account_name}: forecast $${(a.forecast_amount || 0).toLocaleString()} vs min $${(a.min_balance || 0).toLocaleString()}\n`;
+  });
+
+  const { rows: newAccounts } = query<any>(
+    `SELECT status, COUNT(*) as count FROM new_account_tracker GROUP BY status`
+  );
+  data += `\nNEW ACCOUNT TRACKER:\n`;
+  if (newAccounts.length === 0) { data += `- No accounts being tracked\n`; }
+  newAccounts.forEach((a: any) => {
+    data += `- ${a.status}: ${a.count}\n`;
+  });
+
+  const { rows: lastIngestion } = query<any>(
+    `SELECT MAX(ingested_at) as last_run FROM treasury_ingestion_log WHERE status = 'success'`
+  );
+  data += `\nLAST DATA INGESTION: ${lastIngestion[0]?.last_run || 'Never'}\n`;
+
   return data;
 }
 

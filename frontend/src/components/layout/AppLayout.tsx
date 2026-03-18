@@ -20,6 +20,8 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { Bunmahon } from '@/components/Bunmahon';
+import { TreasurySidebar } from '@/components/layout/TreasurySidebar';
+import { useIsTreasurySupervisor } from '@/hooks/useAuth';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -32,6 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const canExecute = useCanExecute();
   const isCfoOrAdmin = useIsCfoOrAdmin();
   const isAdmin = useIsAdmin();
+  const isTreasurySupervisor = useIsTreasurySupervisor();
 
   const navigation = [
     {
@@ -162,10 +165,18 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
+      {/* Sidebar + Main Content */}
+      <div className="flex">
+        {isTreasurySupervisor && <TreasurySidebar />}
+        <main className={cn(
+          'flex-1 min-h-[calc(100vh-4rem)] px-4 sm:px-6 lg:px-8 py-8 transition-all duration-200',
+          isTreasurySupervisor ? 'ml-12' : ''
+        )} style={{ maxWidth: isTreasurySupervisor ? 'calc(100% - 48px)' : '100%' }}>
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

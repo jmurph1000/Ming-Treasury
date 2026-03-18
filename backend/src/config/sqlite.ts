@@ -587,6 +587,83 @@ export function initializeSchema() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_nlog_sent ON notification_log(sent_at)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_nlog_payment ON notification_log(payment_id)`);
 
+  // ── Treasury Dashboard tables ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cash_balance_snapshots (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      account_name TEXT NOT NULL,
+      account_type TEXT NOT NULL CHECK(account_type IN ('corporate','customer')),
+      balance_date DATE NOT NULL,
+      balance REAL,
+      currency TEXT DEFAULT 'USD',
+      bank TEXT,
+      account_number_last4 TEXT,
+      source TEXT DEFAULT 'treasury_flash_gsheet',
+      ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(account_name, balance_date)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_cbs_date ON cash_balance_snapshots(balance_date)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_cbs_type ON cash_balance_snapshots(account_type)`);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS treasury_user_preferences (
+      user_id TEXT PRIMARY KEY,
+      cash_top_n INTEGER DEFAULT 5,
+      cash_days_back INTEGER DEFAULT 2,
+      cash_account_type TEXT DEFAULT 'both',
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS corp_forecast_snapshots (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      account_name TEXT NOT NULL,
+      forecast_date DATE NOT NULL,
+      forecast_amount REAL,
+      actual_amount REAL,
+      min_balance REAL,
+      responsible_person TEXT,
+      source TEXT DEFAULT 'corp_forecast_gsheet',
+      ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(account_name, forecast_date)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_cfs_date ON corp_forecast_snapshots(forecast_date)`);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS new_account_tracker (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      account_name TEXT NOT NULL,
+      bank TEXT NOT NULL,
+      legal_entity TEXT,
+      purpose TEXT,
+      requesting_team TEXT,
+      status TEXT NOT NULL DEFAULT 'In Progress',
+      assigned_to TEXT,
+      requested_date DATE,
+      target_open_date DATE,
+      actual_open_date DATE,
+      notes TEXT,
+      priority TEXT DEFAULT 'Normal',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS treasury_ingestion_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      module TEXT NOT NULL,
+      source TEXT NOT NULL,
+      ingested_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      records_ingested INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'success',
+      error_message TEXT
+    )
+  `);
+
   // End-of-day report snapshots
   db.exec(`
     CREATE TABLE IF NOT EXISTS eod_reports (
@@ -1224,6 +1301,19 @@ A: Contact treasury-admin@gusto.com or your IT help desk.
     UPDATE group_members SET is_supervisor = 1
     WHERE group_id = 'grp-treasury'
   `).run();
+
+  // Seed new_account_tracker if empty
+  const natCount = db.prepare('SELECT COUNT(*) as cnt FROM new_account_tracker').get() as { cnt: number };
+  if (natCount.cnt === 0) {
+    const insertNat = db.prepare(`
+      INSERT INTO new_account_tracker (id, account_name, bank, legal_entity, purpose, requesting_team, status, assigned_to, priority, target_open_date)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    insertNat.run('nat-001', 'Gusto PEO I LLC Operating', 'JPMorgan Chase', 'Gusto PEO I LLC', 'PEO Operations', 'Treasury', 'KYC In Progress', 'Treasury', 'High', '2026-06-30');
+    insertNat.run('nat-002', 'Gusto PEO II LLC Operating', 'JPMorgan Chase', 'Gusto PEO II LLC', 'PEO Operations', 'Treasury', 'KYC In Progress', 'Treasury', 'High', '2026-06-30');
+    insertNat.run('nat-003', 'GustoHR Inc Operating', 'JPMorgan Chase', 'GustoHR Inc', 'HR Operations', 'Treasury', 'Requested', 'Treasury', 'Normal', '2026-06-30');
+    logger.info('Seeded 3 new account tracker entries');
+  }
 }
 
 // Query helper that matches the pg interface

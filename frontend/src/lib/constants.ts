@@ -89,6 +89,12 @@ export const ROUTES = {
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_GUIDE: '/admin/guide',
   ADMIN_GROUPS: '/admin/groups',
+  TREASURY_CASH: '/treasury/cash',
+  TREASURY_INVESTMENTS: '/treasury/investments',
+  TREASURY_CORP_FORECAST: '/treasury/corp-forecast',
+  TREASURY_CUSTOMER_FORECAST: '/treasury/customer-forecast',
+  TREASURY_RISK: '/treasury/risk',
+  TREASURY_NEW_ACCOUNTS: '/treasury/new-accounts',
 } as const;
 
 export const VALIDATION = {

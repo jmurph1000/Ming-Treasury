@@ -126,3 +126,8 @@ export function usePaymentLimit() {
   const { user } = useAuth();
   return user?.paymentLimit ?? null;
 }
+
+export function useIsTreasurySupervisor() {
+  const { user } = useAuth();
+  return user?.isTreasurySupervisor === true;
+}

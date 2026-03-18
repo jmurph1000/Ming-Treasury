@@ -189,6 +189,13 @@ router.post('/logout', authenticate, async (req: AuthenticatedRequest, res: Resp
 router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response) => {
   const user = req.user!;
 
+  // Check if user is a Treasury supervisor
+  const { rows: tRows } = query<{ is_supervisor: number }>(
+    `SELECT is_supervisor FROM group_members WHERE user_id = $1 AND group_id = 'grp-treasury'`,
+    [user.id]
+  );
+  const isTreasurySupervisor = tRows.length > 0 && tRows[0].is_supervisor === 1;
+
   res.json({
     success: true,
     data: {
@@ -202,6 +209,7 @@ router.get('/me', authenticate, async (req: AuthenticatedRequest, res: Response)
       paymentLimit: user.paymentLimit,
       managerName: user.managerName,
       lastLoginAt: user.lastLoginAt,
+      isTreasurySupervisor,
     },
   });
 });

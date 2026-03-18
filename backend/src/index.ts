@@ -9,6 +9,7 @@ import { runUserPermissionsReportJob, runMissedUserPermissionsReports } from './
 import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
 import { runStartupBackup } from './jobs/backupJob.js';
 import { checkSlaEscalations } from './services/slaService.js';
+import { runTreasuryDataIngestion } from './jobs/treasuryDataIngestionJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
@@ -101,6 +102,14 @@ async function startServer(): Promise<void> {
     } catch (error) {
       logger.error('Startup EOD report for today failed', { error: (error as Error).message });
     }
+
+    // Run treasury data ingestion on startup
+    try {
+      await runTreasuryDataIngestion();
+      logger.info('Startup treasury data ingestion completed');
+    } catch (error) {
+      logger.error('Startup treasury data ingestion failed', { error: (error as Error).message });
+    }
   }, 5000);
 
   // Graceful shutdown handling
@@ -188,6 +197,16 @@ function scheduleJobs(): void {
     // TODO: Implement scheduled reports
   }, {
     timezone: 'America/Los_Angeles',
+  });
+
+  // Treasury data ingestion - weekdays at 9:30am ET (14:30 UTC)
+  cron.schedule('30 14 * * 1-5', async () => {
+    logger.debug('Running treasury data ingestion job');
+    try {
+      await runTreasuryDataIngestion();
+    } catch (error) {
+      logger.error('Treasury data ingestion job failed', { error: (error as Error).message });
+    }
   });
 
   // Daily 6 PM ET jobs: user permissions, pending payments summary, and EOD report

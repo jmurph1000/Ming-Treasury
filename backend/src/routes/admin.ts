@@ -5,6 +5,7 @@ import { adminOnly } from '../middleware/rbac.js';
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
+import { runTreasuryDataIngestion } from '../jobs/treasuryDataIngestionJob.js';
 
 const router = Router();
 router.use(adminOnly);
@@ -192,6 +193,17 @@ router.get('/notifications/:paymentId', async (req: AuthenticatedRequest, res: R
   } catch (error) {
     logger.error('Error getting payment notifications', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
+// POST /api/admin/treasury/ingest — manual trigger for treasury data ingestion
+router.post('/treasury/ingest', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await runTreasuryDataIngestion();
+    res.json({ success: true, message: 'Treasury data ingestion completed' });
+  } catch (error) {
+    logger.error('Manual treasury ingestion failed', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Ingestion failed' });
   }
 });
 

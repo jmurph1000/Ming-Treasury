@@ -20,6 +20,7 @@ export interface User {
   payment_limit?: number;
   manager_name?: string;
   manager_email?: string;
+  isTreasurySupervisor?: boolean;
 }
 
 // Payment types
