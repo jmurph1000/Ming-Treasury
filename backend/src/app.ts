@@ -28,6 +28,7 @@ import reportRoutes from './routes/reports.js';
 import adminRoutes from './routes/admin.js';
 import notificationRoutes from './routes/notifications.js';
 import groupRoutes from './routes/groups.js';
+import bunmahonRoutes from './routes/bunmahon.js';
 
 export function createApp(): Express {
   const app = express();
@@ -110,6 +111,7 @@ export function createApp(): Express {
   app.use('/api/admin', authenticate, adminRoutes);
   app.use('/api/notifications', authenticate, notificationRoutes);
   app.use('/api/groups', authenticate, groupRoutes);
+  app.use('/api/bunmahon', authenticate, bunmahonRoutes);
 
   // 404 handler
   app.use((req: Request, res: Response) => {

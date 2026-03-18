@@ -19,6 +19,7 @@ import {
   ChevronDown,
   BookOpen,
 } from 'lucide-react';
+import { Bunmahon } from '@/components/Bunmahon';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -119,6 +120,11 @@ export function AppLayout({ children }: AppLayoutProps) {
                     );
                   })}
               </div>
+            </div>
+
+            {/* Bunmahon AI Assistant - Center */}
+            <div className="flex items-center justify-center">
+              <Bunmahon />
             </div>
 
             {/* User Menu */}
