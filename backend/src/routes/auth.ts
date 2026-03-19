@@ -118,6 +118,13 @@ router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    // Check if user is a Treasury supervisor (for sidebar visibility)
+    const { rows: tRows } = query<{ is_supervisor: number }>(
+      `SELECT is_supervisor FROM group_members WHERE user_id = $1 AND group_id = 'grp-treasury'`,
+      [user.id]
+    );
+    const isTreasurySupervisor = tRows.length > 0 && tRows[0].is_supervisor === 1;
+
     res.json({
       success: true,
       data: {
@@ -129,6 +136,7 @@ router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
           title: user.title,
           department: user.department,
           paymentLimit: user.paymentLimit,
+          isTreasurySupervisor,
         },
         accessToken,
         refreshToken,
