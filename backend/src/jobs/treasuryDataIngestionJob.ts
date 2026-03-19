@@ -10,6 +10,10 @@ function getApiKey(): string | null {
   return process.env.GOOGLE_SHEETS_API_KEY || null;
 }
 
+/**
+ * Fetch sheet data. Uses the full sheet range to ensure all columns are returned,
+ * including hundreds of date columns extending to the right.
+ */
 async function fetchSheetData(spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -17,7 +21,8 @@ async function fetchSheetData(spreadsheetId: string, sheetName: string): Promise
     return null;
   }
 
-  const range = encodeURIComponent(`'${sheetName}'`);
+  // Use A1:ZZZ1000 to ensure we capture all columns (sheets can have hundreds of date columns)
+  const range = encodeURIComponent(`'${sheetName}'!A1:ZZZ1000`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?key=${apiKey}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`;
 
   const res = await fetch(url);
@@ -27,7 +32,9 @@ async function fetchSheetData(spreadsheetId: string, sheetName: string): Promise
   }
 
   const data = await res.json();
-  return data.values || [];
+  const values = data.values || [];
+  logger.info(`Fetched ${values.length} rows from "${sheetName}", max columns: ${values.reduce((m: number, r: any[]) => Math.max(m, r?.length || 0), 0)}`);
+  return values;
 }
 
 function parseExcelDate(serial: number): string | null {
@@ -40,10 +47,55 @@ function parseExcelDate(serial: number): string | null {
   return d.toISOString().split('T')[0];
 }
 
+function isDateValue(val: any): boolean {
+  if (typeof val === 'number' && val > 40000 && val < 60000) return true;
+  if (typeof val === 'string' && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(val.trim())) return true;
+  return false;
+}
+
+function parseDateValue(val: any): string | null {
+  if (typeof val === 'number') return parseExcelDate(val);
+  if (typeof val === 'string') {
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+  }
+  return null;
+}
+
 function isSkipRow(name: string): boolean {
   if (!name || typeof name !== 'string') return true;
   const lower = name.trim().toLowerCase();
   return lower === '' || lower.includes('total') || lower.includes('subtotal') || lower.startsWith('corporate cash') || lower.startsWith('gustomer cash') || lower.startsWith('previous');
+}
+
+/**
+ * Find the header row containing date values by scanning first 10 rows.
+ * Pick the row with the MOST date-like values (handles sheets where row 3 or 4 has dates).
+ */
+function findHeaderRow(rows: any[][]): { rowIdx: number; dateStartCol: number } {
+  let bestRowIdx = -1;
+  let bestDateCount = 0;
+  let bestDateStartCol = -1;
+
+  for (let i = 0; i < Math.min(10, rows.length); i++) {
+    const row = rows[i];
+    if (!row) continue;
+    let dateCount = 0;
+    let firstDateCol = -1;
+    for (let j = 1; j < row.length; j++) {
+      if (isDateValue(row[j])) {
+        dateCount++;
+        if (firstDateCol < 0) firstDateCol = j;
+      }
+    }
+    if (dateCount > bestDateCount) {
+      bestDateCount = dateCount;
+      bestRowIdx = i;
+      bestDateStartCol = firstDateCol;
+    }
+  }
+
+  return { rowIdx: bestRowIdx, dateStartCol: bestDateStartCol };
 }
 
 async function ingestCashBalances(sheetName: string, accountType: 'corporate' | 'customer', maxDays: number = 30): Promise<number> {
@@ -53,64 +105,45 @@ async function ingestCashBalances(sheetName: string, accountType: 'corporate' | 
     return 0;
   }
 
-  // Find the header row with dates (usually row index 3, i.e. row 4 in the sheet)
-  let headerRowIdx = -1;
-  let dateStartCol = -1;
-  for (let i = 0; i < Math.min(10, rows.length); i++) {
-    const row = rows[i];
-    if (!row) continue;
-    for (let j = 1; j < row.length; j++) {
-      const val = row[j];
-      // Check if it's a number that looks like an Excel date serial (> 40000 = ~2009+)
-      if (typeof val === 'number' && val > 40000 && val < 60000) {
-        headerRowIdx = i;
-        dateStartCol = j;
-        break;
-      }
-      // Also check for date strings
-      if (typeof val === 'string' && /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(val.trim())) {
-        headerRowIdx = i;
-        dateStartCol = j;
-        break;
-      }
-    }
-    if (headerRowIdx >= 0) break;
-  }
+  // Find the header row with the most date values
+  const { rowIdx: headerRowIdx, dateStartCol } = findHeaderRow(rows);
 
-  if (headerRowIdx < 0) {
+  if (headerRowIdx < 0 || dateStartCol < 0) {
     logger.warn(`Could not find date header row in ${sheetName}`);
     return 0;
   }
 
-  // Parse date columns
+  logger.info(`${sheetName}: header row index=${headerRowIdx}, date start col=${dateStartCol}`);
+
+  // Parse ALL date columns from the header row
   const headerRow = rows[headerRowIdx];
   const dateColumns: { col: number; date: string }[] = [];
   for (let j = dateStartCol; j < headerRow.length; j++) {
-    const val = headerRow[j];
-    let dateStr: string | null = null;
-    if (typeof val === 'number') {
-      dateStr = parseExcelDate(val);
-    } else if (typeof val === 'string') {
-      const parsed = new Date(val);
-      if (!isNaN(parsed.getTime())) {
-        dateStr = parsed.toISOString().split('T')[0];
-      }
-    }
+    const dateStr = parseDateValue(headerRow[j]);
     if (dateStr) {
       dateColumns.push({ col: j, date: dateStr });
     }
   }
 
-  // Take the most recent N date columns (up to maxDays worth of unique dates)
+  logger.info(`${sheetName}: found ${dateColumns.length} date columns, earliest: ${dateColumns[0]?.date}, latest: ${dateColumns[dateColumns.length - 1]?.date}`);
+
+  if (dateColumns.length === 0) {
+    logger.warn(`No parseable date columns found in ${sheetName}`);
+    return 0;
+  }
+
+  // Take the RIGHTMOST N date columns (most recent dates)
   const recentDates = dateColumns.slice(-maxDays);
+  logger.info(`${sheetName}: ingesting ${recentDates.length} most recent dates (${recentDates[0]?.date} to ${recentDates[recentDates.length - 1]?.date})`);
 
   // UPSERT data rows
   const upsert = db.prepare(`
-    INSERT INTO cash_balance_snapshots (account_name, account_type, balance_date, balance, currency, source, ingested_at)
-    VALUES (?, ?, ?, ?, 'USD', 'treasury_flash_gsheet', datetime('now'))
+    INSERT INTO cash_balance_snapshots (account_name, account_type, balance_date, balance, currency, bank, source, ingested_at)
+    VALUES (?, ?, ?, ?, 'USD', ?, 'treasury_flash_gsheet', datetime('now'))
     ON CONFLICT(account_name, balance_date) DO UPDATE SET
       balance = excluded.balance,
       account_type = excluded.account_type,
+      bank = COALESCE(excluded.bank, bank),
       ingested_at = datetime('now')
   `);
 
@@ -121,18 +154,38 @@ async function ingestCashBalances(sheetName: string, accountType: 'corporate' | 
     const accountName = String(row[0]).trim();
     if (isSkipRow(accountName)) continue;
 
+    // Try to extract bank name from account name (e.g., "Chase AP -9329" → "JPMorgan Chase")
+    const bank = extractBankName(accountName);
+
     for (const { col, date } of recentDates) {
       const val = row[col];
       if (val == null || val === '' || val === '-') continue;
       const balance = typeof val === 'number' ? val : parseFloat(String(val).replace(/[,$]/g, ''));
       if (isNaN(balance)) continue;
 
-      upsert.run(accountName, accountType, date, balance);
+      upsert.run(accountName, accountType, date, balance, bank);
       count++;
     }
   }
 
+  logger.info(`${sheetName}: upserted ${count} balance records`);
   return count;
+}
+
+function extractBankName(accountName: string): string | null {
+  const lower = accountName.toLowerCase();
+  if (lower.includes('chase') || lower.includes('jpm')) return 'JPMorgan Chase';
+  if (lower.includes('bofa') || lower.includes('bank of america') || lower.includes('b of a')) return 'Bank of America';
+  if (lower.includes('citi')) return 'Citibank';
+  if (lower.includes('wells')) return 'Wells Fargo';
+  if (lower.includes('goldman') || lower.includes('gs ')) return 'Goldman Sachs';
+  if (lower.includes('morgan stanley') || lower.includes('ms ')) return 'Morgan Stanley';
+  if (lower.includes('bnp')) return 'BNP Paribas';
+  if (lower.includes('silicon valley') || lower.includes('svb')) return 'Silicon Valley Bank';
+  if (lower.includes('fifth third')) return 'Fifth Third Bank';
+  if (lower.includes('pnc')) return 'PNC Bank';
+  if (lower.includes('us bank') || lower.includes('usb')) return 'US Bank';
+  return null;
 }
 
 async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
@@ -144,24 +197,36 @@ async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
 
   // Column C (idx 2) = account names, Column F (idx 5) = min balance,
   // Column G (idx 6) = responsible person, Date columns start from H (idx 7)
-  const headerRow = rows[0] || rows[1]; // Try first two rows for headers
-  const dateStartCol = 7; // Column H
+  // But scan for the actual header row with dates
+  let dateStartCol = 7;
+  let headerRowIdx = 0;
+
+  // Try to find the header row with dates in the first 5 rows
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const row = rows[i];
+    if (!row) continue;
+    for (let j = 5; j < row.length; j++) {
+      if (isDateValue(row[j])) {
+        headerRowIdx = i;
+        dateStartCol = j;
+        break;
+      }
+    }
+    if (headerRowIdx > 0 || dateStartCol !== 7) break;
+  }
+
+  const headerRow = rows[headerRowIdx];
 
   // Parse date columns from header
   const dateColumns: { col: number; date: string }[] = [];
   if (headerRow) {
     for (let j = dateStartCol; j < headerRow.length; j++) {
-      const val = headerRow[j];
-      let dateStr: string | null = null;
-      if (typeof val === 'number') {
-        dateStr = parseExcelDate(val);
-      } else if (typeof val === 'string') {
-        const parsed = new Date(val);
-        if (!isNaN(parsed.getTime())) dateStr = parsed.toISOString().split('T')[0];
-      }
+      const dateStr = parseDateValue(headerRow[j]);
       if (dateStr) dateColumns.push({ col: j, date: dateStr });
     }
   }
+
+  logger.info(`Forecast: found ${dateColumns.length} date columns, taking last ${maxWeeks}`);
 
   const recentDates = dateColumns.slice(-maxWeeks);
 
@@ -176,7 +241,7 @@ async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
   `);
 
   let count = 0;
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
     const row = rows[i];
     if (!row) continue;
     const accountName = row[2] ? String(row[2]).trim() : '';
@@ -196,6 +261,7 @@ async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
     }
   }
 
+  logger.info(`Forecast: upserted ${count} records`);
   return count;
 }
 
