@@ -11,20 +11,21 @@ function getApiKey(): string | null {
 }
 
 /**
- * Fetch sheet data. Uses the full sheet range to ensure all columns are returned,
- * including hundreds of date columns extending to the right.
+ * Fetch sheet data using JUST the sheet name — no range restriction.
+ * This ensures Google Sheets API returns ALL columns regardless of width.
  */
 async function fetchSheetData(spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    logger.warn('GOOGLE_SHEETS_API_KEY not set — skipping GSheet ingestion');
+    logger.error('GOOGLE_SHEETS_API_KEY is not set in .env — cannot fetch sheet data. Add a valid Google API key with Sheets API enabled.');
     return null;
   }
 
-  // Use A1:ZZZ1000 to ensure we capture all columns (sheets can have hundreds of date columns)
-  const range = encodeURIComponent(`'${sheetName}'!A1:ZZZ1000`);
+  // Use ONLY the sheet name — no cell range — so the API returns every row and column
+  const range = encodeURIComponent(`'${sheetName}'`);
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?key=${apiKey}&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`;
 
+  logger.info(`Fetching sheet "${sheetName}" from spreadsheet ${spreadsheetId.substring(0, 8)}...`);
   const res = await fetch(url);
   if (!res.ok) {
     const errText = await res.text();
@@ -33,7 +34,8 @@ async function fetchSheetData(spreadsheetId: string, sheetName: string): Promise
 
   const data = await res.json();
   const values = data.values || [];
-  logger.info(`Fetched ${values.length} rows from "${sheetName}", max columns: ${values.reduce((m: number, r: any[]) => Math.max(m, r?.length || 0), 0)}`);
+  const maxCols = values.reduce((m: number, r: any[]) => Math.max(m, r?.length || 0), 0);
+  logger.info(`Fetched ${values.length} rows from "${sheetName}", max width: ${maxCols} columns`);
   return values;
 }
 
@@ -70,7 +72,7 @@ function isSkipRow(name: string): boolean {
 
 /**
  * Find the header row containing date values by scanning first 10 rows.
- * Pick the row with the MOST date-like values (handles sheets where row 3 or 4 has dates).
+ * Pick the row with the MOST date-like values.
  */
 function findHeaderRow(rows: any[][]): { rowIdx: number; dateStartCol: number } {
   let bestRowIdx = -1;
@@ -136,7 +138,7 @@ async function ingestCashBalances(sheetName: string, accountType: 'corporate' | 
   const recentDates = dateColumns.slice(-maxDays);
   logger.info(`${sheetName}: ingesting ${recentDates.length} most recent dates (${recentDates[0]?.date} to ${recentDates[recentDates.length - 1]?.date})`);
 
-  // UPSERT data rows
+  // UPSERT data rows — never delete existing records
   const upsert = db.prepare(`
     INSERT INTO cash_balance_snapshots (account_name, account_type, balance_date, balance, currency, bank, source, ingested_at)
     VALUES (?, ?, ?, ?, 'USD', ?, 'treasury_flash_gsheet', datetime('now'))
@@ -154,7 +156,6 @@ async function ingestCashBalances(sheetName: string, accountType: 'corporate' | 
     const accountName = String(row[0]).trim();
     if (isSkipRow(accountName)) continue;
 
-    // Try to extract bank name from account name (e.g., "Chase AP -9329" → "JPMorgan Chase")
     const bank = extractBankName(accountName);
 
     for (const { col, date } of recentDates) {
@@ -195,13 +196,10 @@ async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
     return 0;
   }
 
-  // Column C (idx 2) = account names, Column F (idx 5) = min balance,
-  // Column G (idx 6) = responsible person, Date columns start from H (idx 7)
-  // But scan for the actual header row with dates
+  // Scan for the header row with dates
   let dateStartCol = 7;
   let headerRowIdx = 0;
 
-  // Try to find the header row with dates in the first 5 rows
   for (let i = 0; i < Math.min(5, rows.length); i++) {
     const row = rows[i];
     if (!row) continue;
@@ -217,7 +215,6 @@ async function ingestCorpForecast(maxWeeks: number = 8): Promise<number> {
 
   const headerRow = rows[headerRowIdx];
 
-  // Parse date columns from header
   const dateColumns: { col: number; date: string }[] = [];
   if (headerRow) {
     for (let j = dateStartCol; j < headerRow.length; j++) {
@@ -272,14 +269,15 @@ function logIngestion(module: string, source: string, recordsIngested: number, s
   `).run(module, source, recordsIngested, status, errorMessage || null);
 }
 
-export async function runTreasuryDataIngestion(): Promise<void> {
+export async function runTreasuryDataIngestion(): Promise<{ corporate: number; customer: number; forecast: number }> {
   logger.info('Treasury data ingestion job started');
+  const results = { corporate: 0, customer: 0, forecast: 0 };
 
   // Corporate Cash
   try {
-    const count = await ingestCashBalances('Corporate Cash Position', 'corporate');
-    logIngestion('cash_balances', 'corporate_cash_gsheet', count, 'success');
-    logger.info(`Ingested ${count} corporate cash balance records`);
+    results.corporate = await ingestCashBalances('Corporate Cash Position', 'corporate');
+    logIngestion('cash_balances', 'corporate_cash_gsheet', results.corporate, results.corporate > 0 ? 'success' : 'no_data');
+    logger.info(`Ingested ${results.corporate} corporate cash balance records`);
   } catch (error) {
     const msg = (error as Error).message;
     logIngestion('cash_balances', 'corporate_cash_gsheet', 0, 'error', msg);
@@ -288,9 +286,9 @@ export async function runTreasuryDataIngestion(): Promise<void> {
 
   // Customer Cash (Gustomer)
   try {
-    const count = await ingestCashBalances('Gustomer Cash Position', 'customer');
-    logIngestion('cash_balances', 'customer_cash_gsheet', count, 'success');
-    logger.info(`Ingested ${count} customer cash balance records`);
+    results.customer = await ingestCashBalances('Gustomer Cash Position', 'customer');
+    logIngestion('cash_balances', 'customer_cash_gsheet', results.customer, results.customer > 0 ? 'success' : 'no_data');
+    logger.info(`Ingested ${results.customer} customer cash balance records`);
   } catch (error) {
     const msg = (error as Error).message;
     logIngestion('cash_balances', 'customer_cash_gsheet', 0, 'error', msg);
@@ -299,14 +297,16 @@ export async function runTreasuryDataIngestion(): Promise<void> {
 
   // Corporate Cash Forecast
   try {
-    const count = await ingestCorpForecast();
-    logIngestion('corp_forecast', 'corp_forecast_gsheet', count, 'success');
-    logger.info(`Ingested ${count} corporate forecast records`);
+    results.forecast = await ingestCorpForecast();
+    logIngestion('corp_forecast', 'corp_forecast_gsheet', results.forecast, results.forecast > 0 ? 'success' : 'no_data');
+    logger.info(`Ingested ${results.forecast} corporate forecast records`);
   } catch (error) {
     const msg = (error as Error).message;
     logIngestion('corp_forecast', 'corp_forecast_gsheet', 0, 'error', msg);
     logger.error('Corporate forecast ingestion failed', { error: msg });
   }
 
-  logger.info('Treasury data ingestion job completed');
+  const total = results.corporate + results.customer + results.forecast;
+  logger.info(`Treasury data ingestion completed: ${total} total records (corp=${results.corporate}, cust=${results.customer}, forecast=${results.forecast})`);
+  return results;
 }

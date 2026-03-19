@@ -199,11 +199,18 @@ router.get('/notifications/:paymentId', async (req: AuthenticatedRequest, res: R
 // POST /api/admin/treasury/ingest — manual trigger for treasury data ingestion
 router.post('/treasury/ingest', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    await runTreasuryDataIngestion();
-    res.json({ success: true, message: 'Treasury data ingestion completed' });
+    const results = await runTreasuryDataIngestion();
+    const total = results.corporate + results.customer + results.forecast;
+    res.json({
+      success: true,
+      message: total > 0
+        ? `Ingested ${total} records (corp=${results.corporate}, cust=${results.customer}, forecast=${results.forecast})`
+        : 'Ingestion completed but 0 records — check that GOOGLE_SHEETS_API_KEY is set in .env',
+      data: results,
+    });
   } catch (error) {
     logger.error('Manual treasury ingestion failed', { error: (error as Error).message });
-    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Ingestion failed' });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, message: 'Ingestion failed: ' + (error as Error).message });
   }
 });
 
