@@ -31,6 +31,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@aws-sdk/client-bedrock-runtime": "^3.1012.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.1012.0",
+    "googleapis": "^171.4.0"
   }
 }
