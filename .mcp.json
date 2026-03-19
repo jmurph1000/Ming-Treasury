@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "gsheets": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/67c072b8-017b-4ef2-96ac-e5c1b3c5a0be/mcp"
+    },
+    "gdrive": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/eb61d550-9562-4a2c-bb8f-f32ce5e59f37/mcp"
+    },
+    "gdocs": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/301b0edd-4be9-445c-b372-b0bc95c3972b/mcp"
+    },
+    "gslides": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/4506980d-2f00-48b9-944d-caf7a7b52beb/mcp"
+    },
+    "gmail": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/cb9bacf6-95bb-464f-a7d7-c1a6925208ad/mcp"
+    },
+    "gcal": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/782f35b5-800a-480e-80e3-82c04ef041b1/mcp"
+    },
+    "slack": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/1ceccfb7-3fea-4c7d-a82f-673dac326434/mcp"
+    },
+    "redash": {
+      "type": "http",
+      "url": "https://redash.zp-int.com"
+    },
+    "glean": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/e950e154-99ac-4b33-a67e-b7a2473ac6d8/mcp"
+    },
+    "jira": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/c681d665-2603-41c1-8896-9ef211728453/mcp"
+    },
+    "github": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/79f29b16-6650-4529-91f8-2c94c00c641c/mcp"
+    },
+    "netsuite": {
+      "type": "http",
+      "url": "https://gusto.runlayer.com/api/v1/proxy/0be406c5-743f-4040-810d-d597b4f6461e/mcp"
+    }
+  }
+}

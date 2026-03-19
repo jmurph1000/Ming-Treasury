@@ -1,22 +1,105 @@
 import { db } from '../config/sqlite.js';
 import { logger } from '../utils/logger.js';
-import { google, sheets_v4 } from 'googleapis';
+import { readFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 
 // Google Sheets IDs
 const CASH_SPREADSHEET_ID = '1aH5mc6wlu_B83rRTN1vP53plUnG-RHQ2bkipXtViBkE';
 const FORECAST_SPREADSHEET_ID = '1Byfis_uaLgWIjRmKGb6G5ROxPwRIF62TdhacOXRa890';
 
-// Runlayer MCP proxy endpoint
+// Runlayer MCP proxy
 const RUNLAYER_MCP_URL = 'https://gusto.runlayer.com/api/v1/proxy/67c072b8-017b-4ef2-96ac-e5c1b3c5a0be/mcp';
 
-// ── MCP Proxy approach (primary) ──────────────────────────────────────────────
+// ── Get Runlayer access token ─────────────────────────────────────────────────
+
+function getRunlayerToken(): string | null {
+  // 1. Env var (set manually or by scripts/runlayer-auth.mjs)
+  if (process.env.RUNLAYER_ACCESS_TOKEN) {
+    return process.env.RUNLAYER_ACCESS_TOKEN;
+  }
+
+  // 2. Token file saved by auth script
+  const tokenFile = resolve(process.cwd(), '.runlayer-token.json');
+  if (existsSync(tokenFile)) {
+    try {
+      const data = JSON.parse(readFileSync(tokenFile, 'utf8'));
+      if (data.access_token && data.expires_at > Date.now()) {
+        return data.access_token;
+      }
+      // Token expired — try refresh
+      if (data.refresh_token && data.client_id) {
+        logger.info('Runlayer token expired, will attempt refresh');
+        return null; // Refresh handled async in getRunlayerTokenAsync
+      }
+    } catch (e) {
+      logger.warn(`Failed to read .runlayer-token.json: ${(e as Error).message}`);
+    }
+  }
+
+  // 3. Claude Code's stored credentials
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  const credsFile = resolve(home, '.claude', '.credentials.json');
+  if (existsSync(credsFile)) {
+    try {
+      const creds = JSON.parse(readFileSync(credsFile, 'utf8'));
+      const entries = creds?.mcpOAuth || {};
+      for (const [key, val] of Object.entries(entries) as [string, any][]) {
+        if (key.startsWith('gsheets') && val.accessToken) {
+          if (!val.expiresAt || val.expiresAt > Date.now()) {
+            logger.info('Using access token from Claude Code credentials');
+            return val.accessToken;
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  return null;
+}
+
+async function refreshRunlayerToken(): Promise<string | null> {
+  const tokenFile = resolve(process.cwd(), '.runlayer-token.json');
+  if (!existsSync(tokenFile)) return null;
+
+  try {
+    const data = JSON.parse(readFileSync(tokenFile, 'utf8'));
+    if (!data.refresh_token || !data.client_id) return null;
+
+    const res = await fetch('https://gusto.runlayer.com/api/v1/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: data.refresh_token,
+        client_id: data.client_id,
+      }).toString(),
+    });
+
+    const tokenData = await res.json() as any;
+    if (tokenData.access_token) {
+      const { writeFileSync } = await import('fs');
+      writeFileSync(tokenFile, JSON.stringify({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token || data.refresh_token,
+        expires_at: Date.now() + (tokenData.expires_in || 3600) * 1000,
+        client_id: data.client_id,
+      }, null, 2));
+      logger.info('Runlayer token refreshed successfully');
+      return tokenData.access_token;
+    }
+  } catch (e) {
+    logger.warn(`Failed to refresh Runlayer token: ${(e as Error).message}`);
+  }
+  return null;
+}
+
+// ── MCP JSON-RPC calls ────────────────────────────────────────────────────────
 
 let mcpRequestId = 0;
 
-async function mcpCall(method: string, params: Record<string, any> = {}): Promise<any> {
-  const token = process.env.RUNLAYER_ACCESS_TOKEN;
-  if (!token) throw new Error('RUNLAYER_ACCESS_TOKEN not set');
-
+async function mcpCall(token: string, method: string, params: Record<string, any> = {}): Promise<any> {
   const body = { jsonrpc: '2.0', id: ++mcpRequestId, method, params };
   const res = await fetch(RUNLAYER_MCP_URL, {
     method: 'POST',
@@ -39,52 +122,46 @@ async function mcpCall(method: string, params: Record<string, any> = {}): Promis
   return json.result;
 }
 
-/** Discover the Google Sheets read tool from the MCP server */
-async function findSheetsReadTool(): Promise<string> {
-  const result = await mcpCall('tools/list');
-  const tools: Array<{ name: string; description?: string }> = result?.tools || [];
-
+async function discoverSheetsTool(token: string): Promise<string> {
+  const result = await mcpCall(token, 'tools/list');
+  const tools: Array<{ name: string }> = result?.tools || [];
   logger.info(`MCP tools available: ${tools.map(t => t.name).join(', ')}`);
 
-  // Look for a tool that reads spreadsheet values — common names across MCP GSheets implementations
+  // Match common GSheets tool names
   const candidates = [
     'get_spreadsheet_values', 'read_spreadsheet', 'sheets_get_values',
-    'google_sheets_read', 'get_values', 'read_sheet', 'spreadsheet_read',
-    'sheets_read', 'get_sheet_data', 'read_google_sheet',
+    'google_sheets_read', 'get_values', 'read_sheet', 'get_sheet_data',
   ];
-
   for (const name of candidates) {
     if (tools.find(t => t.name === name)) return name;
   }
 
-  // Fuzzy match: any tool name containing 'sheet' and ('read' or 'get' or 'value')
+  // Fuzzy match
   const fuzzy = tools.find(t => {
     const n = t.name.toLowerCase();
     return n.includes('sheet') && (n.includes('read') || n.includes('get') || n.includes('value'));
   });
   if (fuzzy) return fuzzy.name;
 
-  // If there's only one tool (besides help), use it
   const nonHelp = tools.filter(t => !t.name.includes('help'));
   if (nonHelp.length === 1) return nonHelp[0].name;
 
-  throw new Error(`No Google Sheets read tool found. Available tools: ${tools.map(t => t.name).join(', ')}`);
+  throw new Error(`No Sheets read tool found. Available: ${tools.map(t => t.name).join(', ')}`);
 }
 
-async function fetchSheetDataViaMcp(spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
-  logger.info(`[MCP] Fetching sheet "${sheetName}" from spreadsheet ${spreadsheetId.substring(0, 12)}...`);
+async function fetchSheetDataViaMcp(token: string, spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
+  logger.info(`[MCP] Fetching "${sheetName}" from ${spreadsheetId.substring(0, 12)}...`);
 
-  // Initialize MCP session
-  await mcpCall('initialize', {
+  await mcpCall(token, 'initialize', {
     protocolVersion: '2024-11-05',
     capabilities: {},
     clientInfo: { name: 'gusto-treasury-backend', version: '1.0' },
   });
 
-  const toolName = await findSheetsReadTool();
+  const toolName = await discoverSheetsTool(token);
   logger.info(`[MCP] Using tool: ${toolName}`);
 
-  const result = await mcpCall('tools/call', {
+  const result = await mcpCall(token, 'tools/call', {
     name: toolName,
     arguments: {
       spreadsheet_id: spreadsheetId,
@@ -95,7 +172,6 @@ async function fetchSheetDataViaMcp(spreadsheetId: string, sheetName: string): P
     },
   });
 
-  // MCP tools return content as an array of content blocks
   let values: any[][] = [];
   const content = result?.content || [];
   for (const block of content) {
@@ -108,7 +184,6 @@ async function fetchSheetDataViaMcp(spreadsheetId: string, sheetName: string): P
           values = parsed.values;
         }
       } catch {
-        // If it's CSV-like text, parse rows
         const lines = block.text.split('\n').filter((l: string) => l.trim());
         values = lines.map((l: string) => l.split(',').map((c: string) => {
           const trimmed = c.trim();
@@ -124,65 +199,33 @@ async function fetchSheetDataViaMcp(spreadsheetId: string, sheetName: string): P
   return values.length > 0 ? values : null;
 }
 
-// ── googleapis SDK approach (fallback) ────────────────────────────────────────
+// ── googleapis SDK fallback ───────────────────────────────────────────────────
 
-async function getSheetsClient(): Promise<sheets_v4.Sheets> {
+async function fetchSheetDataViaApi(spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
+  const { google } = await import('googleapis');
+
   const keyFile = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
-  if (keyFile) {
-    try {
-      const auth = new google.auth.GoogleAuth({
-        keyFile,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
-      logger.info('Using Google service account key file for Sheets auth');
-      return google.sheets({ version: 'v4', auth });
-    } catch (e) {
-      logger.warn(`Failed to load service account key file: ${(e as Error).message}`);
-    }
-  }
-
   const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (keyJson) {
-    try {
-      const credentials = JSON.parse(keyJson);
-      const auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-      });
-      logger.info('Using Google service account key from env var for Sheets auth');
-      return google.sheets({ version: 'v4', auth });
-    } catch (e) {
-      logger.warn(`Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY: ${(e as Error).message}`);
-    }
-  }
-
   const apiKey = process.env.GOOGLE_SHEETS_API_KEY;
-  if (apiKey) {
-    logger.info('Using Google API key for Sheets auth');
-    return google.sheets({ version: 'v4', auth: apiKey });
-  }
 
-  try {
-    const auth = new google.auth.GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-    });
+  let sheets;
+
+  if (keyFile) {
+    const auth = new google.auth.GoogleAuth({ keyFile, scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] });
+    sheets = google.sheets({ version: 'v4', auth });
+  } else if (keyJson) {
+    const credentials = JSON.parse(keyJson);
+    const auth = new google.auth.GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] });
+    sheets = google.sheets({ version: 'v4', auth });
+  } else if (apiKey) {
+    sheets = google.sheets({ version: 'v4', auth: apiKey });
+  } else {
+    const auth = new google.auth.GoogleAuth({ scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'] });
     await auth.getClient();
-    logger.info('Using Application Default Credentials for Sheets auth');
-    return google.sheets({ version: 'v4', auth });
-  } catch (e) {
-    // ADC not available
+    sheets = google.sheets({ version: 'v4', auth });
   }
 
-  throw new Error(
-    'No Google Sheets credentials found. Set RUNLAYER_ACCESS_TOKEN for MCP proxy, ' +
-    'or one of: GOOGLE_SERVICE_ACCOUNT_KEY_FILE, GOOGLE_SERVICE_ACCOUNT_KEY, ' +
-    'GOOGLE_SHEETS_API_KEY, or configure ADC (gcloud auth application-default login)'
-  );
-}
-
-async function fetchSheetDataViaApi(sheets: sheets_v4.Sheets, spreadsheetId: string, sheetName: string): Promise<any[][] | null> {
-  logger.info(`[API] Fetching sheet "${sheetName}" from spreadsheet ${spreadsheetId.substring(0, 12)}...`);
-
+  logger.info(`[API] Fetching "${sheetName}" from ${spreadsheetId.substring(0, 12)}...`);
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
     range: sheetName,
@@ -196,24 +239,28 @@ async function fetchSheetDataViaApi(sheets: sheets_v4.Sheets, spreadsheetId: str
   return values;
 }
 
-// ── Unified fetch with MCP-first fallback ─────────────────────────────────────
+// ── Unified sheet fetcher ─────────────────────────────────────────────────────
 
 type SheetFetcher = (spreadsheetId: string, sheetName: string) => Promise<any[][] | null>;
 
 async function createSheetFetcher(): Promise<SheetFetcher> {
-  // 1. Try Runlayer MCP proxy
-  if (process.env.RUNLAYER_ACCESS_TOKEN) {
-    logger.info('RUNLAYER_ACCESS_TOKEN is set — using MCP proxy for Google Sheets');
-    return fetchSheetDataViaMcp;
+  // 1. Try Runlayer MCP token
+  let token = getRunlayerToken();
+  if (!token) {
+    token = await refreshRunlayerToken();
+  }
+
+  if (token) {
+    logger.info('Using Runlayer MCP proxy for Google Sheets');
+    return (id, name) => fetchSheetDataViaMcp(token!, id, name);
   }
 
   // 2. Fall back to googleapis SDK
-  logger.info('RUNLAYER_ACCESS_TOKEN not set — trying googleapis SDK fallback');
-  const sheets = await getSheetsClient();
-  return (spreadsheetId: string, sheetName: string) => fetchSheetDataViaApi(sheets, spreadsheetId, sheetName);
+  logger.info('No Runlayer token — trying googleapis SDK');
+  return fetchSheetDataViaApi;
 }
 
-// ── Date parsing helpers ──────────────────────────────────────────────────────
+// ── Date parsing ──────────────────────────────────────────────────────────────
 
 function parseExcelDate(serial: number): string | null {
   if (!serial || serial < 1) return null;
@@ -271,7 +318,7 @@ function findHeaderRow(rows: any[][]): { rowIdx: number; dateStartCol: number } 
   return { rowIdx: bestRowIdx, dateStartCol: bestDateStartCol };
 }
 
-// ── Ingestion functions ───────────────────────────────────────────────────────
+// ── Ingestion ─────────────────────────────────────────────────────────────────
 
 async function ingestCashBalances(fetchSheet: SheetFetcher, sheetName: string, accountType: 'corporate' | 'customer', maxDays: number = 30): Promise<number> {
   const rows = await fetchSheet(CASH_SPREADSHEET_ID, sheetName);
@@ -287,21 +334,19 @@ async function ingestCashBalances(fetchSheet: SheetFetcher, sheetName: string, a
     return 0;
   }
 
-  logger.info(`${sheetName}: header row index=${headerRowIdx}, date start col=${dateStartCol}`);
+  logger.info(`${sheetName}: header row=${headerRowIdx}, date start col=${dateStartCol}`);
 
   const headerRow = rows[headerRowIdx];
   const dateColumns: { col: number; date: string }[] = [];
   for (let j = dateStartCol; j < headerRow.length; j++) {
     const dateStr = parseDateValue(headerRow[j]);
-    if (dateStr) {
-      dateColumns.push({ col: j, date: dateStr });
-    }
+    if (dateStr) dateColumns.push({ col: j, date: dateStr });
   }
 
-  logger.info(`${sheetName}: found ${dateColumns.length} date columns, earliest: ${dateColumns[0]?.date}, latest: ${dateColumns[dateColumns.length - 1]?.date}`);
+  logger.info(`${sheetName}: ${dateColumns.length} date columns, earliest=${dateColumns[0]?.date}, latest=${dateColumns[dateColumns.length - 1]?.date}`);
 
   if (dateColumns.length === 0) {
-    logger.warn(`No parseable date columns found in ${sheetName}`);
+    logger.warn(`No parseable date columns in ${sheetName}`);
     return 0;
   }
 
@@ -390,7 +435,7 @@ async function ingestCorpForecast(fetchSheet: SheetFetcher, maxWeeks: number = 8
     }
   }
 
-  logger.info(`Forecast: found ${dateColumns.length} date columns, taking last ${maxWeeks}`);
+  logger.info(`Forecast: ${dateColumns.length} date columns, taking last ${maxWeeks}`);
   const recentDates = dateColumns.slice(-maxWeeks);
 
   const upsert = db.prepare(`
