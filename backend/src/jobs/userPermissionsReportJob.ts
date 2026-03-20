@@ -11,6 +11,7 @@ interface UserSnapshot {
   title: string | null;
   payment_limit: number | null;
   last_login_at: string | null;
+  first_login_at: string | null;
   account_count: number;
 }
 
@@ -39,6 +40,7 @@ export async function runUserPermissionsReportJob(): Promise<void> {
         u.title,
         u.payment_limit,
         u.last_login_at,
+        (SELECT MIN(us.login_at) FROM user_sessions us WHERE us.user_id = u.id) AS first_login_at,
         (SELECT COUNT(*) FROM user_account_access uaa WHERE uaa.user_id = u.id) AS account_count
       FROM users u
       ORDER BY
@@ -78,6 +80,7 @@ export async function runUserPermissionsReportJob(): Promise<void> {
         title: u.title,
         paymentLimit: u.payment_limit,
         lastLogin: u.last_login_at,
+        firstLogin: u.first_login_at,
         accountRestrictions: u.account_count > 0 ? u.account_count : null,
       })),
     });
@@ -295,6 +298,7 @@ function buildHtml(
         <td style="${cell}">${u.account_count > 0 ? `${u.account_count} account(s)` : 'All accounts'}</td>
         <td style="${cell}"><span style="color:${bgColor};font-weight:600;">${u.status}</span></td>
         <td style="${cell}">${u.last_login_at || 'Never'}</td>
+        <td style="${cell}">${u.first_login_at || 'Never'}</td>
       </tr>
     `).join('');
 
@@ -309,6 +313,7 @@ function buildHtml(
       <th style="${cell}text-align:left;">Account Access</th>
       <th style="${cell}text-align:left;">Status</th>
       <th style="${cell}text-align:left;">Last Login</th>
+      <th style="${cell}text-align:left;">First Login</th>
     </tr>
   `;
 
