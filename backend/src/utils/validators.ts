@@ -105,8 +105,8 @@ export const confirmExecutionSchema = z.object({
     .string()
     .min(VALIDATION.MIN_BANK_REFERENCE_LENGTH)
     .max(100),
-  actualAmount: z.number().positive(),
-  actualDate: dateSchema,
+  actualAmount: z.number().positive().optional(),
+  actualDate: dateSchema.optional(),
   notes: z.string().max(1000).optional(),
 });
 

@@ -1,7 +1,7 @@
 import { Router, Response, NextFunction } from 'express';
 import { query, transaction } from '../config/sqlite.js';
 import { AuthenticatedRequest, Payment, ExecutionConfirmation } from '../types/index.js';
-import { validate, confirmExecutionSchema, bankRejectSchema, emergencyHaltSchema } from '../utils/validators.js';
+import { validate, confirmExecutionSchema, bankRejectSchema, emergencyHaltSchema, ValidationError } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS, getClientIp } from '../middleware/audit.js';
 import { canExecute } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
@@ -60,10 +60,23 @@ router.get('/queue', async (req: AuthenticatedRequest, res: Response) => {
 
       try {
         if (payment.account_number_encrypted) {
-          accountNumber = decryptAccountNumber(payment.account_number_encrypted);
+          const raw = payment.account_number_encrypted;
+          // Handle mock "encrypted:****XXXX" format from seed data
+          const mockMatch = typeof raw === 'string' && raw.match(/^encrypted:\*{4}(\w+)$/);
+          if (mockMatch) {
+            accountNumber = mockMatch[1]; // last 4 digits only
+          } else {
+            accountNumber = decryptAccountNumber(raw);
+          }
         }
         if (payment.routing_number_encrypted) {
-          routingNumber = decryptRoutingNumber(payment.routing_number_encrypted);
+          const raw = payment.routing_number_encrypted;
+          const mockMatch = typeof raw === 'string' && raw.match(/^encrypted:\*{4}(\w+)$/);
+          if (mockMatch) {
+            routingNumber = mockMatch[1] === '0000' ? '' : mockMatch[1];
+          } else {
+            routingNumber = decryptRoutingNumber(raw);
+          }
         }
       } catch (error) {
         logger.error('Error decrypting account details', { paymentId: payment.id });
@@ -72,9 +85,9 @@ router.get('/queue', async (req: AuthenticatedRequest, res: Response) => {
       return {
         ...payment,
         accountNumber: accountNumber,
-        accountNumberMasked: maskAccountNumber(accountNumber),
+        accountNumberMasked: accountNumber ? maskAccountNumber(accountNumber) : '',
         routingNumber: routingNumber,
-        routingNumberMasked: maskRoutingNumber(routingNumber),
+        routingNumberMasked: routingNumber ? maskRoutingNumber(routingNumber) : '',
         // Remove encrypted fields from response
         account_number_encrypted: undefined,
         routing_number_encrypted: undefined,
@@ -142,6 +155,9 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       return;
     }
 
+    const actualAmount = data.actualAmount ?? (payment as any).amount;
+    const actualDate = data.actualDate ?? new Date().toISOString().slice(0, 10);
+
     // Single-step execution: no dual control required
     await transaction(async (client) => {
       // Insert execution confirmation record
@@ -155,8 +171,8 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
           id,
           user.id,
           data.bankReference,
-          data.actualAmount,
-          data.actualDate,
+          actualAmount,
+          actualDate,
           clientIp,
           req.headers['user-agent'] || null,
         ]
@@ -175,7 +191,7 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
              execution_notes = $6,
              updated_at = datetime('now')
          WHERE id = $1`,
-        [id, data.bankReference, data.actualDate, user.id, user.name || user.email, data.notes || null]
+        [id, data.bankReference, actualDate, user.id, user.name || user.email, data.notes || null]
       );
     });
 
@@ -203,6 +219,15 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       },
     });
   } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: error.message,
+        details: error.errors,
+      });
+      return;
+    }
     logger.error('Error confirming execution', { error: (error as Error).message });
     res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       success: false,

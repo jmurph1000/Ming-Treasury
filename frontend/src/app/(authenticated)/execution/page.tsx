@@ -157,10 +157,12 @@ export default function ExecutionPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t flex items-center gap-2 text-sm text-amber-600">
-                  <AlertTriangle className="h-4 w-4" />
-                  Dual control required
-                </div>
+                {payment.dual_control_required ? (
+                  <div className="mt-3 pt-3 border-t flex items-center gap-2 text-sm text-gray-400">
+                    <AlertTriangle className="h-4 w-4" />
+                    Dual control — Treasury admin override active
+                  </div>
+                ) : null}
               </div>
             ))
           )}
@@ -180,27 +182,37 @@ export default function ExecutionPage() {
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Account Number</p>
-                    <p className="font-mono text-sm">{selectedPayment.accountNumber}</p>
+                    <p className="font-mono text-sm">
+                      {selectedPayment.accountNumberMasked || <span className="text-gray-400 italic">Not on file</span>}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(selectedPayment.accountNumber, 'account')}
-                    className="p-1 hover:bg-gray-200 rounded"
-                  >
-                    <Copy className={`h-4 w-4 ${copiedField === 'account' ? 'text-green-500' : 'text-gray-400'}`} />
-                  </button>
+                  {selectedPayment.accountNumber && (
+                    <button
+                      onClick={() => copyToClipboard(selectedPayment.accountNumber, 'account')}
+                      className="p-1 hover:bg-gray-200 rounded"
+                      title="Copy full account number"
+                    >
+                      <Copy className={`h-4 w-4 ${copiedField === 'account' ? 'text-green-500' : 'text-gray-400'}`} />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
                   <div>
                     <p className="text-xs text-gray-500 uppercase">Routing Number</p>
-                    <p className="font-mono text-sm">{selectedPayment.routingNumber}</p>
+                    <p className="font-mono text-sm">
+                      {selectedPayment.routingNumberMasked || <span className="text-gray-400 italic">Not on file</span>}
+                    </p>
                   </div>
-                  <button
-                    onClick={() => copyToClipboard(selectedPayment.routingNumber, 'routing')}
-                    className="p-1 hover:bg-gray-200 rounded"
-                  >
-                    <Copy className={`h-4 w-4 ${copiedField === 'routing' ? 'text-green-500' : 'text-gray-400'}`} />
-                  </button>
+                  {selectedPayment.routingNumber && (
+                    <button
+                      onClick={() => copyToClipboard(selectedPayment.routingNumber, 'routing')}
+                      className="p-1 hover:bg-gray-200 rounded"
+                      title="Copy full routing number"
+                    >
+                      <Copy className={`h-4 w-4 ${copiedField === 'routing' ? 'text-green-500' : 'text-gray-400'}`} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -243,6 +255,12 @@ export default function ExecutionPage() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                 </div>
+
+                {confirmExecution.isError && (
+                  <p className="text-sm text-red-600">
+                    {(confirmExecution.error as any)?.message || 'Execution failed. Check all fields and try again.'}
+                  </p>
+                )}
 
                 <div className="flex gap-2 pt-4">
                   <button

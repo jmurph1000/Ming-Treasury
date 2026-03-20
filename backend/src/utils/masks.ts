@@ -10,12 +10,10 @@ export function maskAccountNumber(accountNumber: string): string {
   const visibleDigits = COMPLIANCE.VISIBLE_ACCOUNT_DIGITS;
   const maskChar = COMPLIANCE.PII_MASK_CHAR;
 
-  if (accountNumber.length <= visibleDigits) {
-    return accountNumber;
-  }
-
-  const masked = maskChar.repeat(accountNumber.length - visibleDigits);
   const visible = accountNumber.slice(-visibleDigits);
+  // Always show at least 4 mask characters as prefix
+  const maskLength = Math.max(4, accountNumber.length - visibleDigits);
+  const masked = maskChar.repeat(maskLength);
 
   return masked + visible;
 }
