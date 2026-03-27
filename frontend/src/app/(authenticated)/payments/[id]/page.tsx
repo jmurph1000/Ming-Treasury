@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { usePayment, useSubmitPayment, useCancelPayment, useApprovePayment, useRejectPayment, useReturnPayment } from '@/hooks/usePayments';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, useIsReadOnly } from '@/hooks/useAuth';
 import {
   formatCurrency,
   formatDate,
@@ -109,6 +109,7 @@ export default function PaymentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
+  const isReadOnly = useIsReadOnly();
   const id = params.id as string;
 
   const { data, isLoading, error } = usePayment(id);

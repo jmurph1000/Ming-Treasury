@@ -9,6 +9,7 @@ export const APP_VERSION = '1.0.0';
 // USER ROLES & PERMISSIONS
 // =====================================================
 export const USER_ROLES = {
+  READ_ONLY: 'read_only',
   STAFF: 'staff',
   MANAGER: 'manager',
   SR_MANAGER: 'sr_manager',
@@ -16,6 +17,7 @@ export const USER_ROLES = {
 } as const;
 
 export const ROLE_PAYMENT_LIMITS: Record<string, number | null> = {
+  read_only: 0,
   staff: 50000,
   manager: 250000,
   sr_manager: 500000,
@@ -23,6 +25,7 @@ export const ROLE_PAYMENT_LIMITS: Record<string, number | null> = {
 };
 
 export const ROLE_HIERARCHY: Record<string, number> = {
+  read_only: 0,
   staff: 1,
   manager: 2,
   sr_manager: 3,

@@ -3,7 +3,7 @@
 import { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth, useCanApprove, useCanExecute, useIsCfoOrAdmin, useIsAdmin } from '@/hooks/useAuth';
+import { useAuth, useCanApprove, useCanExecute, useIsCfoOrAdmin, useIsAdmin, useIsReadOnly } from '@/hooks/useAuth';
 import { cn, getRoleLabel } from '@/lib/utils';
 import { ROUTES } from '@/lib/constants';
 import {
@@ -34,6 +34,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const canExecute = useCanExecute();
   const isCfoOrAdmin = useIsCfoOrAdmin();
   const isAdmin = useIsAdmin();
+  const isReadOnly = useIsReadOnly();
   const isTreasurySupervisor = useIsTreasurySupervisor();
 
   const navigation = [

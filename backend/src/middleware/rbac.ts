@@ -100,12 +100,12 @@ export function canApprove(req: AuthenticatedRequest, res: Response, next: NextF
     return;
   }
 
-  // Staff cannot approve
-  if (user.role === 'staff') {
+  // Read-only and Staff cannot approve
+  if (user.role === 'staff' || user.role === 'read_only') {
     res.status(HTTP_STATUS.FORBIDDEN).json({
       success: false,
       error: ERROR_CODES.FORBIDDEN,
-      message: 'Staff members cannot approve payments',
+      message: user.role === 'read_only' ? 'Read-only users cannot approve payments' : 'Staff members cannot approve payments',
     });
     return;
   }
@@ -219,6 +219,33 @@ export function adminOnly(req: AuthenticatedRequest, res: Response, next: NextFu
  * Kept for backward compatibility — same as adminOnly.
  */
 export const cfoOrAdmin = adminOnly;
+
+/**
+ * Block read-only users from write operations (create, update, delete)
+ */
+export function readOnlyBlock(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const user = req.user;
+
+  if (!user) {
+    res.status(HTTP_STATUS.UNAUTHORIZED).json({
+      success: false,
+      error: ERROR_CODES.UNAUTHORIZED,
+      message: 'Authentication required',
+    });
+    return;
+  }
+
+  if (user.role === 'read_only') {
+    res.status(HTTP_STATUS.FORBIDDEN).json({
+      success: false,
+      error: ERROR_CODES.FORBIDDEN,
+      message: 'Read-only users cannot perform this action',
+    });
+    return;
+  }
+
+  next();
+}
 
 /**
  * Treasury Admin only middleware

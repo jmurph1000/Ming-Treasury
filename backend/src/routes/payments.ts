@@ -3,7 +3,7 @@ import { query } from '../config/sqlite.js';
 import { AuthenticatedRequest, PaymentRow, RoutingRuleRow, ApprovalChainRow } from '../types/index.js';
 import { validate, createPaymentSchema, updatePaymentSchema, paymentFilterSchema } from '../utils/validators.js';
 import { logAuditEntry, AUDIT_ACTIONS } from '../middleware/audit.js';
-import { getUserPaymentLimit } from '../middleware/rbac.js';
+import { getUserPaymentLimit, readOnlyBlock } from '../middleware/rbac.js';
 import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS, PAGINATION } from '../config/constants.js';
 import { determineApprovalChain, validatePayrollAccountAccess, getApprovalEligibility } from '../services/approvalRules.js';
@@ -254,7 +254,7 @@ router.get('/calendar', async (req: AuthenticatedRequest, res: Response) => {
  * POST /api/payments
  * Create a new payment request
  */
-router.post('/', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/', readOnlyBlock, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = validate(createPaymentSchema, req.body);
     const user = req.user!;
@@ -532,7 +532,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
  * PUT /api/payments/:id
  * Update a draft payment
  */
-router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
+router.put('/:id', readOnlyBlock, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = validate(updatePaymentSchema, req.body);
@@ -598,7 +598,7 @@ router.put('/:id', async (req: AuthenticatedRequest, res: Response) => {
  * POST /api/payments/:id/submit
  * Submit a payment for approval — FIXED: uses SQLite only, no PostgreSQL pool
  */
-router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:id/submit', readOnlyBlock, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const user = req.user!;
@@ -724,7 +724,7 @@ router.post('/:id/submit', async (req: AuthenticatedRequest, res: Response) => {
  * POST /api/payments/:id/cancel
  * Cancel a payment
  */
-router.post('/:id/cancel', async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:id/cancel', readOnlyBlock, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const user = req.user!;

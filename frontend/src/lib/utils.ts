@@ -102,6 +102,7 @@ export function getFundingTypeLabel(type: string): string {
 
 export function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
+    read_only: 'Read Only',
     staff: 'Staff',
     manager: 'Manager',
     sr_manager: 'Senior Manager',

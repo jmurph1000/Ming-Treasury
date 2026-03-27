@@ -29,10 +29,14 @@ router.get('/cash-balances', (req: AuthenticatedRequest, res: Response) => {
   if (accountType === 'corporate') typeFilter = `AND account_type = 'corporate'`;
   else if (accountType === 'customer') typeFilter = `AND account_type = 'customer'`;
 
+  // Use the latest available data date as anchor instead of 'now',
+  // so weekends/holidays don't produce empty results
   const { rows } = query<any>(
     `SELECT account_name, account_type, balance_date, balance, currency, bank, account_number_last4
      FROM cash_balance_snapshots
-     WHERE balance_date >= date('now', '-' || $1 || ' days')
+     WHERE balance_date >= (
+       SELECT date(MAX(balance_date), '-' || $1 || ' days') FROM cash_balance_snapshots
+     )
      ${typeFilter}
      ORDER BY balance_date DESC, balance DESC`,
     [daysBack.toString()]

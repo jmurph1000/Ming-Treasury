@@ -104,7 +104,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 // Hooks for role checking
 export function useCanApprove() {
   const { user } = useAuth();
-  return user?.role !== 'staff';
+  return user?.role !== 'staff' && user?.role !== 'read_only';
+}
+
+export function useIsReadOnly() {
+  const { user } = useAuth();
+  return user?.role === 'read_only';
 }
 
 export function useCanExecute() {

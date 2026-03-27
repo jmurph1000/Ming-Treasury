@@ -1,5 +1,5 @@
 // User types
-export type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
+export type UserRole = 'read_only' | 'staff' | 'manager' | 'sr_manager' | 'admin';
 export type UserStatus = 'pending' | 'active' | 'suspended' | 'terminated';
 
 export interface User {

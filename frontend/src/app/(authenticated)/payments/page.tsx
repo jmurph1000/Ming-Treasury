@@ -6,8 +6,10 @@ import { usePayments } from '@/hooks/usePayments';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel, getPaymentTypeLabel } from '@/lib/utils';
 import { ROUTES, PAYMENT_STATUSES } from '@/lib/constants';
 import { Plus, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useIsReadOnly } from '@/hooks/useAuth';
 
 export default function PaymentsPage() {
+  const isReadOnly = useIsReadOnly();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -45,13 +47,13 @@ export default function PaymentsPage() {
             Manage and track payment requests
           </p>
         </div>
-        <Link
+        {!isReadOnly && <Link
           href={ROUTES.NEW_PAYMENT}
           className="inline-flex items-center gap-2 px-4 py-2 bg-gusto-green text-white rounded-md hover:bg-gusto-green-dark transition-colors"
         >
           <Plus className="h-4 w-4" />
           New Payment
-        </Link>
+        </Link>}
       </div>
 
       {/* Filters */}

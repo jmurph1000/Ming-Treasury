@@ -329,6 +329,7 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
 
     // Build system prompt
     let systemPrompt: string;
+    const isReadOnly = user.role === 'read_only';
     if (isAdmin) {
       const portalData = getAdminPortalData();
       systemPrompt = buildAdminSystemPrompt(user.name, portalData, today);
@@ -338,6 +339,9 @@ router.post('/chat', async (req: AuthenticatedRequest, res: Response) => {
       const groupId = group?.groupId || '';
       const portalData = getStandardUserPortalData(user.id, groupId);
       systemPrompt = buildStandardSystemPrompt(user.name, groupName, portalData, today);
+      if (isReadOnly) {
+        systemPrompt += `\n\nIMPORTANT: ${user.name} has READ-ONLY access. They can view payments and search but CANNOT initiate, edit, approve, reject, or execute payments. Do not offer to help them perform any write actions. If they ask about creating or approving payments, explain they have read-only access and should contact their manager or Treasury admin for elevated permissions.`;
+      }
     }
 
     // Get or initialize conversation history

@@ -23,7 +23,7 @@ export function initializeSchema() {
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('staff', 'manager', 'sr_manager', 'admin')),
+      role TEXT NOT NULL CHECK (role IN ('read_only', 'staff', 'manager', 'sr_manager', 'admin')),
       status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'suspended', 'terminated')),
       workday_id TEXT,
       title TEXT,
@@ -729,7 +729,7 @@ export function initializeSchema() {
         .replace('users', 'users_new')
         .replace(
           /CHECK\s*\(role\s+IN\s*\([^)]+\)\)/i,
-          `CHECK (role IN ('staff', 'manager', 'sr_manager', 'admin'))`
+          `CHECK (role IN ('read_only', 'staff', 'manager', 'sr_manager', 'admin'))`
         );
       db.exec(newSql);
 
@@ -771,6 +771,31 @@ export function initializeSchema() {
     }
   } catch (err) {
     logger.warn('Role migration check skipped or already done', { error: (err as Error).message });
+  }
+
+  // ── Add read_only role to CHECK constraint if not already present ──
+  try {
+    const tableInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='users'`).get() as { sql: string } | undefined;
+    if (tableInfo && !tableInfo.sql.includes('read_only')) {
+      logger.info('Adding read_only role to users table CHECK constraint');
+      db.pragma('foreign_keys = OFF');
+      db.exec(`DROP TABLE IF EXISTS users_new`);
+      const newSql = tableInfo.sql
+        .replace('users', 'users_new')
+        .replace(
+          /CHECK\s*\(role\s+IN\s*\([^)]+\)\)/i,
+          `CHECK (role IN ('read_only', 'staff', 'manager', 'sr_manager', 'admin'))`
+        );
+      db.exec(newSql);
+      const cols = (db.pragma('table_info(users)') as any[]).map((c: any) => c.name).join(', ');
+      db.exec(`INSERT INTO users_new (${cols}) SELECT ${cols} FROM users`);
+      db.exec(`DROP TABLE users`);
+      db.exec(`ALTER TABLE users_new RENAME TO users`);
+      db.pragma('foreign_keys = ON');
+      logger.info('read_only role migration completed');
+    }
+  } catch (err) {
+    logger.warn('read_only role migration skipped', { error: (err as Error).message });
   }
 
   // ── Seed bank holidays (US federal + Canadian federal) for 2025-2026 ──

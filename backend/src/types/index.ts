@@ -3,7 +3,7 @@ import { Request } from 'express';
 // =====================================================
 // USER TYPES
 // =====================================================
-export type UserRole = 'staff' | 'manager' | 'sr_manager' | 'admin';
+export type UserRole = 'read_only' | 'staff' | 'manager' | 'sr_manager' | 'admin';
 export type UserStatus = 'pending' | 'active' | 'suspended' | 'terminated';
 export type ApproverPool = 'group_or_treasury' | 'senior_or_treasury' | 'treasury_only';
 export type RoutingMode = 'approval_chain' | 'routing_rules';
