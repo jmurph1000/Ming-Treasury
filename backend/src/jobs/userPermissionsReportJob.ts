@@ -22,9 +22,9 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
 };
 
-export async function runUserPermissionsReportJob(): Promise<void> {
+export async function runUserPermissionsReportJob(isScheduled: boolean = false, manualUserName?: string): Promise<void> {
   try {
-    logger.info('User permissions report job started');
+    logger.info(`User permissions report job started (${isScheduled ? 'scheduled' : 'manual'})`);
 
     const today = new Date().toISOString().slice(0, 10);
 
@@ -88,29 +88,27 @@ export async function runUserPermissionsReportJob(): Promise<void> {
     const subject = `[Treasury Portal] Daily User Permissions Report — ${today}`;
     const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, today);
 
-    // Check if today's report already exists
-    const { rows: existing } = await query(
-      `SELECT id FROM notifications
-       WHERE type = 'user_permissions_report' AND date(created_at) = $1`,
-      [today]
-    );
-
-    if (existing.length > 0) {
-      await query(
-        `UPDATE notifications
-         SET subject = $1, body = $2, template_data = $3, status = 'generated', created_at = datetime('now')
-         WHERE id = $4`,
-        [subject, html, templateData, existing[0].id]
+    // For scheduled runs: only skip if a scheduled report already exists for today
+    // For manual runs: always create a new report
+    if (isScheduled) {
+      const { rows: existing } = await query(
+        `SELECT id FROM notifications
+         WHERE type = 'user_permissions_report' AND date(created_at) = $1 AND is_scheduled = 1`,
+        [today]
       );
-      logger.info('User permissions report updated for today');
-    } else {
-      await query(
-        `INSERT INTO notifications (type, channel, subject, body, template_data, status, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, datetime('now'))`,
-        ['user_permissions_report', 'in_app', subject, html, templateData, 'generated']
-      );
-      logger.info('User permissions report stored for today');
+      if (existing.length > 0) {
+        logger.info('Scheduled user permissions report already exists for today, skipping');
+        return;
+      }
     }
+
+    await query(
+      `INSERT INTO notifications (type, channel, subject, body, template_data, status, is_scheduled, generated_by_name, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, datetime('now'))`,
+      ['user_permissions_report', 'in_app', subject, html, templateData, 'generated',
+       isScheduled ? 1 : 0, manualUserName || null]
+    );
+    logger.info(`User permissions report stored for today (${isScheduled ? 'scheduled' : 'manual'})`);
 
     logger.info(`User permissions report completed: ${activeUsers.length} active, ${suspendedUsers.length} suspended, ${pendingUsers.length} pending`);
   } catch (error) {

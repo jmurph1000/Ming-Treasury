@@ -685,6 +685,48 @@ export function initializeSchema() {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_reports(report_date)`);
 
+  // is_scheduled flag for EOD reports — distinguishes scheduled (6 PM ET) from manual "Generate Now"
+  try { db.exec(`ALTER TABLE eod_reports ADD COLUMN is_scheduled INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE eod_reports ADD COLUMN generated_by_name TEXT`); } catch (_) { /* column already exists */ }
+
+  // Remove UNIQUE constraint on report_date so both manual and scheduled reports can coexist
+  try {
+    const eodInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='eod_reports'`).get() as { sql: string } | undefined;
+    if (eodInfo && eodInfo.sql.includes('report_date TEXT NOT NULL UNIQUE')) {
+      logger.info('Migrating eod_reports table to remove UNIQUE on report_date...');
+      db.pragma('foreign_keys = OFF');
+      const newSql = eodInfo.sql
+        .replace('eod_reports', 'eod_reports_new')
+        .replace('report_date TEXT NOT NULL UNIQUE', 'report_date TEXT NOT NULL');
+      db.exec(`DROP TABLE IF EXISTS eod_reports_new`);
+      // Get old column list before creating new table
+      const oldCols = new Set((db.pragma('table_info(eod_reports)') as any[]).map((c: any) => c.name));
+      db.exec(newSql);
+      const newCols = (db.pragma('table_info(eod_reports_new)') as any[]).map((c: any) => c.name);
+      const colList = newCols.join(', ');
+      const srcCols = newCols.map((c: string) => {
+        if (!oldCols.has(c)) {
+          if (c === 'is_scheduled') return '0 AS is_scheduled';
+          if (c === 'generated_by_name') return 'NULL AS generated_by_name';
+          return `NULL AS ${c}`;
+        }
+        return c;
+      }).join(', ');
+      db.exec(`INSERT INTO eod_reports_new (${colList}) SELECT ${srcCols} FROM eod_reports`);
+      db.exec(`DROP TABLE eod_reports`);
+      db.exec(`ALTER TABLE eod_reports_new RENAME TO eod_reports`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_reports(report_date)`);
+      db.pragma('foreign_keys = ON');
+      logger.info('eod_reports UNIQUE constraint migration completed');
+    }
+  } catch (err) {
+    logger.warn('eod_reports migration skipped', { error: (err as Error).message });
+  }
+
+  // is_scheduled flag for notifications (user_permissions_report) — same pattern
+  try { db.exec(`ALTER TABLE notifications ADD COLUMN is_scheduled INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
+  try { db.exec(`ALTER TABLE notifications ADD COLUMN generated_by_name TEXT`); } catch (_) { /* column already exists */ }
+
   // Migrate bank_holidays: remove old UNIQUE(date) constraint, add UNIQUE(date, country)
   try {
     const bhInfo = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='bank_holidays'`).get() as { sql: string } | undefined;

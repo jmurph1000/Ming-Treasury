@@ -317,11 +317,11 @@ router.get('/eod', hasRole('admin'), async (req: AuthenticatedRequest, res: Resp
     const limit = Math.min(90, Math.max(1, parseInt(req.query.limit as string, 10) || 30));
 
     const { rows } = await query(
-      `SELECT id, report_date, generated_at, generated_by,
+      `SELECT id, report_date, generated_at, generated_by, generated_by_name, is_scheduled,
         pending_count, pending_amount, executed_count, executed_amount,
         rejected_count, cancelled_count, pipeline_data
       FROM eod_reports
-      ORDER BY report_date DESC
+      ORDER BY report_date DESC, generated_at DESC
       LIMIT $1`,
       [limit]
     );
@@ -363,7 +363,7 @@ router.get('/eod/:id', hasRole('admin'), async (req: AuthenticatedRequest, res: 
 router.post('/eod/generate', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { runEodReportJob } = await import('../jobs/eodReportJob.js');
-    await runEodReportJob(req.user!.id);
+    await runEodReportJob(req.user!.id, undefined, false);
     res.json({ success: true, message: 'End of day report generated' });
   } catch (error) {
     logger.error('Error generating EOD report', { error: (error as Error).message });

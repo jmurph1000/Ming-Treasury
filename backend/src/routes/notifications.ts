@@ -27,7 +27,7 @@ router.get('/summaries', hasRole('admin'), async (req: AuthenticatedRequest, res
 router.get('/permissions-reports', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { rows } = await query(
-      `SELECT id, type, subject, body, template_data, status, created_at
+      `SELECT id, type, subject, body, template_data, status, created_at, is_scheduled, generated_by_name
        FROM notifications
        WHERE type = 'user_permissions_report'
        ORDER BY created_at DESC
@@ -44,7 +44,8 @@ router.get('/permissions-reports', hasRole('admin'), async (req: AuthenticatedRe
 router.post('/permissions-reports/run', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { runUserPermissionsReportJob } = await import('../jobs/userPermissionsReportJob.js');
-    await runUserPermissionsReportJob();
+    const userName = req.user?.name || req.user?.email || 'Unknown';
+    await runUserPermissionsReportJob(false, userName);
     res.json({ success: true, message: 'User permissions report generated' });
   } catch (error) {
     logger.error('Failed to run permissions report manually', { error: (error as Error).message });

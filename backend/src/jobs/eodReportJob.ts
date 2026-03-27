@@ -14,17 +14,33 @@ interface PaymentSnapshot {
   executed_at: string | null;
 }
 
-export async function runEodReportJob(manualUserId?: string, reportDate?: string): Promise<void> {
+export async function runEodReportJob(manualUserId?: string, reportDate?: string, isScheduled: boolean = false): Promise<void> {
   try {
     const targetDate = reportDate || new Date().toISOString().slice(0, 10);
     const isRetroactive = reportDate && reportDate !== new Date().toISOString().slice(0, 10);
-    logger.info(`End-of-day report job started for ${targetDate}${isRetroactive ? ' (retroactive catch-up)' : ''}`);
+    logger.info(`End-of-day report job started for ${targetDate}${isRetroactive ? ' (retroactive catch-up)' : ''}${isScheduled ? ' (scheduled)' : ' (manual)'}`);
 
-    // Check if report already exists for this date
-    const { rows: existing } = await query<{ id: string }>(
-      `SELECT id FROM eod_reports WHERE report_date = $1`,
-      [targetDate]
-    );
+    // For scheduled runs: only skip if a scheduled report already exists for today
+    // For manual runs: always create a new report
+    if (isScheduled) {
+      const { rows: existing } = await query<{ id: string }>(
+        `SELECT id FROM eod_reports WHERE report_date = $1 AND is_scheduled = 1`,
+        [targetDate]
+      );
+      if (existing.length > 0) {
+        logger.info(`Scheduled EOD report already exists for ${targetDate}, skipping`);
+        return;
+      }
+    }
+
+    // Resolve the generator's display name
+    let generatedByName: string | null = null;
+    if (manualUserId) {
+      const { rows: userRows } = await query<{ name: string }>(
+        `SELECT name FROM users WHERE id = $1`, [manualUserId]
+      );
+      generatedByName = userRows[0]?.name || null;
+    }
 
     // For retroactive reports, show payments that were pending as of end of that date
     // (created on or before targetDate and still in a pending-like state, or were updated after)
@@ -110,34 +126,17 @@ export async function runEodReportJob(manualUserId?: string, reportDate?: string
 
     const generatedAt = new Date().toISOString();
 
-    if (existing.length > 0) {
-      await query(
-        `UPDATE eod_reports SET
-          generated_at = $1, generated_by = $2,
-          pending_count = $3, pending_amount = $4,
-          executed_count = $5, executed_amount = $6,
-          rejected_count = $7, cancelled_count = $8,
-          pipeline_data = $9, payments_data = $10,
-          html_body = $11, created_at = datetime('now')
-        WHERE id = $12`,
-        [generatedAt, manualUserId || null,
-         pendingCount, pendingAmount, executedCount, executedAmount,
-         rejectedCount, cancelledCount, pipelineData, paymentsData,
-         htmlBody, existing[0].id]
-      );
-      logger.info(`EOD report updated for ${targetDate}`);
-    } else {
-      await query(
-        `INSERT INTO eod_reports (report_date, generated_at, generated_by,
-          pending_count, pending_amount, executed_count, executed_amount,
-          rejected_count, cancelled_count, pipeline_data, payments_data, html_body)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-        [targetDate, generatedAt, manualUserId || null,
-         pendingCount, pendingAmount, executedCount, executedAmount,
-         rejectedCount, cancelledCount, pipelineData, paymentsData, htmlBody]
-      );
-      logger.info(`EOD report created for ${targetDate}`);
-    }
+    await query(
+      `INSERT INTO eod_reports (report_date, generated_at, generated_by, generated_by_name,
+        pending_count, pending_amount, executed_count, executed_amount,
+        rejected_count, cancelled_count, pipeline_data, payments_data, html_body, is_scheduled)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [targetDate, generatedAt, manualUserId || null, generatedByName,
+       pendingCount, pendingAmount, executedCount, executedAmount,
+       rejectedCount, cancelledCount, pipelineData, paymentsData, htmlBody,
+       isScheduled ? 1 : 0]
+    );
+    logger.info(`EOD report created for ${targetDate} (${isScheduled ? 'scheduled' : 'manual'})`);
 
     logger.info(`EOD report completed for ${targetDate}: ${pendingCount} pending, ${executedCount} executed`);
   } catch (error) {

@@ -87,17 +87,17 @@ async function startServer(): Promise<void> {
       logger.error('Startup pending payments summary failed', { error: (error as Error).message });
     }
 
-    // Generate today's user permissions report if it doesn't exist yet
+    // Generate today's user permissions report if scheduled one doesn't exist yet
     try {
-      await runUserPermissionsReportJob();
+      await runUserPermissionsReportJob(true);
       logger.info('Startup user permissions report for today completed');
     } catch (error) {
       logger.error('Startup user permissions report for today failed', { error: (error as Error).message });
     }
 
-    // Generate today's EOD report if it doesn't exist yet
+    // Generate today's EOD report if scheduled one doesn't exist yet
     try {
-      await runEodReportJob();
+      await runEodReportJob(undefined, undefined, true);
       logger.info('Startup EOD report for today completed');
     } catch (error) {
       logger.error('Startup EOD report for today failed', { error: (error as Error).message });
@@ -213,7 +213,7 @@ function scheduleJobs(): void {
   cron.schedule('0 18 * * *', async () => {
     logger.debug('Running 6 PM ET scheduled jobs');
     try {
-      await runUserPermissionsReportJob();
+      await runUserPermissionsReportJob(true);
     } catch (error) {
       logger.error('User permissions report job failed', { error: (error as Error).message });
     }
@@ -223,7 +223,7 @@ function scheduleJobs(): void {
       logger.error('Pending payments summary job failed', { error: (error as Error).message });
     }
     try {
-      await runEodReportJob();
+      await runEodReportJob(undefined, undefined, true);
     } catch (error) {
       logger.error('EOD report job failed', { error: (error as Error).message });
     }
