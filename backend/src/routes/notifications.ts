@@ -65,4 +65,58 @@ router.post('/summaries/run', hasRole('admin'), async (req: AuthenticatedRequest
   }
 });
 
+// ─── Portal Notifications (bell icon) ─────────────────────────────────────
+
+// GET /api/notifications/portal — returns unread portal notifications for the logged-in user
+router.get('/portal', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { rows } = await query(
+      `SELECT pn.*, p.reference_number, p.payee_name
+       FROM portal_notifications pn
+       LEFT JOIN payments p ON pn.payment_id = p.id
+       WHERE pn.user_id = $1
+       ORDER BY pn.created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    const unreadCount = rows.filter((r: any) => !r.is_read).length;
+    res.json({ success: true, data: rows, meta: { unreadCount } });
+  } catch (error) {
+    logger.error('Failed to fetch portal notifications', { error: (error as Error).message });
+    res.status(500).json({ success: false, message: 'Failed to fetch notifications' });
+  }
+});
+
+// PATCH /api/notifications/portal/:id/read — marks a notification as read
+router.patch('/portal/:id/read', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    await query(
+      `UPDATE portal_notifications SET is_read = 1 WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to mark notification as read', { error: (error as Error).message });
+    res.status(500).json({ success: false, message: 'Failed to update notification' });
+  }
+});
+
+// PATCH /api/notifications/portal/read-all — marks all notifications as read
+router.patch('/portal/read-all', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    await query(
+      `UPDATE portal_notifications SET is_read = 1 WHERE user_id = $1 AND is_read = 0`,
+      [userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    logger.error('Failed to mark all notifications as read', { error: (error as Error).message });
+    res.status(500).json({ success: false, message: 'Failed to update notifications' });
+  }
+});
+
 export default router;

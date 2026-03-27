@@ -685,6 +685,22 @@ export function initializeSchema() {
   `);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_eod_date ON eod_reports(report_date)`);
 
+  // Portal notifications (execution alerts, etc.)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS portal_notifications (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      payment_id TEXT,
+      is_read INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pn_user ON portal_notifications(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pn_read ON portal_notifications(user_id, is_read)`);
+
   // is_scheduled flag for EOD reports — distinguishes scheduled (6 PM ET) from manual "Generate Now"
   try { db.exec(`ALTER TABLE eod_reports ADD COLUMN is_scheduled INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE eod_reports ADD COLUMN generated_by_name TEXT`); } catch (_) { /* column already exists */ }

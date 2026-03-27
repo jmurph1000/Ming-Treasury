@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Bunmahon } from '@/components/Bunmahon';
 import { TreasurySidebar } from '@/components/layout/TreasurySidebar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useIsTreasurySupervisor } from '@/hooks/useAuth';
 
 interface AppLayoutProps {
@@ -131,8 +132,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <Bunmahon />
             </div>
 
-            {/* User Menu */}
-            <div className="flex items-center">
+            {/* Notification Bell + User Menu */}
+            <div className="flex items-center gap-2">
+              <NotificationBell />
               <div className="relative group">
                 <button className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-gray-300 hover:text-white transition-colors">
                   <User className="h-4 w-4" />

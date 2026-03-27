@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import { decryptAccountNumber, decryptRoutingNumber } from '../services/encryptionService.js';
 import { maskAccountNumber, maskRoutingNumber } from '../utils/masks.js';
+import { notifyPaymentExecuted } from '../services/executionNotificationService.js';
 
 const router = Router();
 
@@ -208,6 +209,22 @@ router.post('/:id/confirm', async (req: AuthenticatedRequest, res: Response) => 
       },
       ipAddress: clientIp,
     });
+
+    // Send execution notifications to initiator and approvers (async, non-blocking)
+    notifyPaymentExecuted({
+      id,
+      reference_number: (payment as any).reference_number,
+      payee_name: (payment as any).payee_name,
+      amount: (payment as any).amount,
+      currency: (payment as any).currency,
+      usd_equivalent: (payment as any).usd_equivalent,
+      payment_type: (payment as any).payment_type,
+      requester_id: (payment as any).requester_id,
+      account_id: (payment as any).account_id,
+      bank_reference: data.bankReference,
+      executed_at: new Date().toISOString(),
+      executed_by_name: user.name || user.email,
+    }).catch(err => logger.error('Execution notification failed', { error: err.message }));
 
     res.json({
       success: true,
@@ -487,8 +504,23 @@ router.post('/batch', async (req: AuthenticatedRequest, res: Response) => {
       ipAddress: clientIp,
     });
 
-    // TODO: Create NetSuite journal entries via MCP
-    // TODO: Send Slack notification via MCP
+    // Send execution notifications for each payment in the batch (async, non-blocking)
+    for (const p of payments) {
+      notifyPaymentExecuted({
+        id: p.id,
+        reference_number: (p as any).reference_number,
+        payee_name: (p as any).payee_name,
+        amount: (p as any).amount,
+        currency: (p as any).currency,
+        usd_equivalent: (p as any).usd_equivalent,
+        payment_type: (p as any).payment_type,
+        requester_id: (p as any).requester_id,
+        account_id: (p as any).account_id,
+        bank_reference: batchReference,
+        executed_at: new Date().toISOString(),
+        executed_by_name: user.name || user.email,
+      }).catch(err => logger.error('Batch execution notification failed', { paymentId: p.id, error: err.message }));
+    }
 
     res.json({
       success: true,

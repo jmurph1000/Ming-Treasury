@@ -577,6 +577,16 @@ export const notificationsApi = {
 
   runPermissionsReportNow: () =>
     fetchApi<{ message: string }>('/api/notifications/permissions-reports/run', { method: 'POST' }),
+
+  // Portal notifications (bell icon)
+  portalNotifications: () =>
+    fetchApi<any[]>('/api/notifications/portal'),
+
+  markRead: (id: string) =>
+    fetchApi<void>(`/api/notifications/portal/${id}/read`, { method: 'PATCH' }),
+
+  markAllRead: () =>
+    fetchApi<void>('/api/notifications/portal/read-all', { method: 'PATCH' }),
 };
 
 // Groups
