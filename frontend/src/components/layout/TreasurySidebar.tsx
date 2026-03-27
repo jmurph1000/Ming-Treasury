@@ -24,7 +24,7 @@ const sidebarItems = [
   { name: 'Corp Cash Forecast', href: ROUTES.TREASURY_CORP_FORECAST, icon: Building2, emoji: '' },
   { name: 'Customer Cash Forecast', href: ROUTES.TREASURY_CUSTOMER_FORECAST, icon: Users, emoji: '' },
   { name: 'Risk Reporting', href: ROUTES.TREASURY_RISK, icon: AlertTriangle, emoji: '' },
-  { name: 'New Account Status', href: ROUTES.TREASURY_NEW_ACCOUNTS, icon: Landmark, emoji: '' },
+  { name: 'New Accounts Status', href: ROUTES.TREASURY_NEW_ACCOUNTS, icon: Landmark, emoji: '' },
 ];
 
 export function TreasurySidebar() {
