@@ -701,6 +701,23 @@ export function initializeSchema() {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pn_user ON portal_notifications(user_id)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_pn_read ON portal_notifications(user_id, is_read)`);
 
+  // Group account labels — dropdown options per group (separate from group_accounts FK table)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS group_account_labels (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      group_name TEXT NOT NULL,
+      account_label TEXT NOT NULL,
+      account_id TEXT REFERENCES accounts(id),
+      account_type TEXT DEFAULT 'internal' CHECK (account_type IN ('internal', 'other')),
+      sort_order INTEGER DEFAULT 100,
+      is_active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(group_name, account_label)
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_gal_group ON group_account_labels(group_name)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_gal_active ON group_account_labels(is_active)`);
+
   // is_scheduled flag for EOD reports — distinguishes scheduled (6 PM ET) from manual "Generate Now"
   try { db.exec(`ALTER TABLE eod_reports ADD COLUMN is_scheduled INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE eod_reports ADD COLUMN generated_by_name TEXT`); } catch (_) { /* column already exists */ }
@@ -1385,6 +1402,9 @@ A: Contact treasury-admin@gusto.com or your IT help desk.
     WHERE group_id = 'grp-treasury'
   `).run();
 
+  // Seed group_account_labels (dropdown options per group)
+  seedGroupAccountLabels();
+
   // Seed new_account_tracker if empty
   const natCount = db.prepare('SELECT COUNT(*) as cnt FROM new_account_tracker').get() as { cnt: number };
   if (natCount.cnt === 0) {
@@ -1397,6 +1417,80 @@ A: Contact treasury-admin@gusto.com or your IT help desk.
     insertNat.run('nat-003', 'GustoHR Inc Operating', 'JPMorgan Chase', 'GustoHR Inc', 'HR Operations', 'Treasury', 'Requested', 'Treasury', 'Normal', '2026-06-30');
     logger.info('Seeded 3 new account tracker entries');
   }
+}
+
+function seedGroupAccountLabels() {
+  const existing = db.prepare('SELECT COUNT(*) as cnt FROM group_account_labels').get() as { cnt: number };
+  if (existing.cnt > 0) return; // already seeded
+
+  logger.info('Seeding group_account_labels...');
+
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO group_account_labels (group_name, account_label, account_id, account_type, sort_order)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  // AP group accounts
+  const apAccounts = [
+    ['Accounts Payable', 'JPM Corporate Master -9811', 'acct-jpm-9811', 'internal', 1],
+    ['Accounts Payable', 'Chase AP -9329 (Gusto)', 'acct-9329', 'internal', 2],
+    ['Accounts Payable', 'Chase Corporate Operating -3962 (Gusto Capital LLC)', 'acct-3962', 'internal', 3],
+    ['Accounts Payable', 'Chase Billings -9378 (Gusto)', 'acct-9378', 'internal', 4],
+    ['Accounts Payable', 'Chase Operating -9392 (Ardius)', 'acct-9392', 'internal', 5],
+    ['Accounts Payable', 'Chase ZPI -8961 (ZPI)', 'acct-8961', 'internal', 6],
+    ['Accounts Payable', 'GH Program -5843', 'acct-5843', 'internal', 7],
+    ['Accounts Payable', 'Garanti BBVA Turkey USD -5947', 'acct-5947', 'internal', 8],
+    ['Accounts Payable', 'Chase Gusto Platform Mexico -8375', 'acct-8375', 'internal', 9],
+    ['Accounts Payable', 'Other (External Account)', null, 'other', 99],
+  ];
+
+  // Accounting group accounts
+  const accountingAccounts = [
+    ['Accounting', 'JPM Corporate Master -9811', 'acct-jpm-9811', 'internal', 1],
+    ['Accounting', 'Chase AP -9329 (Gusto)', 'acct-9329', 'internal', 2],
+    ['Accounting', 'Chase Corporate Operating -3962 (Gusto Capital LLC)', 'acct-3962', 'internal', 3],
+    ['Accounting', 'Chase Billings -9378 (Gusto)', 'acct-9378', 'internal', 4],
+    ['Accounting', 'PNC Corporate -0446 (Gusto)', 'acct-0446', 'internal', 5],
+    ['Accounting', 'Gusto Inc -2378 (JPM)', 'acct-2378', 'internal', 6],
+    ['Accounting', 'Gusto Inc -6428 (PNC)', 'acct-6428', 'internal', 7],
+    ['Accounting', 'Other (External Account)', null, 'other', 99],
+  ];
+
+  // Payroll group accounts
+  const payrollAccounts = [
+    ['Payroll', 'JPM Corporate Master -9811', 'acct-jpm-9811', 'internal', 1],
+    ['Payroll', 'Chase Internal Payroll Checking -0566 (Gusto)', 'acct-0566', 'internal', 2],
+    ['Payroll', 'Instant Payroll -0673 (NBKC)', 'acct-0673', 'internal', 3],
+    ['Payroll', 'Chase Tax Payment -0269 (Gusto)', 'acct-0269', 'internal', 4],
+    ['Payroll', 'Other (External Account)', null, 'other', 99],
+  ];
+
+  // Payment Ops group accounts
+  const payopsAccounts = [
+    ['Payment Ops', 'JPM Corporate Master -9811', 'acct-jpm-9811', 'internal', 1],
+    ['Payment Ops', 'Chase 3rd Party Processors -5119', 'acct-5119', 'internal', 2],
+    ['Payment Ops', 'Chase Customer Deposits -7908 (Gusto)', 'acct-7908', 'internal', 3],
+    ['Payment Ops', 'Chase Deposits -0226 (Gusto)', 'acct-0226', 'internal', 4],
+    ['Payment Ops', 'PNC Customer ACH/OB Wires -0497 (Gusto)', 'acct-0497', 'internal', 5],
+    ['Payment Ops', 'PNC Customer Master -2155 (Gusto)', 'acct-2155', 'internal', 6],
+    ['Payment Ops', 'Chase Recovery Ops -9803 (Gusto)', 'acct-9803', 'internal', 7],
+    ['Payment Ops', 'Other (External Account)', null, 'other', 99],
+  ];
+
+  // Other group (Benefits + Tax)
+  const otherAccounts = [
+    ['Other', 'JPM Corporate Master -9811', 'acct-jpm-9811', 'internal', 1],
+    ['Other', 'Chase Tax Payment -0269 (Gusto)', 'acct-0269', 'internal', 2],
+    ['Other', 'SVB Cigna -7987 (Gusto)', 'acct-7987', 'internal', 3],
+    ['Other', 'Other (External Account)', null, 'other', 99],
+  ];
+
+  const allLabels = [...apAccounts, ...accountingAccounts, ...payrollAccounts, ...payopsAccounts, ...otherAccounts];
+  for (const label of allLabels) {
+    insert.run(...label);
+  }
+
+  logger.info(`Seeded ${allLabels.length} group account labels`);
 }
 
 // Query helper that matches the pg interface

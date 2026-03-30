@@ -293,6 +293,9 @@ export const accountsApi = {
       body: JSON.stringify(data),
     }),
 
+  dropdown: () =>
+    fetchApi<Array<{ value: string; label: string; accountType: string }>>('/api/accounts/dropdown'),
+
   deactivate: (id: string) =>
     fetchApi<void>(`/api/accounts/${id}`, { method: 'DELETE' }),
 

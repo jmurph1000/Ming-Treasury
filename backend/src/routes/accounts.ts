@@ -345,6 +345,82 @@ router.put('/user/:userId/access', treasuryAdminOnly, async (req: AuthenticatedR
   }
 });
 
+/**
+ * GET /api/accounts/dropdown
+ * Returns group-specific account dropdown options for the logged-in user.
+ * Treasury/admin users see ALL accounts. Users in multiple groups see a merged list.
+ */
+router.get('/dropdown', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+
+    // Treasury supervisors and admins see all active accounts + an "Other" option
+    const isTreasurySupervisor = (await query<{ is_supervisor: number }>(
+      `SELECT is_supervisor FROM group_members WHERE group_id = 'grp-treasury' AND user_id = $1`,
+      [user.id]
+    )).rows;
+    const isAdmin = user.role === 'admin';
+    const isTreasury = isTreasurySupervisor.length > 0 && isTreasurySupervisor[0].is_supervisor;
+
+    if (isAdmin || isTreasury) {
+      const { rows: allAccounts } = await query(
+        `SELECT id, name, bank_name, account_type, currency
+         FROM accounts WHERE is_active = 1
+         ORDER BY COALESCE(sort_order, 100), name`
+      );
+      const options = allAccounts.map((a: any) => ({
+        value: a.id,
+        label: `${a.name} (${a.bank_name})`,
+        accountType: 'internal',
+      }));
+      options.push({ value: '__other__', label: 'Other (External Account)', accountType: 'other' });
+      res.json({ success: true, data: options });
+      return;
+    }
+
+    // Get user's group names
+    const { rows: memberships } = await query<{ group_name: string }>(
+      `SELECT g.name as group_name FROM group_members gm
+       JOIN groups g ON gm.group_id = g.id
+       WHERE gm.user_id = $1`,
+      [user.id]
+    );
+
+    if (memberships.length === 0) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const groupNames = memberships.map((m: any) => m.group_name);
+
+    // Fetch labels for all user's groups, deduplicate by account_label
+    const placeholders = groupNames.map((_: any, i: number) => `$${i + 1}`).join(', ');
+    const { rows: labels } = await query(
+      `SELECT DISTINCT account_label, account_id, account_type, MIN(sort_order) as sort_order
+       FROM group_account_labels
+       WHERE group_name IN (${placeholders}) AND is_active = 1
+       GROUP BY account_label, account_id, account_type
+       ORDER BY sort_order, account_label`,
+      groupNames
+    );
+
+    const options = labels.map((l: any) => ({
+      value: l.account_id || '__other__',
+      label: l.account_label,
+      accountType: l.account_type,
+    }));
+
+    res.json({ success: true, data: options });
+  } catch (error) {
+    logger.error('Error getting dropdown accounts', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: ERROR_CODES.INTERNAL_ERROR,
+      message: 'Failed to get dropdown accounts',
+    });
+  }
+});
+
 // ──────────────────────────────────────────────────────────
 // Generic routes (/:id wildcard) MUST come after specific routes
 // ──────────────────────────────────────────────────────────

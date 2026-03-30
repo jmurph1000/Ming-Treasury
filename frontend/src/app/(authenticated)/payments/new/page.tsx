@@ -76,6 +76,11 @@ export default function NewPaymentPage() {
     queryFn: () => accountsApi.list(),
   });
 
+  const { data: dropdownData } = useQuery({
+    queryKey: ['accounts-dropdown'],
+    queryFn: () => accountsApi.dropdown(),
+  });
+
   const { data: payeesData } = useQuery({
     queryKey: ['payees', formData.paymentType],
     queryFn: () => payeesApi.list('', formData.paymentType),
@@ -171,6 +176,8 @@ export default function NewPaymentPage() {
   const submitPayment = useSubmitPayment();
 
   const accounts = accountsData?.data || [];
+  const dropdownOptions = dropdownData?.data || [];
+  const isOtherSelected = formData.accountId === '__other__';
   const payees = payeesData?.data || [];
   const templates = templatesData?.data || [];
 
@@ -190,6 +197,11 @@ export default function NewPaymentPage() {
         } else {
           updated.destinationAccountId = '';
         }
+      }
+      // When "Other" account is selected, force external funding type
+      if (name === 'accountId' && value === '__other__') {
+        updated.fundingType = 'external' as FundingType;
+        updated.destinationAccountId = '';
       }
       return updated;
     });
@@ -248,7 +260,8 @@ export default function NewPaymentPage() {
       newErrors.destinationAccountId = 'Destination account is required for internal funding';
     }
 
-    if (formData.fundingType === 'external') {
+    // External bank details required for external funding OR "Other" account selection
+    if (formData.fundingType === 'external' || isOtherSelected) {
       if (!formData.extBankName) {
         newErrors.extBankName = 'Bank name is required';
       }
@@ -260,6 +273,10 @@ export default function NewPaymentPage() {
       }
       if (!formData.extRecipientAddress) {
         newErrors.extRecipientAddress = 'Recipient address is required';
+      }
+      // Notes required when Other is selected
+      if (isOtherSelected && !formData.extSpecialInstructions?.trim()) {
+        newErrors.extSpecialInstructions = 'Notes are required when using an external account';
       }
     }
 
@@ -280,20 +297,22 @@ export default function NewPaymentPage() {
   }
 
   function buildPaymentPayload() {
+    const isOther = formData.accountId === '__other__';
+    const isExternal = formData.fundingType === 'external' || isOther;
     return {
       payeeName: formData.payeeName,
       payeeId: formData.payeeId || undefined,
       amount: parseFloat(formData.amount),
       currency: formData.currency,
-      accountId: formData.accountId,
+      accountId: isOther ? undefined : formData.accountId,
       paymentType: formData.paymentType,
-      fundingType: formData.fundingType,
-      destinationAccountId: formData.fundingType === 'internal' ? formData.destinationAccountId || undefined : undefined,
-      extBankName: formData.fundingType === 'external' ? formData.extBankName || undefined : undefined,
-      extRoutingNumber: formData.fundingType === 'external' ? formData.extRoutingNumber || undefined : undefined,
-      extBankAccount: formData.fundingType === 'external' ? formData.extBankAccount || undefined : undefined,
-      extRecipientAddress: formData.fundingType === 'external' ? formData.extRecipientAddress || undefined : undefined,
-      extSpecialInstructions: formData.fundingType === 'external' ? formData.extSpecialInstructions || undefined : undefined,
+      fundingType: isOther ? 'external' : formData.fundingType,
+      destinationAccountId: formData.fundingType === 'internal' && !isOther ? formData.destinationAccountId || undefined : undefined,
+      extBankName: isExternal ? formData.extBankName || undefined : undefined,
+      extRoutingNumber: isExternal ? formData.extRoutingNumber || undefined : undefined,
+      extBankAccount: isExternal ? formData.extBankAccount || undefined : undefined,
+      extRecipientAddress: isExternal ? formData.extRecipientAddress || undefined : undefined,
+      extSpecialInstructions: formData.extSpecialInstructions || undefined,
       businessJustification: formData.businessJustification,
       requestedDate: formData.requestedDate,
       isRecurring: formData.isRecurring,
@@ -441,7 +460,7 @@ export default function NewPaymentPage() {
         )}
 
         {/* External Funding: Third-Party Bank Details */}
-        {formData.fundingType === 'external' && (
+        {(formData.fundingType === 'external' || isOtherSelected) && (
           <div className="border border-gray-200 rounded-md p-4 space-y-4">
             <h3 className="text-sm font-semibold text-gray-800">Third-Party Bank Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -513,20 +532,6 @@ export default function NewPaymentPage() {
                 />
                 {errors.extRecipientAddress && <p className="text-red-500 text-sm mt-1">{errors.extRecipientAddress}</p>}
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Special Instructions
-              </label>
-              <input
-                type="text"
-                name="extSpecialInstructions"
-                value={formData.extSpecialInstructions}
-                onChange={handleInputChange}
-                maxLength={30}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Optional special instructions"
-              />
             </div>
           </div>
         )}
@@ -645,11 +650,17 @@ export default function NewPaymentPage() {
               }`}
             >
               <option value="">Select account...</option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name} ({account.bank_name})
-                </option>
-              ))}
+              {dropdownOptions.length > 0
+                ? dropdownOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))
+                : accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.bank_name})
+                    </option>
+                  ))}
             </select>
             {errors.accountId && <p className="text-red-500 text-sm mt-1">{errors.accountId}</p>}
           </div>
@@ -710,6 +721,26 @@ export default function NewPaymentPage() {
               {formData.businessJustification.length} / {VALIDATION.MIN_JUSTIFICATION_LENGTH} min
             </p>
           </div>
+        </div>
+
+        {/* Notes / Special Instructions — always visible */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notes {isOtherSelected && <span className="text-red-500">*</span>}
+          </label>
+          <textarea
+            name="extSpecialInstructions"
+            value={formData.extSpecialInstructions}
+            onChange={handleInputChange}
+            rows={2}
+            className={`w-full border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary focus:border-transparent ${
+              errors.extSpecialInstructions ? 'border-red-500' : 'border-gray-300'
+            }`}
+            placeholder={isOtherSelected ? 'Required — describe the external account and reason' : 'Optional notes or special instructions'}
+          />
+          {errors.extSpecialInstructions && (
+            <p className="text-red-500 text-sm mt-1">{errors.extSpecialInstructions}</p>
+          )}
         </div>
 
         {/* Recurring Toggle */}
