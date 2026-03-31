@@ -3,7 +3,8 @@ import { logger } from '../utils/logger.js';
 
 const TREASURY_GROUP_ID = 'grp-treasury';
 const PAYROLL_GROUP_ID = 'grp-payroll';
-const HIGH_VALUE_THRESHOLD = 1_000_000; // $1M USD
+// Dual control = 1 initiator + 1 approver (different person). No high-value threshold override.
+// Routing rules drive approval steps exactly as configured.
 
 /**
  * Check if a user is a Treasury group member
@@ -172,22 +173,19 @@ export async function determineApprovalChain(
   description: string;
   groupId: string | null;
 }> {
-  const isHighValue = usdEquivalent >= HIGH_VALUE_THRESHOLD;
-
   // Classify group by accounts, not by submitter
   const { groupId, groupName } = await classifyPaymentGroup(accountId, destinationAccountId);
 
-  const numSteps = isHighValue ? 2 : 1;
-  const steps = Array.from({ length: numSteps }, (_, i) => ({
-    step: i + 1,
+  // Dual control: exactly 1 approval step. Routing rules table drives steps as configured.
+  // No hardcoded multi-step override based on amount.
+  const steps = [{
+    step: 1,
     approver_pool: 'group_or_treasury',
     group_id: groupId,
     approver_role: 'any',
-  }));
+  }];
 
-  const desc = isHighValue
-    ? `${groupName} (2 approvers - payment >= $1M)`
-    : `${groupName} (1 approver)`;
+  const desc = `${groupName} — Dual control enforced — initiator cannot approve their own payment`;
 
   return { steps, description: desc, groupId };
 }
@@ -264,9 +262,9 @@ export async function validatePayrollAccountAccess(
 /**
  * Check if a user can approve a specific payment.
  * Enforces:
- * - Initiator cannot approve own payment
+ * - Initiator cannot approve own payment (segregation of duties)
  * - Payroll requestor-only users cannot approve ANY payment
- * - For $1M+ payments, second approver must be different from first
+ * - Same user cannot approve at multiple steps
  * - User must be eligible for the approval pool (group member or treasury)
  */
 export async function canUserApprovePayment(

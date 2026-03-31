@@ -12,7 +12,7 @@ import { checkSlaEscalations } from './services/slaService.js';
 import { runTreasuryDataIngestion } from './jobs/treasuryDataIngestionJob.js';
 
 // Use SQLite for local development
-import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown } from './config/sqlite.js';
+import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown, query as dbQuery } from './config/sqlite.js';
 import { sessionStore } from './config/sessions.js';
 
 const PORT = parseInt(process.env.BACKEND_PORT || '3001', 10);
@@ -30,6 +30,15 @@ async function startServer(): Promise<void> {
 
     // Run startup backup immediately after DB init
     runStartupBackup();
+
+    // Log server restart to system_change_log
+    try {
+      dbQuery(
+        `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, affected_component)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        ['System', 'Restart', `Server started at ${new Date().toISOString()}`, 'system', 'System', 'Server']
+      );
+    } catch (_) { /* table may not exist yet on first run */ }
   } catch (error) {
     logger.error('Failed to initialize SQLite database', { error: (error as Error).message });
     process.exit(1);

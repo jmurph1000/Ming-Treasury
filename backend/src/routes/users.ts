@@ -378,6 +378,14 @@ router.post('/create-direct', adminOnly, async (req: AuthenticatedRequest, res: 
       await syncDepartmentGroup(rows[0].id, department, null, admin.id);
     }
 
+    // Log to system_change_log
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['Users', 'User Added', `New user created: ${name} (${email}) with role ${role || 'staff'}`,
+       admin.id, admin.name || admin.email, JSON.stringify({ email, name, role, department }), 'User Management']
+    );
+
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_CREATED, {
       tableName: 'users',
       recordId: rows[0].id,
@@ -532,6 +540,35 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       await syncDepartmentGroup(id, data.department, existing[0].department, admin.id);
     }
 
+    // Log permission changes to permission_change_log and system_change_log
+    const oldUser = existing[0];
+    const trackedFields: Array<{ field: string; dataKey: string; dbKey: string }> = [
+      { field: 'role', dataKey: 'role', dbKey: 'role' },
+      { field: 'department', dataKey: 'department', dbKey: 'department' },
+      { field: 'payment_limit', dataKey: 'paymentLimit', dbKey: 'payment_limit' },
+      { field: 'status', dataKey: 'status', dbKey: 'status' },
+      { field: 'title', dataKey: 'title', dbKey: 'title' },
+    ];
+    for (const tf of trackedFields) {
+      const newVal = (data as any)[tf.dataKey];
+      if (newVal !== undefined && String(newVal ?? '') !== String(oldUser[tf.dbKey] ?? '')) {
+        const changeType = tf.field === 'status'
+          ? (newVal === 'suspended' ? 'User Suspended' : newVal === 'active' ? 'User Reactivated' : 'Status Changed')
+          : 'Permission Changed';
+        await query(
+          `INSERT INTO permission_change_log (user_id, user_name, user_email, changed_by_id, changed_by_name, change_type, field_changed, old_value, new_value)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, oldUser.name, oldUser.email, admin.id, admin.name || admin.email, changeType, tf.field, String(oldUser[tf.dbKey] ?? ''), String(newVal ?? '')]
+        );
+        await query(
+          `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, after_value, affected_component)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          ['Users', changeType, `${oldUser.name}: ${tf.field} changed from "${oldUser[tf.dbKey] ?? ''}" to "${newVal ?? ''}"`,
+           admin.id, admin.name || admin.email, String(oldUser[tf.dbKey] ?? ''), String(newVal ?? ''), 'User Management']
+        );
+      }
+    }
+
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_UPDATED, {
       tableName: 'users',
       recordId: id,
@@ -585,12 +622,23 @@ router.post('/:id/suspend', adminOnly, async (req: AuthenticatedRequest, res: Re
       return;
     }
 
+    // Log to permission_change_log and system_change_log
+    const suspendedUser = rows[0];
+    await query(
+      `INSERT INTO permission_change_log (user_id, user_name, user_email, changed_by_id, changed_by_name, change_type, field_changed, old_value, new_value)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [id, suspendedUser.name, suspendedUser.email, admin.id, admin.name || admin.email, 'User Suspended', 'status', 'active', 'suspended']
+    );
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      ['Users', 'User Suspended', `${suspendedUser.name} suspended`, admin.id, admin.name || admin.email, 'active', 'suspended', 'User Management']
+    );
+
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_SUSPENDED, {
       tableName: 'users',
       recordId: id,
     });
-
-    // TODO: Invalidate all user sessions
 
     res.json({
       success: true,
@@ -628,6 +676,19 @@ router.post('/:id/reactivate', adminOnly, async (req: AuthenticatedRequest, res:
       });
       return;
     }
+
+    // Log to permission_change_log and system_change_log
+    const reactivatedUser = rows[0];
+    await query(
+      `INSERT INTO permission_change_log (user_id, user_name, user_email, changed_by_id, changed_by_name, change_type, field_changed, old_value, new_value)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [id, reactivatedUser.name, reactivatedUser.email, admin.id, admin.name || admin.email, 'User Reactivated', 'status', 'suspended', 'active']
+    );
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      ['Users', 'User Reactivated', `${reactivatedUser.name} reactivated`, admin.id, admin.name || admin.email, 'suspended', 'active', 'User Management']
+    );
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.USER_REACTIVATED, {
       tableName: 'users',

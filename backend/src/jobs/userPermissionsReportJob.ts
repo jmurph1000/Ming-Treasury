@@ -85,8 +85,22 @@ export async function runUserPermissionsReportJob(isScheduled: boolean = false, 
       })),
     });
 
+    // Fetch permission changes since last report
+    const { rows: lastReportRow } = await query<{ last_date: string }>(
+      `SELECT MAX(created_at) AS last_date FROM notifications WHERE type = 'user_permissions_report'`
+    );
+    const lastReportDate = lastReportRow[0]?.last_date || '2000-01-01T00:00:00';
+    const { rows: permChanges } = await query<{
+      user_name: string; field_changed: string; old_value: string; new_value: string;
+      changed_by_name: string; changed_at: string;
+    }>(
+      `SELECT user_name, field_changed, old_value, new_value, changed_by_name, changed_at
+       FROM permission_change_log WHERE changed_at > $1 ORDER BY changed_at DESC`,
+      [lastReportDate]
+    );
+
     const subject = `[Treasury Portal] Daily User Permissions Report — ${today}`;
-    const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, today);
+    const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, today, permChanges);
 
     // For scheduled runs: only skip if a scheduled report already exists for today
     // For manual runs: always create a new report
@@ -270,13 +284,19 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount);
 }
 
+interface PermChange {
+  user_name: string; field_changed: string; old_value: string; new_value: string;
+  changed_by_name: string; changed_at: string;
+}
+
 function buildHtml(
   allUsers: UserSnapshot[],
   active: UserSnapshot[],
   suspended: UserSnapshot[],
   pending: UserSnapshot[],
   roleCounts: Record<string, number>,
-  date: string
+  date: string,
+  permChanges: PermChange[] = []
 ): string {
   const cell = 'padding:8px;border:1px solid #ddd;';
 
@@ -348,6 +368,34 @@ function buildHtml(
           <tbody>${userRows(pending, '#d97706')}</tbody>
         </table>
       ` : ''}
+
+      <h3 style="color:#6366f1;">Permission Changes Since Last Report</h3>
+      ${permChanges.length > 0 ? `
+        <table style="border-collapse:collapse;width:100%;font-size:12px;margin-bottom:24px;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="${cell}text-align:left;">User Name</th>
+              <th style="${cell}text-align:left;">Field Changed</th>
+              <th style="${cell}text-align:left;">Old Value</th>
+              <th style="${cell}text-align:left;">New Value</th>
+              <th style="${cell}text-align:left;">Changed By</th>
+              <th style="${cell}text-align:left;">Changed At (ET)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${permChanges.map(c => `
+              <tr>
+                <td style="${cell}">${c.user_name}</td>
+                <td style="${cell}">${c.field_changed}</td>
+                <td style="${cell}">${c.old_value || '\u2014'}</td>
+                <td style="${cell}font-weight:600;">${c.new_value || '\u2014'}</td>
+                <td style="${cell}">${c.changed_by_name}</td>
+                <td style="${cell}">${c.changed_at || '\u2014'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<p style="color:#666;">No permission changes since last report.</p>'}
 
       <hr style="margin-top:24px;border:none;border-top:1px solid #eee;" />
       <p style="font-size:11px;color:#999;">

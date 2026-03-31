@@ -58,6 +58,11 @@ router.post('/', adminOnly, async (req: AuthenticatedRequest, res: Response) => 
       [nextPriority, name, description, trigger_type, account_id || null, payment_type || null, min_amount || null, max_amount || null, department || null, num_approvers || 1]
     );
 
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['Routing Rules', 'Rule Added', `Routing rule created: ${name}`, admin.id, admin.name || admin.email, JSON.stringify(rows[0]), 'Routing Rules']
+    );
     logger.info('Routing rule created', { ruleId: rows[0].id, adminId: admin.id });
     res.status(HTTP_STATUS.CREATED).json({ success: true, data: rows[0] });
   } catch (error) {
@@ -77,6 +82,7 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       return;
     }
 
+    const admin = req.user!;
     const { rows } = await query(
       `UPDATE routing_rules
        SET name = COALESCE($2, name),
@@ -95,6 +101,13 @@ router.put('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response) =
       [id, name, description, trigger_type, account_id || null, payment_type || null, min_amount || null, max_amount || null, department || null, num_approvers, is_active]
     );
 
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      ['Routing Rules', 'Rule Edited', `Routing rule updated: ${rows[0]?.name || id}`, admin.id, admin.name || admin.email,
+       JSON.stringify(existing[0]), JSON.stringify(rows[0]), 'Routing Rules']
+    );
+
     res.json({ success: true, data: rows[0] });
   } catch (error) {
     logger.error('Error updating routing rule', { error: (error as Error).message });
@@ -106,6 +119,7 @@ router.delete('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response
   try {
     const { id } = req.params;
 
+    const admin = req.user!;
     // Soft delete by setting is_active to false
     const { rows } = await query(
       `UPDATE routing_rules SET is_active = false, updated_at = datetime('now') WHERE id = $1 RETURNING *`,
@@ -116,6 +130,12 @@ router.delete('/:id', adminOnly, async (req: AuthenticatedRequest, res: Response
       res.status(HTTP_STATUS.NOT_FOUND).json({ success: false, error: ERROR_CODES.NOT_FOUND });
       return;
     }
+
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['Routing Rules', 'Rule Deleted', `Routing rule deactivated: ${rows[0]?.name || id}`, admin.id, admin.name || admin.email, JSON.stringify(rows[0]), 'Routing Rules']
+    );
 
     res.json({ success: true, message: 'Routing rule deleted' });
   } catch (error) {

@@ -158,6 +158,7 @@ export default function ApprovalsPage() {
                         {POOL_LABELS[(approval as any).approver_pool] || (approval as any).approver_pool}
                       </p>
                     )}
+                    <p className="text-xs text-blue-600 mt-1">Dual control enforced — initiator cannot approve their own payment</p>
                   </div>
 
                   <div className="text-right">

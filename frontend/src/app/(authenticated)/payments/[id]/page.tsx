@@ -698,6 +698,9 @@ export default function PaymentDetailPage() {
               <p className="text-xs text-gray-500 mt-2">
                 Step {payment.current_approval_step} of {payment.total_approval_steps}
               </p>
+              <p className="text-xs text-blue-600 mt-2 font-medium">
+                Dual control enforced — initiator cannot approve their own payment
+              </p>
             </div>
           )}
         </div>

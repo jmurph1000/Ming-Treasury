@@ -756,6 +756,45 @@ export function initializeSchema() {
     logger.warn('eod_reports migration skipped', { error: (err as Error).message });
   }
 
+  // Permission change log — tracks user permission changes for compliance
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS permission_change_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      changed_by_id TEXT NOT NULL,
+      changed_by_name TEXT NOT NULL,
+      change_type TEXT NOT NULL,
+      field_changed TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      changed_at TEXT DEFAULT (datetime('now')),
+      notes TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pcl_user ON permission_change_log(user_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_pcl_changed ON permission_change_log(changed_at)`);
+
+  // System change log — tracks system-level changes for Change Management tab
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS system_change_log (
+      id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+      change_category TEXT NOT NULL,
+      change_type TEXT NOT NULL,
+      description TEXT NOT NULL,
+      changed_by_id TEXT NOT NULL,
+      changed_by_name TEXT NOT NULL,
+      changed_at TEXT DEFAULT (datetime('now')),
+      before_value TEXT,
+      after_value TEXT,
+      affected_component TEXT,
+      notes TEXT
+    )
+  `);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scl_category ON system_change_log(change_category)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_scl_changed ON system_change_log(changed_at)`);
+
   // is_scheduled flag for notifications (user_permissions_report) — same pattern
   try { db.exec(`ALTER TABLE notifications ADD COLUMN is_scheduled INTEGER DEFAULT 0`); } catch (_) { /* column already exists */ }
   try { db.exec(`ALTER TABLE notifications ADD COLUMN generated_by_name TEXT`); } catch (_) { /* column already exists */ }

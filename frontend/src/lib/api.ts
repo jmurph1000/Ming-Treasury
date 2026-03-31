@@ -565,6 +565,16 @@ export const treasuryReportsApi = {
 
   eodGenerate: () =>
     fetchApi<{ message: string }>('/api/reports/eod/generate', { method: 'POST' }),
+
+  changeManagement: (params?: { startDate?: string; endDate?: string; category?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') searchParams.set(key, String(value));
+      });
+    }
+    return fetchApi<any[]>(`/api/reports/change-management?${searchParams}`);
+  },
 };
 
 // Notifications

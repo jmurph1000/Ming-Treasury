@@ -39,7 +39,7 @@ import {
   Lock,
 } from 'lucide-react';
 
-type Tab = 'dashboard' | 'daily' | 'weekly' | 'date-range' | 'lifetime' | 'eod' | 'permissions';
+type Tab = 'dashboard' | 'daily' | 'weekly' | 'date-range' | 'lifetime' | 'eod' | 'permissions' | 'change-mgmt';
 
 // ─── Shared navigation state type ──────────────────────────────────────────
 
@@ -1118,6 +1118,140 @@ function PermissionsTab() {
   );
 }
 
+// ─── Tab 8: Change Management ─────────────────────────────────────────────
+
+const CHANGE_CATEGORIES = ['All', 'Users', 'Bank Accounts', 'Routing Rules', 'Approval Chains', 'System'];
+
+function ChangeManagementTab() {
+  const defaultEnd = new Date().toISOString().slice(0, 10);
+  const defaultStartD = new Date();
+  defaultStartD.setDate(defaultStartD.getDate() - 30);
+  const defaultStart = defaultStartD.toISOString().slice(0, 10);
+
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
+  const [category, setCategory] = useState('All');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['change-management', startDate, endDate, category],
+    queryFn: () => treasuryReportsApi.changeManagement({ startDate, endDate, category }),
+  });
+
+  const changes: any[] = data?.data || [];
+
+  const exportCSV = () => {
+    const headers = ['Date/Time (ET)', 'Category', 'Change Type', 'Description', 'Before', 'After', 'Changed By'];
+    const csvRows = changes.map((c: any) => [
+      c.changed_at || '',
+      `"${(c.change_category || '').replace(/"/g, '""')}"`,
+      `"${(c.change_type || '').replace(/"/g, '""')}"`,
+      `"${(c.description || '').replace(/"/g, '""')}"`,
+      `"${(c.before_value || '').replace(/"/g, '""')}"`,
+      `"${(c.after_value || '').replace(/"/g, '""')}"`,
+      `"${(c.changed_by_name || '').replace(/"/g, '""')}"`,
+    ]);
+    downloadCSV(headers, csvRows, `change-management-${startDate}-to-${endDate}.csv`);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+        System changes only. Payment activity is tracked in EOD Archive.
+      </div>
+
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Start Date</label>
+          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">End Date</label>
+          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            className="border rounded-lg px-3 py-2 text-sm">
+            {CHANGE_CATEGORIES.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={exportCSV} disabled={changes.length === 0}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm disabled:opacity-50">
+          <Download className="h-4 w-4" /> Export CSV
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-gray-400" /></div>
+      ) : changes.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
+          <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">No changes found</h3>
+          <p className="text-gray-500 mt-1">No system changes recorded for the selected criteria.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date/Time (ET)</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Change Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Before</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">After</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Changed By</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {changes.map((c: any) => {
+                  const utc = c.changed_at?.endsWith('Z') ? c.changed_at : (c.changed_at + 'Z');
+                  const dateStr = new Date(utc).toLocaleString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York',
+                  }) + ' (ET)';
+
+                  const catColors: Record<string, string> = {
+                    Users: 'bg-purple-100 text-purple-800',
+                    'Bank Accounts': 'bg-blue-100 text-blue-800',
+                    'Routing Rules': 'bg-amber-100 text-amber-800',
+                    'Approval Chains': 'bg-teal-100 text-teal-800',
+                    System: 'bg-gray-100 text-gray-800',
+                  };
+
+                  return (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{dateStr}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${catColors[c.change_category] || 'bg-gray-100 text-gray-800'}`}>
+                          {c.change_category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{c.change_type}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700 max-w-xs truncate">{c.description}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-[120px] truncate">{c.before_value || '\u2014'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900 max-w-[120px] truncate font-medium">{c.after_value || '\u2014'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{c.changed_by_name}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-3 border-t bg-gray-50 text-sm text-gray-500">
+            {changes.length} change{changes.length !== 1 ? 's' : ''} found
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Reports Page ─────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -1156,6 +1290,7 @@ export default function ReportsPage() {
     { key: 'lifetime', label: 'Life to Date', adminOnly: true },
     { key: 'eod', label: 'EOD Archive', adminOnly: true },
     { key: 'permissions', label: 'User Permissions', adminOnly: true },
+    { key: 'change-mgmt', label: 'Change Management', adminOnly: true },
   ];
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
@@ -1193,6 +1328,7 @@ export default function ReportsPage() {
       {activeTab === 'lifetime' && <LifetimeTab key={tabKey} />}
       {activeTab === 'eod' && <EodArchiveTab />}
       {activeTab === 'permissions' && <PermissionsTab />}
+      {activeTab === 'change-mgmt' && <ChangeManagementTab />}
     </div>
   );
 }

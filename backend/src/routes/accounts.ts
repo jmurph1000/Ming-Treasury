@@ -580,6 +580,13 @@ router.post('/', canManageAccounts, async (req: AuthenticatedRequest, res: Respo
       ]
     );
 
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      ['Bank Accounts', 'Account Added', `Bank account created: ${data.name} (${data.bankName})`,
+       admin.id, admin.name || admin.email, JSON.stringify({ name: data.name, bankName: data.bankName, accountType: data.accountType }), 'Bank Accounts']
+    );
+
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.ACCOUNT_CREATED, {
       tableName: 'accounts',
       recordId: rows[0].id,
@@ -664,6 +671,13 @@ router.put('/:id', canManageAccounts, async (req: AuthenticatedRequest, res: Res
                  dual_control_required, dual_control_threshold, dual_control_mode,
                  is_active, created_at`,
       values
+    );
+
+    await query(
+      `INSERT INTO system_change_log (change_category, change_type, description, changed_by_id, changed_by_name, before_value, after_value, affected_component)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      ['Bank Accounts', 'Account Edited', `Bank account updated: ${rows[0]?.name || id}`,
+       admin.id, admin.name || admin.email, JSON.stringify(existing[0]), JSON.stringify(rows[0]), 'Bank Accounts']
     );
 
     await logAuditEntry(admin.id, admin.email, AUDIT_ACTIONS.ACCOUNT_UPDATED, {

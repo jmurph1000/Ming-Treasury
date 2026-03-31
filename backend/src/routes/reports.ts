@@ -384,4 +384,39 @@ router.post('/sheets', hasRole('admin'), exportRateLimit, async (req: Authentica
   }
 });
 
+// ─── Change Management ────────────────────────────────────────────────────
+
+/**
+ * GET /api/reports/change-management
+ * List system change log entries (admin/treasury only)
+ */
+router.get('/change-management', hasRole('admin'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { startDate, endDate, category } = req.query;
+
+    // Default: last 30 days
+    const end = (endDate as string) || new Date().toISOString().slice(0, 10);
+    const defaultStart = new Date();
+    defaultStart.setDate(defaultStart.getDate() - 30);
+    const start = (startDate as string) || defaultStart.toISOString().slice(0, 10);
+
+    let sql = `SELECT * FROM system_change_log WHERE date(changed_at) >= $1 AND date(changed_at) <= $2`;
+    const params: any[] = [start, end];
+
+    if (category && category !== 'All') {
+      sql += ` AND change_category = $3`;
+      params.push(category);
+    }
+
+    sql += ` ORDER BY changed_at DESC`;
+
+    const { rows } = await query(sql, params);
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    logger.error('Error fetching change management log', { error: (error as Error).message });
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({ success: false, error: ERROR_CODES.INTERNAL_ERROR });
+  }
+});
+
 export default router;
