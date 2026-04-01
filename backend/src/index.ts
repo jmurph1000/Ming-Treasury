@@ -200,12 +200,12 @@ function scheduleJobs(): void {
     }
   });
 
-  // Scheduled reports - daily at 6 AM PT
-  cron.schedule('0 6 * * *', async () => {
+  // Scheduled reports - daily at 6 PM ET (matches all other scheduled jobs)
+  cron.schedule('0 18 * * *', async () => {
     logger.debug('Running scheduled reports job');
     // TODO: Implement scheduled reports
   }, {
-    timezone: 'America/Los_Angeles',
+    timezone: 'America/New_York',
   });
 
   // Treasury data ingestion - weekdays at 9:30am ET (14:30 UTC)

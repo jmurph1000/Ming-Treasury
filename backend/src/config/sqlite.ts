@@ -912,6 +912,23 @@ export function initializeSchema() {
     logger.warn('read_only role migration skipped', { error: (err as Error).message });
   }
 
+  // ── Dual control migration: enforce 1-step approval on all routing rules ──
+  // Update all routing rules to num_approvers = 1
+  // Update step 1 chains to approver_role = 'any' (pool-based)
+  // Remove extra steps (step > 1) from approval_chains
+  try {
+    const multiStepRules = db.prepare(`SELECT id FROM routing_rules WHERE num_approvers > 1`).all() as Array<{ id: string }>;
+    if (multiStepRules.length > 0) {
+      logger.info(`Dual control migration: updating ${multiStepRules.length} routing rules to 1-step approval`);
+      db.exec(`UPDATE routing_rules SET num_approvers = 1 WHERE num_approvers > 1`);
+      db.exec(`UPDATE approval_chains SET approver_role = 'any' WHERE step = 1`);
+      db.exec(`DELETE FROM approval_chains WHERE step > 1`);
+      logger.info('Dual control migration completed: all rules now 1-step with pool-based approval');
+    }
+  } catch (err) {
+    logger.warn('Dual control migration skipped', { error: (err as Error).message });
+  }
+
   // ── Seed bank holidays (US federal + Canadian federal) for 2025-2026 ──
   seedBankHolidays();
 
@@ -1048,14 +1065,14 @@ export function seedData() {
       insertAccount.run(...account);
     }
 
-    // Create routing rules
+    // Create routing rules — dual control: 1 approver per rule
     const rules = [
       ['rule-001', 1, 'Small Payments (Under $10K)', 'Single approval for payments under $10,000', 'amount_range', null, null, 0, 9999.99, 1],
-      ['rule-002', 2, 'Medium Payments ($10K-$50K)', 'Two approvals for payments $10,000 - $50,000', 'amount_range', null, null, 10000, 49999.99, 2],
-      ['rule-003', 3, 'Large Payments ($50K-$250K)', 'Three approvals for payments $50,000 - $250,000', 'amount_range', null, null, 50000, 249999.99, 3],
-      ['rule-004', 4, 'Executive Payments ($250K+)', 'Four approvals including CFO for payments over $250,000', 'amount_range', null, null, 250000, null, 4],
-      ['rule-005', 5, 'Wire Transfers', 'All wire transfers require treasury approval', 'payment_type', null, 'wire', null, null, 2],
-      ['rule-006', 6, 'International Payments', 'International account payments', 'account', 'acct-004', null, null, null, 3],
+      ['rule-002', 2, 'Medium Payments ($10K-$50K)', 'Single approval for payments $10,000 - $50,000', 'amount_range', null, null, 10000, 49999.99, 1],
+      ['rule-003', 3, 'Large Payments ($50K-$250K)', 'Single approval for payments $50,000 - $250,000', 'amount_range', null, null, 50000, 249999.99, 1],
+      ['rule-004', 4, 'Executive Payments ($250K+)', 'Single approval for payments over $250,000', 'amount_range', null, null, 250000, null, 1],
+      ['rule-005', 5, 'Wire Transfers', 'All wire transfers require treasury approval', 'payment_type', null, 'wire', null, null, 1],
+      ['rule-006', 6, 'International Payments', 'International account payments', 'account', 'acct-004', null, null, null, 1],
     ];
 
     const insertRule = db.prepare(`
@@ -1067,23 +1084,14 @@ export function seedData() {
       insertRule.run(...rule);
     }
 
-    // Create approval chains
+    // Create approval chains — 1 step per rule, pool-based (dual control)
     const chains = [
-      ['rule-001', 1, 'manager'],
-      ['rule-002', 1, 'manager'],
-      ['rule-002', 2, 'sr_manager'],
-      ['rule-003', 1, 'manager'],
-      ['rule-003', 2, 'sr_manager'],
-      ['rule-003', 3, 'admin'],
-      ['rule-004', 1, 'manager'],
-      ['rule-004', 2, 'sr_manager'],
-      ['rule-004', 3, 'admin'],
-      ['rule-004', 4, 'admin'],
-      ['rule-005', 1, 'manager'],
-      ['rule-005', 2, 'admin'],
-      ['rule-006', 1, 'manager'],
-      ['rule-006', 2, 'sr_manager'],
-      ['rule-006', 3, 'admin'],
+      ['rule-001', 1, 'any'],
+      ['rule-002', 1, 'any'],
+      ['rule-003', 1, 'any'],
+      ['rule-004', 1, 'any'],
+      ['rule-005', 1, 'any'],
+      ['rule-006', 1, 'any'],
     ];
 
     const insertChain = db.prepare(`
