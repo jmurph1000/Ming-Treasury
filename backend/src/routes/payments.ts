@@ -744,8 +744,8 @@ router.post('/:id/cancel', readOnlyBlock, async (req: AuthenticatedRequest, res:
       return;
     }
 
-    if (payment.status === 'executed') {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: ERROR_CODES.VALIDATION_ERROR, message: 'Cannot cancel an executed payment' });
+    if (!['draft', 'pending_approval'].includes(payment.status)) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, error: ERROR_CODES.VALIDATION_ERROR, message: `Cannot cancel payment — payment status is ${payment.status}. Only draft or pending_approval payments can be cancelled.` });
       return;
     }
 

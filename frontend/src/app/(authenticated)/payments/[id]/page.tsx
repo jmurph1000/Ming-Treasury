@@ -610,25 +610,36 @@ export default function PaymentDetailPage() {
                   ? 'Submit this payment to start the approval process.'
                   : 'No approval steps found.'}
               </p>
-            ) : (
+            ) : (() => {
+              const isTerminal = ['cancelled', 'rejected', 'executed', 'bank_rejected', 'returned'].includes(payment.status);
+              return (
               <div className="space-y-4">
                 {approvals
                   .sort((a: any, b: any) => a.step_number - b.step_number)
-                  .map((approval: any, index: number) => (
-                    <div key={approval.id} className="relative">
+                  .map((approval: any, index: number) => {
+                    const isVoided = isTerminal && approval.action === 'pending';
+                    return (
+                    <div key={approval.id} className={`relative ${isVoided ? 'opacity-50' : ''}`}>
                       {/* Connector line */}
                       {index < approvals.length - 1 && (
                         <div className="absolute left-[17px] top-10 bottom-0 w-0.5 bg-gray-200 -mb-4" />
                       )}
                       <div className="flex gap-3">
                         <div className="flex-shrink-0 mt-0.5">
-                          {getApprovalActionIcon(approval.action)}
+                          {isVoided
+                            ? <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center"><span className="text-gray-400 text-xs font-bold">X</span></div>
+                            : getApprovalActionIcon(approval.action)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-gray-500">
+                            <span className={`text-xs font-medium ${isVoided ? 'text-gray-400' : 'text-gray-500'}`}>
                               STEP {approval.step_number}
                             </span>
+                            {isVoided ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400">
+                                Voided — payment {getStatusLabel(payment.status).toLowerCase()}
+                              </span>
+                            ) : (
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getApprovalActionColor(
                                 approval.action
@@ -636,7 +647,10 @@ export default function PaymentDetailPage() {
                             >
                               {getApprovalActionLabel(approval.action)}
                             </span>
+                            )}
                           </div>
+                          {!isVoided && (
+                          <>
                           <p className="text-sm font-medium text-gray-900 mt-1">
                             {approval.action !== 'pending'
                               ? (approval.approver_name || getPoolLabel(approval))
@@ -664,12 +678,16 @@ export default function PaymentDetailPage() {
                                 ? `Notified ${formatDateTime(approval.notified_at)} (${getWaitTime(approval.notified_at)})`
                                 : 'Waiting'}
                           </p>
+                          </>
+                          )}
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
               </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* Payment Status Summary */}

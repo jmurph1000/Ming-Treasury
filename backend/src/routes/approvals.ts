@@ -176,6 +176,16 @@ router.post('/:id/approve', canApprove, approvalRateLimit, async (req: Authentic
 
     const approval = approvalRows[0];
 
+    // Status gate: only pending_approval payments can be approved
+    if (approval.payment_status !== 'pending_approval') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: `Cannot approve payment — payment status is ${approval.payment_status}. Only payments in pending_approval status can be approved.`,
+      });
+      return;
+    }
+
     // Comprehensive approval eligibility check (self-approval, payroll requestor-only, duplicate approver)
     const approvalCheck = await canUserApprovePayment(
       user.id, user.email, approval.payment_id, approval.group_id || null
@@ -325,8 +335,8 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
     const clientIp = getClientIp(req);
 
     // Get approval
-    const { rows: approvalRows } = await query<PaymentApprovalRow & { current_approval_step: number }>(
-      `SELECT pa.*, p.current_approval_step
+    const { rows: approvalRows } = await query<PaymentApprovalRow & { current_approval_step: number; payment_status: string }>(
+      `SELECT pa.*, p.current_approval_step, p.status as payment_status
        FROM payment_approvals pa
        JOIN payments p ON pa.payment_id = p.id
        WHERE pa.id = $1`,
@@ -343,6 +353,16 @@ router.post('/:id/reject', canApprove, approvalRateLimit, async (req: Authentica
     }
 
     const approval = approvalRows[0];
+
+    // Status gate: only pending_approval payments can be rejected
+    if (approval.payment_status !== 'pending_approval') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: `Cannot reject payment — payment status is ${approval.payment_status}. Only payments in pending_approval status can be rejected.`,
+      });
+      return;
+    }
 
     // Comprehensive eligibility check for rejection
     const rejectCheck = await canUserApprovePayment(
@@ -450,8 +470,8 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
     const user = req.user!;
     const clientIp = getClientIp(req);
 
-    const { rows: approvalRows } = await query<PaymentApprovalRow & { current_approval_step: number }>(
-      `SELECT pa.*, p.current_approval_step
+    const { rows: approvalRows } = await query<PaymentApprovalRow & { current_approval_step: number; payment_status: string }>(
+      `SELECT pa.*, p.current_approval_step, p.status as payment_status
        FROM payment_approvals pa
        JOIN payments p ON pa.payment_id = p.id
        WHERE pa.id = $1`,
@@ -468,6 +488,16 @@ router.post('/:id/return', canApprove, approvalRateLimit, async (req: Authentica
     }
 
     const approval = approvalRows[0];
+
+    // Status gate: only pending_approval payments can be returned
+    if (approval.payment_status !== 'pending_approval') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: `Cannot return payment — payment status is ${approval.payment_status}. Only payments in pending_approval status can be returned.`,
+      });
+      return;
+    }
 
     if (approval.step_number !== approval.current_approval_step) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
