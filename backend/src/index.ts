@@ -11,6 +11,7 @@ import { runEodReportJob, runMissedEodReports } from './jobs/eodReportJob.js';
 import { runStartupBackup } from './jobs/backupJob.js';
 import { checkSlaEscalations } from './services/slaService.js';
 import { runTreasuryDataIngestion } from './jobs/treasuryDataIngestionJob.js';
+import { runHolidayRefreshJob } from './jobs/holidayRefreshJob.js';
 
 // Use SQLite for local development
 import { initializeSchema, seedData, healthCheck as sqliteHealthCheck, shutdown as sqliteShutdown, query as dbQuery } from './config/sqlite.js';
@@ -230,6 +231,19 @@ function scheduleJobs(): void {
       await runEodReportJob(undefined, undefined, true);
     } catch (error) {
       logger.error('EOD report job failed', { error: (error as Error).message });
+    }
+  }, {
+    timezone: 'America/New_York',
+  });
+
+  // Annual Federal Reserve K.8 holiday refresh — December 1st at 9 AM ET
+  // Fetches next year's holidays from federalreserve.gov and inserts into bank_holidays
+  cron.schedule('0 9 1 12 *', async () => {
+    logger.info('Running annual holiday refresh job');
+    try {
+      await runHolidayRefreshJob();
+    } catch (error) {
+      logger.error('Holiday refresh job failed', { error: (error as Error).message });
     }
   }, {
     timezone: 'America/New_York',

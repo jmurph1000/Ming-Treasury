@@ -939,7 +939,7 @@ function seedBankHolidays() {
   const existing = db.prepare('SELECT COUNT(*) as cnt FROM bank_holidays').get() as { cnt: number };
   if (existing.cnt > 0) return; // already seeded
 
-  logger.info('Seeding US and Canadian federal holidays for 2025-2026...');
+  logger.info('Seeding US and Canadian federal holidays for 2025-2027...');
 
   const holidays: { date: string; name: string; country: string; year: number }[] = [
     // ── 2025 US Federal Holidays ──
@@ -958,7 +958,7 @@ function seedBankHolidays() {
     // ── 2026 US Federal Holidays ──
     { date: '2026-01-01', name: "New Year's Day", country: 'USA', year: 2026 },
     { date: '2026-01-19', name: 'Martin Luther King Jr. Day', country: 'USA', year: 2026 },
-    { date: '2026-02-16', name: "Presidents' Day", country: 'USA', year: 2026 },
+    { date: '2026-02-16', name: "Washington's Birthday", country: 'USA', year: 2026 },
     { date: '2026-05-25', name: 'Memorial Day', country: 'USA', year: 2026 },
     { date: '2026-06-19', name: 'Juneteenth National Independence Day', country: 'USA', year: 2026 },
     { date: '2026-07-03', name: 'Independence Day (Observed)', country: 'USA', year: 2026 }, // Jul 4 is Saturday
@@ -967,6 +967,19 @@ function seedBankHolidays() {
     { date: '2026-11-11', name: 'Veterans Day', country: 'USA', year: 2026 },
     { date: '2026-11-26', name: 'Thanksgiving Day', country: 'USA', year: 2026 },
     { date: '2026-12-25', name: 'Christmas Day', country: 'USA', year: 2026 },
+
+    // ── 2027 US Federal Holidays (Fed K.8) ──
+    { date: '2027-01-01', name: "New Year's Day", country: 'USA', year: 2027 },
+    { date: '2027-01-18', name: 'Martin Luther King Jr. Day', country: 'USA', year: 2027 },
+    { date: '2027-02-15', name: "Washington's Birthday", country: 'USA', year: 2027 },
+    { date: '2027-05-31', name: 'Memorial Day', country: 'USA', year: 2027 },
+    { date: '2027-06-18', name: 'Juneteenth National Independence Day (Observed)', country: 'USA', year: 2027 }, // Jun 19 is Saturday
+    { date: '2027-07-05', name: 'Independence Day (Observed)', country: 'USA', year: 2027 }, // Jul 4 is Sunday
+    { date: '2027-09-06', name: 'Labor Day', country: 'USA', year: 2027 },
+    { date: '2027-10-11', name: 'Columbus Day', country: 'USA', year: 2027 },
+    { date: '2027-11-11', name: 'Veterans Day', country: 'USA', year: 2027 },
+    { date: '2027-11-25', name: 'Thanksgiving Day', country: 'USA', year: 2027 },
+    { date: '2027-12-24', name: 'Christmas Day (Observed)', country: 'USA', year: 2027 }, // Dec 25 is Saturday
 
     // ── 2025 Canadian Federal Holidays ──
     { date: '2025-01-01', name: "New Year's Day", country: 'CAN', year: 2025 },
