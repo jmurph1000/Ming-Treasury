@@ -64,11 +64,14 @@ export default function BusinessDayPicker({ value, onChange, error, minDate }: B
 
   const holidays: BankHoliday[] = holidaysData?.data || [];
 
-  // Build a Set of all blocked date strings and a Map for names
+  // Build a Set of US-only blocked date strings and a Map for tooltip names
   const blockedDates = new Set<string>();
   const holidayNameMap = new Map<string, string[]>();
   for (const h of holidays) {
-    blockedDates.add(h.date);
+    // Only block US holidays — Canadian holidays are informational only
+    if (h.country === 'USA') {
+      blockedDates.add(h.date);
+    }
     const existing = holidayNameMap.get(h.date) || [];
     const label = `${h.name} (${h.country === 'CAN' ? 'Canada' : 'US'})`;
     if (!existing.includes(label)) existing.push(label);

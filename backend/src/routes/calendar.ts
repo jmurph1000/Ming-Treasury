@@ -64,12 +64,12 @@ router.get('/validate/:date', async (req: AuthenticatedRequest, res: Response) =
     const { dayOfWeek } = parseDateParts(date);
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-    // Check both US and Canadian holidays
+    // Only US holidays block payments; Canadian holidays are informational
     const { rows } = await query(
       'SELECT name, country FROM bank_holidays WHERE date = $1',
       [date]
     );
-    const isHoliday = rows.length > 0;
+    const isHoliday = rows.some((r: { country: string }) => r.country === 'USA');
     const holidayNames = rows.map((r: { name: string; country: string }) =>
       `${r.name} (${r.country === 'CAN' ? 'Canada' : 'US'})`
     );
@@ -129,7 +129,7 @@ router.get('/batch-windows', async (req: AuthenticatedRequest, res: Response) =>
 async function findNextBusinessDay(fromDateStr: string): Promise<string | null> {
   // Load all holidays in the search window
   const { rows: holidays } = await query(
-    `SELECT date FROM bank_holidays WHERE date >= $1 AND date <= date($1, '+14 days')`,
+    `SELECT date FROM bank_holidays WHERE date >= $1 AND date <= date($1, '+14 days') AND country = 'USA'`,
     [fromDateStr]
   );
   const holidayDates = new Set(holidays.map((h: { date: string }) => h.date));
