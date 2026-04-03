@@ -1,3 +1,4 @@
+process.env.TZ = 'America/New_York';
 import 'dotenv/config';
 import { createApp } from './app.js';
 import { logger } from './utils/logger.js';
@@ -200,14 +201,6 @@ function scheduleJobs(): void {
     } catch (error) {
       logger.error('Token cleanup job failed', { error: (error as Error).message });
     }
-  });
-
-  // Scheduled reports - daily at 6 PM ET (matches all other scheduled jobs)
-  cron.schedule('0 18 * * *', async () => {
-    logger.debug('Running scheduled reports job');
-    // TODO: Implement scheduled reports
-  }, {
-    timezone: 'America/New_York',
   });
 
   // Treasury data ingestion - weekdays at 9:30am ET (14:30 UTC)
