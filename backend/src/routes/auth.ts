@@ -17,10 +17,176 @@ import { trackLogin, trackLogout } from '../services/sessionTracker.js';
 
 const router = Router();
 
+const AUTH_MODE = process.env.AUTH_MODE || 'local';
+
+/**
+ * GET /api/auth/mode
+ * Returns the current authentication mode so the frontend can adapt
+ */
+router.get('/mode', (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      mode: AUTH_MODE,
+      oktaIssuer: AUTH_MODE === 'okta' ? process.env.OKTA_ISSUER : undefined,
+      oktaClientId: AUTH_MODE === 'okta' ? process.env.OKTA_CLIENT_ID : undefined,
+      oktaRedirectUri: AUTH_MODE === 'okta' ? process.env.OKTA_REDIRECT_URI : undefined,
+    },
+  });
+});
+
+/**
+ * GET /api/auth/okta/callback
+ * Handle the Okta OIDC authorization code callback.
+ * Exchanges the code for tokens, extracts the user's email,
+ * maps it to an existing user, and creates a session.
+ */
+router.get('/okta/callback', strictRateLimit, async (req: Request, res: Response) => {
+  try {
+    if (AUTH_MODE !== 'okta') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'Okta SSO is not enabled (AUTH_MODE != okta)',
+      });
+      return;
+    }
+
+    const { code } = req.query;
+    if (!code || typeof code !== 'string') {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        error: ERROR_CODES.VALIDATION_ERROR,
+        message: 'Authorization code is required',
+      });
+      return;
+    }
+
+    // Exchange authorization code for tokens
+    const tokenUrl = `${process.env.OKTA_ISSUER}/v1/token`;
+    const tokenRes = await fetch(tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.OKTA_REDIRECT_URI || '',
+        client_id: process.env.OKTA_CLIENT_ID || '',
+        client_secret: process.env.OKTA_CLIENT_SECRET || '',
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      const errBody = await tokenRes.text();
+      logger.error('Okta token exchange failed', { status: tokenRes.status, body: errBody });
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: ERROR_CODES.UNAUTHORIZED,
+        message: 'Okta authentication failed',
+      });
+      return;
+    }
+
+    const tokenData = await tokenRes.json() as { id_token?: string; access_token?: string };
+
+    // Decode the ID token to get the user's email (header.payload.sig)
+    const idToken = tokenData.id_token;
+    if (!idToken) {
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: ERROR_CODES.UNAUTHORIZED,
+        message: 'No ID token received from Okta',
+      });
+      return;
+    }
+
+    const payloadB64 = idToken.split('.')[1];
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
+      email?: string;
+      sub?: string;
+      name?: string;
+    };
+    const email = payload.email || payload.sub;
+
+    if (!email) {
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({
+        success: false,
+        error: ERROR_CODES.UNAUTHORIZED,
+        message: 'Could not determine email from Okta token',
+      });
+      return;
+    }
+
+    // Look up user in our database
+    const { rows } = await query<User>(
+      `SELECT id, email, name, role, status, workday_id as "workdayId",
+              title, department, cost_center as "costCenter",
+              manager_name as "managerName", manager_email as "managerEmail",
+              pe_partner_name as "pePartnerName", pe_partner_email as "pePartnerEmail",
+              payment_limit as "paymentLimit", last_login_at as "lastLoginAt",
+              created_at as "createdAt", updated_at as "updatedAt"
+       FROM users WHERE email = $1`,
+      [email.toLowerCase()]
+    );
+
+    if (rows.length === 0) {
+      // Redirect to frontend with error — user not provisioned
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Access denied — contact Treasury to request access')}`);
+      return;
+    }
+
+    const user = rows[0];
+    if (user.status !== 'active') {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(`Your account is ${user.status}. Please contact your administrator.`)}`);
+      return;
+    }
+
+    // Create session and tokens (same flow as local login)
+    const clientIp = getClientIp(req as AuthenticatedRequest);
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const sessionId = await createSession(user, clientIp, userAgent);
+    const { accessToken, refreshToken } = generateToken(user, sessionId);
+
+    // Track session
+    const userGroupResult = await query<{ name: string }>(
+      `SELECT g.name FROM group_members gm JOIN groups g ON g.id = gm.group_id WHERE gm.user_id = $1 LIMIT 1`,
+      [user.id]
+    );
+    trackLogin(user.id, user.name, userGroupResult.rows[0]?.name || null, clientIp, userAgent);
+
+    await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.USER_LOGIN, {
+      ipAddress: clientIp,
+      sessionId,
+      method: 'okta_sso',
+    });
+
+    // Set cookies
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: (isProduction ? 'strict' : 'lax') as 'strict' | 'lax',
+      path: '/',
+    };
+
+    res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 30 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    // Redirect to frontend
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/payments`);
+  } catch (error) {
+    logger.error('Okta callback error', { error: (error as Error).message });
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('SSO authentication failed')}`);
+  }
+});
+
 /**
  * POST /api/auth/login
- * Handle login callback from Okta SSO
- * In production, this would validate the Okta token
+ * Handle local email-based login (AUTH_MODE=local) or Okta token login
  */
 router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
   try {
@@ -35,13 +201,12 @@ router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
       return;
     }
 
-    // TODO: In production, validate the Okta token via MCP
-    // For development, we'll look up the user directly
-    if (process.env.NODE_ENV === 'production' && !oktaToken) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({
+    // In Okta mode, local email-only login is not allowed
+    if (AUTH_MODE === 'okta' && !oktaToken) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
         success: false,
-        error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'Okta token is required',
+        error: ERROR_CODES.FORBIDDEN,
+        message: 'Local login is disabled. Please use Okta SSO.',
       });
       return;
     }
@@ -100,11 +265,12 @@ router.post('/login', strictRateLimit, async (req: Request, res: Response) => {
       sessionId,
     });
 
-    // Set cookies
+    // Set cookies — strict sameSite in production, lax in dev for cross-port requests
+    const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
+      secure: isProduction,
+      sameSite: (isProduction ? 'strict' : 'lax') as 'strict' | 'lax',
       path: '/',
     };
 

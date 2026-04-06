@@ -7,8 +7,12 @@ import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import { redis } from '../config/sessions.js';
 import { updateLastActive } from '../services/sessionTracker.js';
 
-// JWT secret from environment
-const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-change-in-production';
+// JWT secret from environment — require it in production
+const JWT_SECRET = process.env.JWT_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('JWT_SECRET environment variable is required in production'); })()
+    : 'development-secret-change-in-production'
+);
 const SESSION_TIMEOUT_MS = (parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30', 10)) * 60 * 1000;
 
 interface JwtPayload {

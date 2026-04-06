@@ -1,15 +1,56 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+
+interface AuthMode {
+  mode: 'local' | 'okta';
+  oktaIssuer?: string;
+  oktaClientId?: string;
+  oktaRedirectUri?: string;
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode | null>(null);
+
+  // Check for error from Okta callback redirect
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    if (urlError) setError(urlError);
+  }, [searchParams]);
+
+  // Fetch auth mode from backend
+  useEffect(() => {
+    fetch('/api/auth/mode')
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setAuthMode(data.data);
+        else setAuthMode({ mode: 'local' });
+      })
+      .catch(() => setAuthMode({ mode: 'local' }));
+  }, []);
+
+  function handleOktaRedirect() {
+    if (!authMode?.oktaIssuer || !authMode?.oktaClientId || !authMode?.oktaRedirectUri) {
+      setError('Okta SSO is not configured. Contact IT.');
+      return;
+    }
+    const params = new URLSearchParams({
+      client_id: authMode.oktaClientId,
+      response_type: 'code',
+      scope: 'openid email profile',
+      redirect_uri: authMode.oktaRedirectUri,
+      state: crypto.randomUUID(),
+    });
+    window.location.href = `${authMode.oktaIssuer}/v1/authorize?${params}`;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,7 +59,6 @@ export default function LoginPage() {
 
     try {
       await login(email);
-      // Router push happens in login function
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
     } finally {
@@ -26,7 +66,7 @@ export default function LoginPage() {
     }
   }
 
-  if (isLoading) {
+  if (isLoading || !authMode) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0a5c36] to-[#107848]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#c8a951]"></div>
@@ -51,55 +91,73 @@ export default function LoginPage() {
               <p className="text-gray-600 mt-2">Payment Management System</p>
             </div>
 
-            {/* Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
-                  {error}
-                </div>
-              )}
-
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a5c36] focus:border-transparent"
-                  placeholder="your.name@gusto.com"
-                  autoComplete="email"
-                />
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm mb-6">
+                {error}
               </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting || !email}
-                className="w-full bg-[#c8a951] hover:bg-[#b89a42] text-white font-semibold py-2.5 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                {isSubmitting ? 'Signing in...' : 'Sign in with Okta'}
-              </button>
-
-              <p className="text-center text-sm text-gray-500">
-                Contact IT if you need access to this system.
-              </p>
-            </form>
-
-            {/* Development Mode Notice */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-6 p-4 bg-[#0a5c36]/5 border border-[#0a5c36]/20 rounded-md">
-                <p className="text-sm text-[#0a5c36] font-medium">Development Mode</p>
-                <p className="text-xs text-gray-600 mt-1">
-                  Enter any email ending in @gusto.com to log in.
-                  Production uses Okta SSO with MFA.
+            {authMode.mode === 'okta' ? (
+              /* ── Okta SSO Mode ── */
+              <div className="space-y-6">
+                <button
+                  type="button"
+                  onClick={handleOktaRedirect}
+                  className="w-full bg-[#c8a951] hover:bg-[#b89a42] text-white font-semibold py-2.5 px-4 rounded-md transition-colors shadow-sm"
+                >
+                  Sign in with Okta
+                </button>
+                <p className="text-center text-sm text-gray-500">
+                  You will be redirected to Gusto&apos;s Okta login page.
                 </p>
               </div>
+            ) : (
+              /* ── Local Auth Mode ── */
+              <>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <label
+                      htmlFor="email"
+                      className="block text-sm font-medium text-gray-700 mb-1"
+                    >
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a5c36] focus:border-transparent"
+                      placeholder="your.name@gusto.com"
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !email}
+                    className="w-full bg-[#c8a951] hover:bg-[#b89a42] text-white font-semibold py-2.5 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    {isSubmitting ? 'Signing in...' : 'Sign in'}
+                  </button>
+
+                  <p className="text-center text-sm text-gray-500">
+                    Contact IT if you need access to this system.
+                  </p>
+                </form>
+
+                {/* Development Mode Notice */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-6 p-4 bg-[#0a5c36]/5 border border-[#0a5c36]/20 rounded-md">
+                    <p className="text-sm text-[#0a5c36] font-medium">Development Mode</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      AUTH_MODE=local — enter any @gusto.com email to log in.
+                      Set AUTH_MODE=okta to test SSO flow.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
