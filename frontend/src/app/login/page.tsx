@@ -6,9 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 
 interface AuthMode {
   mode: 'local' | 'okta';
-  oktaIssuer?: string;
-  oktaClientId?: string;
-  oktaRedirectUri?: string;
+  authorizationUrl?: string;
+  clientId?: string;
+  callbackUrl?: string;
+  realm?: string;
 }
 
 export default function LoginPage() {
@@ -37,19 +38,19 @@ export default function LoginPage() {
       .catch(() => setAuthMode({ mode: 'local' }));
   }, []);
 
-  function handleOktaRedirect() {
-    if (!authMode?.oktaIssuer || !authMode?.oktaClientId || !authMode?.oktaRedirectUri) {
-      setError('Okta SSO is not configured. Contact IT.');
+  function handleSsoRedirect() {
+    if (!authMode?.authorizationUrl || !authMode?.clientId || !authMode?.callbackUrl) {
+      setError('SSO is not configured. Contact IT.');
       return;
     }
     const params = new URLSearchParams({
-      client_id: authMode.oktaClientId,
+      client_id: authMode.clientId,
       response_type: 'code',
       scope: 'openid email profile',
-      redirect_uri: authMode.oktaRedirectUri,
+      redirect_uri: authMode.callbackUrl,
       state: crypto.randomUUID(),
     });
-    window.location.href = `${authMode.oktaIssuer}/v1/authorize?${params}`;
+    window.location.href = `${authMode.authorizationUrl}?${params}`;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,13 +103,13 @@ export default function LoginPage() {
               <div className="space-y-6">
                 <button
                   type="button"
-                  onClick={handleOktaRedirect}
+                  onClick={handleSsoRedirect}
                   className="w-full bg-[#c8a951] hover:bg-[#b89a42] text-white font-semibold py-2.5 px-4 rounded-md transition-colors shadow-sm"
                 >
-                  Sign in with Okta
+                  Sign in with Gusto SSO
                 </button>
                 <p className="text-center text-sm text-gray-500">
-                  You will be redirected to Gusto&apos;s Okta login page.
+                  You will be redirected to the Gusto login page.
                 </p>
               </div>
             ) : (

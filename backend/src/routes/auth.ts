@@ -14,6 +14,7 @@ import { logger } from '../utils/logger.js';
 import { ERROR_CODES, HTTP_STATUS } from '../config/constants.js';
 import { AuthenticatedRequest, User } from '../types/index.js';
 import { trackLogin, trackLogout } from '../services/sessionTracker.js';
+import { keycloakConfig, keycloakEndpoints, getCallbackUrl, validateKeycloakConfig } from '../config/keycloak.js';
 
 const router = Router();
 
@@ -21,103 +22,114 @@ const AUTH_MODE = process.env.AUTH_MODE || 'local';
 
 /**
  * GET /api/auth/mode
- * Returns the current authentication mode so the frontend can adapt
+ * Returns the current authentication mode so the frontend can adapt.
+ * When AUTH_MODE=okta, provides Keycloak OIDC endpoints for the frontend redirect.
  */
 router.get('/mode', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    data: {
-      mode: AUTH_MODE,
-      oktaIssuer: AUTH_MODE === 'okta' ? process.env.OKTA_ISSUER : undefined,
-      oktaClientId: AUTH_MODE === 'okta' ? process.env.OKTA_CLIENT_ID : undefined,
-      oktaRedirectUri: AUTH_MODE === 'okta' ? process.env.OKTA_REDIRECT_URI : undefined,
-    },
-  });
+  if (AUTH_MODE === 'okta') {
+    res.json({
+      success: true,
+      data: {
+        mode: AUTH_MODE,
+        authorizationUrl: keycloakEndpoints.authorization,
+        clientId: keycloakConfig.clientId,
+        callbackUrl: getCallbackUrl(),
+        realm: keycloakConfig.realm,
+      },
+    });
+  } else {
+    res.json({
+      success: true,
+      data: { mode: AUTH_MODE },
+    });
+  }
 });
 
 /**
- * GET /api/auth/okta/callback
- * Handle the Okta OIDC authorization code callback.
- * Exchanges the code for tokens, extracts the user's email,
- * maps it to an existing user, and creates a session.
+ * GET /api/auth/callback
+ * Keycloak OIDC authorization code callback.
+ * Exchanges the code for tokens via keycloak-connect's token endpoint,
+ * extracts the Gusto email, maps it to an existing portal user, and creates a session.
  */
-router.get('/okta/callback', strictRateLimit, async (req: Request, res: Response) => {
+router.get('/callback', strictRateLimit, async (req: Request, res: Response) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
   try {
     if (AUTH_MODE !== 'okta') {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
         success: false,
         error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'Okta SSO is not enabled (AUTH_MODE != okta)',
+        message: 'SSO is not enabled (AUTH_MODE != okta)',
       });
+      return;
+    }
+
+    // Validate Keycloak config is complete
+    const configError = validateKeycloakConfig();
+    if (configError) {
+      logger.error('Keycloak config incomplete', { error: configError });
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('SSO is misconfigured — contact IT')}`);
       return;
     }
 
     const { code } = req.query;
     if (!code || typeof code !== 'string') {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({
-        success: false,
-        error: ERROR_CODES.VALIDATION_ERROR,
-        message: 'Authorization code is required',
-      });
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Authorization code missing')}`);
       return;
     }
 
-    // Exchange authorization code for tokens
-    const tokenUrl = `${process.env.OKTA_ISSUER}/v1/token`;
-    const tokenRes = await fetch(tokenUrl, {
+    // Exchange authorization code for tokens at Keycloak's token endpoint
+    const tokenRes = await fetch(keycloakEndpoints.token, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: process.env.OKTA_REDIRECT_URI || '',
-        client_id: process.env.OKTA_CLIENT_ID || '',
-        client_secret: process.env.OKTA_CLIENT_SECRET || '',
+        redirect_uri: getCallbackUrl(),
+        client_id: keycloakConfig.clientId,
+        client_secret: keycloakConfig.clientSecret,
       }),
     });
 
     if (!tokenRes.ok) {
       const errBody = await tokenRes.text();
-      logger.error('Okta token exchange failed', { status: tokenRes.status, body: errBody });
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_CODES.UNAUTHORIZED,
-        message: 'Okta authentication failed',
-      });
+      logger.error('Keycloak token exchange failed', { status: tokenRes.status, body: errBody });
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('SSO authentication failed')}`);
       return;
     }
 
-    const tokenData = await tokenRes.json() as { id_token?: string; access_token?: string };
+    const tokenData = await tokenRes.json() as {
+      id_token?: string;
+      access_token?: string;
+      refresh_token?: string;
+    };
 
-    // Decode the ID token to get the user's email (header.payload.sig)
+    // Decode the ID token to extract the user's email
     const idToken = tokenData.id_token;
     if (!idToken) {
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_CODES.UNAUTHORIZED,
-        message: 'No ID token received from Okta',
-      });
+      logger.error('No ID token in Keycloak response');
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('No identity token received from SSO')}`);
       return;
     }
 
     const payloadB64 = idToken.split('.')[1];
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString()) as {
       email?: string;
+      preferred_username?: string;
       sub?: string;
       name?: string;
     };
-    const email = payload.email || payload.sub;
 
+    // Keycloak tokens include email or preferred_username (which is often the email)
+    const email = payload.email || payload.preferred_username || payload.sub;
     if (!email) {
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({
-        success: false,
-        error: ERROR_CODES.UNAUTHORIZED,
-        message: 'Could not determine email from Okta token',
-      });
+      logger.error('Could not determine email from Keycloak token', { payload: { sub: payload.sub } });
+      res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Could not determine your email from SSO token')}`);
       return;
     }
 
-    // Look up user in our database
+    logger.info('Keycloak SSO callback — email resolved', { email });
+
+    // Look up user in the portal users table
     const { rows } = await query<User>(
       `SELECT id, email, name, role, status, workday_id as "workdayId",
               title, department, cost_center as "costCenter",
@@ -130,20 +142,18 @@ router.get('/okta/callback', strictRateLimit, async (req: Request, res: Response
     );
 
     if (rows.length === 0) {
-      // Redirect to frontend with error — user not provisioned
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      logger.warn('Keycloak SSO login denied — email not in users table', { email });
       res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Access denied — contact Treasury to request access')}`);
       return;
     }
 
     const user = rows[0];
     if (user.status !== 'active') {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(`Your account is ${user.status}. Please contact your administrator.`)}`);
       return;
     }
 
-    // Create session and tokens (same flow as local login)
+    // Create portal session and JWT tokens (same flow as local login)
     const clientIp = getClientIp(req as AuthenticatedRequest);
     const userAgent = req.headers['user-agent'] || 'unknown';
     const sessionId = await createSession(user, clientIp, userAgent);
@@ -159,10 +169,10 @@ router.get('/okta/callback', strictRateLimit, async (req: Request, res: Response
     await logAuditEntry(user.id, user.email, AUDIT_ACTIONS.USER_LOGIN, {
       ipAddress: clientIp,
       sessionId,
-      method: 'okta_sso',
+      newValues: { method: 'keycloak_sso' },
     });
 
-    // Set cookies
+    // Set httpOnly cookies
     const isProduction = process.env.NODE_ENV === 'production';
     const cookieOptions = {
       httpOnly: true,
@@ -174,12 +184,10 @@ router.get('/okta/callback', strictRateLimit, async (req: Request, res: Response
     res.cookie('accessToken', accessToken, { ...cookieOptions, maxAge: 30 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { ...cookieOptions, maxAge: 7 * 24 * 60 * 60 * 1000 });
 
-    // Redirect to frontend
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    logger.info('Keycloak SSO login successful', { userId: user.id, email: user.email });
     res.redirect(`${frontendUrl}/payments`);
   } catch (error) {
-    logger.error('Okta callback error', { error: (error as Error).message });
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    logger.error('Keycloak callback error', { error: (error as Error).message });
     res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('SSO authentication failed')}`);
   }
 });
