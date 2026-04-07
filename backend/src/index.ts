@@ -74,7 +74,16 @@ async function startServer(): Promise<void> {
 
   // Run startup catch-up tasks after a short delay to let the server stabilize
   setTimeout(async () => {
-    // Generate any missed EOD reports from server downtime
+    // ── Fix 3: Guarantee scheduled reports for every day in the last 7 days ──
+    // For any date missing an is_scheduled=1 report, create one with generated_at = 6 PM ET
+    try {
+      await ensureScheduledReportsExist();
+      logger.info('Scheduled report guarantee check completed');
+    } catch (error) {
+      logger.error('Scheduled report guarantee check failed', { error: (error as Error).message });
+    }
+
+    // Generate any missed EOD reports from server downtime (non-scheduled catch-ups)
     try {
       await runMissedEodReports();
       logger.info('Startup missed EOD report catch-up completed');
@@ -250,6 +259,65 @@ function scheduleJobs(): void {
   });
 
   logger.info('Background jobs scheduled');
+}
+
+/**
+ * Ensure that for every day in the last 7 days, a scheduled (is_scheduled=1) EOD report
+ * and user permissions report exists. If missing, create one with generated_at = 6 PM ET
+ * for that date. This guarantees the "Scheduled — 6:00 PM ET" entry is always present.
+ */
+async function ensureScheduledReportsExist(): Promise<void> {
+  const today = new Date();
+  const dates: string[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    dates.push(`${y}-${m}-${dd}`);
+  }
+
+  // EOD reports
+  const { rows: existingEod } = await dbQuery<{ report_date: string }>(
+    `SELECT DISTINCT report_date FROM eod_reports WHERE is_scheduled = 1 AND report_date >= $1`,
+    [dates[dates.length - 1]]
+  );
+  const eodSet = new Set(existingEod.map(r => r.report_date));
+  let eodCreated = 0;
+  for (const dateStr of dates) {
+    if (!eodSet.has(dateStr)) {
+      try {
+        await runEodReportJob(undefined, dateStr, true);
+        eodCreated++;
+      } catch (error) {
+        logger.error(`Failed to create scheduled EOD report for ${dateStr}`, { error: (error as Error).message });
+      }
+    }
+  }
+
+  // User permissions reports
+  const { rows: existingPerms } = await dbQuery<{ dt: string }>(
+    `SELECT DISTINCT date(created_at) AS dt FROM notifications
+     WHERE type = 'user_permissions_report' AND is_scheduled = 1 AND date(created_at) >= $1`,
+    [dates[dates.length - 1]]
+  );
+  const permsSet = new Set(existingPerms.map(r => r.dt));
+  let permsCreated = 0;
+  for (const dateStr of dates) {
+    if (!permsSet.has(dateStr)) {
+      try {
+        await runUserPermissionsReportJob(true, undefined, dateStr);
+        permsCreated++;
+      } catch (error) {
+        logger.error(`Failed to create scheduled user permissions report for ${dateStr}`, { error: (error as Error).message });
+      }
+    }
+  }
+
+  if (eodCreated > 0 || permsCreated > 0) {
+    logger.info(`Scheduled report guarantee: created ${eodCreated} EOD + ${permsCreated} user permissions reports for last 7 days`);
+  }
 }
 
 // Start the server

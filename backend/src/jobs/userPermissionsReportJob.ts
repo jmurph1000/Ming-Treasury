@@ -22,11 +22,27 @@ const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
 };
 
-export async function runUserPermissionsReportJob(isScheduled: boolean = false, manualUserName?: string): Promise<void> {
+/**
+ * Compute the 6:00 PM ET timestamp for a given date string.
+ */
+function get6pmEtIso(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d, 18, 0, 0, 0);
+  return dt.toISOString();
+}
+
+function formatEtTimestamp(isoStr: string): string {
+  return new Date(isoStr).toLocaleString('en-US', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York', timeZoneName: 'short',
+  });
+}
+
+export async function runUserPermissionsReportJob(isScheduled: boolean = false, manualUserName?: string, reportDate?: string): Promise<void> {
   try {
     logger.info(`User permissions report job started (${isScheduled ? 'scheduled' : 'manual'})`);
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = reportDate || new Date().toISOString().slice(0, 10);
 
     // Snapshot all users and their assigned account counts
     const { rows: users } = await query<UserSnapshot>(`
@@ -100,7 +116,19 @@ export async function runUserPermissionsReportJob(isScheduled: boolean = false, 
     );
 
     const subject = `[Treasury Portal] Daily User Permissions Report — ${today}`;
-    const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, today, permChanges);
+
+    // Determine generated_at timestamp
+    const isRetroactive = reportDate && reportDate !== new Date().toISOString().slice(0, 10);
+    let generatedAt: string;
+    if (isScheduled || isRetroactive) {
+      generatedAt = get6pmEtIso(today);
+    } else {
+      generatedAt = new Date().toISOString();
+    }
+
+    const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, today, permChanges, {
+      isScheduled, isRetroactive: !!isRetroactive, generatedByName: manualUserName || null, generatedAt,
+    });
 
     // For scheduled runs: only skip if a scheduled report already exists for today
     // For manual runs: always create a new report
@@ -118,11 +146,11 @@ export async function runUserPermissionsReportJob(isScheduled: boolean = false, 
 
     await query(
       `INSERT INTO notifications (type, channel, subject, body, template_data, status, is_scheduled, generated_by_name, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, datetime('now'))`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       ['user_permissions_report', 'in_app', subject, html, templateData, 'generated',
-       isScheduled ? 1 : 0, manualUserName || null]
+       isScheduled ? 1 : 0, manualUserName || null, generatedAt]
     );
-    logger.info(`User permissions report stored for today (${isScheduled ? 'scheduled' : 'manual'})`);
+    logger.info(`User permissions report stored for ${today} (${isScheduled ? 'scheduled' : 'manual'})`);
 
     logger.info(`User permissions report completed: ${activeUsers.length} active, ${suspendedUsers.length} suspended, ${pendingUsers.length} pending`);
   } catch (error) {
@@ -254,8 +282,11 @@ async function runUserPermissionsReportForDate(date: string): Promise<void> {
     })),
   });
 
+  const generatedAt = get6pmEtIso(date);
   const subject = `[Treasury Portal] Daily User Permissions Report — ${date}`;
-  const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, date);
+  const html = buildHtml(users, activeUsers, suspendedUsers, pendingUsers, roleCounts, date, [], {
+    isScheduled: false, isRetroactive: true, generatedByName: null, generatedAt,
+  });
 
   // Check if this date's report already exists
   const { rows: existing } = await query(
@@ -275,7 +306,7 @@ async function runUserPermissionsReportForDate(date: string): Promise<void> {
     await query(
       `INSERT INTO notifications (type, channel, subject, body, template_data, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      ['user_permissions_report', 'in_app', subject, html, templateData, 'generated', date + 'T18:00:00']
+      ['user_permissions_report', 'in_app', subject, html, templateData, 'generated', generatedAt]
     );
   }
 }
@@ -289,6 +320,13 @@ interface PermChange {
   changed_by_name: string; changed_at: string;
 }
 
+interface ReportContext {
+  isScheduled: boolean;
+  isRetroactive: boolean;
+  generatedByName: string | null;
+  generatedAt: string;
+}
+
 function buildHtml(
   allUsers: UserSnapshot[],
   active: UserSnapshot[],
@@ -296,7 +334,8 @@ function buildHtml(
   pending: UserSnapshot[],
   roleCounts: Record<string, number>,
   date: string,
-  permChanges: PermChange[] = []
+  permChanges: PermChange[] = [],
+  ctx?: ReportContext
 ): string {
   const cell = 'padding:8px;border:1px solid #ddd;';
 
@@ -399,7 +438,15 @@ function buildHtml(
 
       <hr style="margin-top:24px;border:none;border-top:1px solid #eee;" />
       <p style="font-size:11px;color:#999;">
-        Auto-generated by the Gusto Treasury Portal. This report is stored daily for compliance and audit purposes.
+        ${ctx?.isScheduled
+          ? 'Auto-generated by the Gusto Treasury Portal at 6:00 PM ET.'
+          : ctx?.isRetroactive
+            ? `Retroactive report — generated on server startup at ${formatEtTimestamp(ctx.generatedAt)} to cover missed scheduled run.`
+            : ctx?.generatedByName
+              ? `Manually generated by ${ctx.generatedByName} at ${formatEtTimestamp(ctx.generatedAt)}.`
+              : `Generated by the Gusto Treasury Portal at ${ctx ? formatEtTimestamp(ctx.generatedAt) : 'unknown'}.`
+        }
+        This report is stored daily for compliance and audit purposes.
       </p>
     </div>
   `;
