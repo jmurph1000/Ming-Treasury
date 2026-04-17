@@ -1,0 +1,228 @@
+{
+  "model_path": "forecast-platform/forecast-dashboard.html",
+  "audit_timestamp": "2026-03-27T14:30:00Z",
+  "grade": "B+",
+  "materiality_threshold": 4200000,
+  "findings": [
+    {
+      "id": "MA-001",
+      "severity": "warning",
+      "category": "balance",
+      "title": "Bridge rounding creates $12K visible discrepancy in Q3",
+      "description": "Direct channel bridge for FY27-Q3: Land ($12.34M) + Expansion ($8.12M) - Churn ($4.21M) + Hiring ($2.05M) = $18.30M, but displayed ending ARR shows $18.31M. Delta is $12K, below materiality but visually confusing.",
+      "location": {
+        "section": "Direct Channel Bridge",
+        "period": "FY27-Q3",
+        "elements": ["#bridge-table tr:nth-child(4)"]
+      },
+      "evidence": {
+        "expected": 18300000,
+        "actual": 18312000,
+        "delta": 12000,
+        "delta_pct": 0.07
+      },
+      "recommendation": "Add a rounding adjustment line or increase display precision to $K",
+      "confidence": 0.98,
+      "below_materiality": true
+    },
+    {
+      "id": "MA-002",
+      "severity": "error",
+      "category": "arithmetic",
+      "title": "Accountant spoke growth rate miscalculated",
+      "description": "Accountant channel shows YoY growth of 28.5% but actual values are $34.2M (FY26) and $42.1M (FY27), which yields 23.1%. The displayed percentage appears to use an older FY26 baseline of $32.8M.",
+      "location": {
+        "section": "Spoke Summary - Accountants",
+        "period": "FY27 Full Year",
+        "elements": [".spoke-acct .growth-rate"]
+      },
+      "evidence": {
+        "expected": 23.1,
+        "actual": 28.5,
+        "delta": 5.4,
+        "delta_pct": 23.4
+      },
+      "recommendation": "Update growth rate calculation to use current FY26 actuals ($34.2M) as denominator",
+      "confidence": 0.95
+    },
+    {
+      "id": "JD-001",
+      "severity": "error",
+      "category": "boundary",
+      "title": "BD expansion jumps 43% at actuals-to-forecast boundary",
+      "description": "BD channel expansion: trailing 6-month average MoM change is +1.8%. At the Feb→Mar boundary (actuals→forecast), expansion jumps from $1.2M to $1.72M — a 43% MoM increase, which is 24x the historical standard deviation of 1.8%.",
+      "location": {
+        "section": "BD Channel Bridge",
+        "period": "2026-03",
+        "elements": ["bd-expansion"]
+      },
+      "evidence": {
+        "sparkline_data": {
+          "series": [1050000, 1080000, 1100000, 1140000, 1180000, 1200000, 1720000],
+          "labels": ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"],
+          "boundary_index": 5,
+          "expected_range": [1210000, 1260000],
+          "actual": 1720000,
+          "delta_pct": 43.3
+        }
+      },
+      "recommendation": "Review BD expansion assumptions at forecast boundary. The jump likely indicates an aggressive assumption about new partner ramp or a data mapping error.",
+      "confidence": 0.91
+    },
+    {
+      "id": "JD-002",
+      "severity": "warning",
+      "category": "seasonality",
+      "title": "Direct churn doesn't reflect typical January dip",
+      "description": "Historical pattern shows churn increases 15-20% in January (seasonal index 1.17). FY27 forecast shows January churn flat to December, ignoring this pattern.",
+      "location": {
+        "section": "Direct Channel Bridge",
+        "period": "FY27-Jan",
+        "elements": ["direct-churn"]
+      },
+      "evidence": {
+        "sparkline_data": {
+          "series": [3800000, 3900000, 4100000, 4500000, 4200000, 3900000, 4000000, 4100000, 4200000, 4300000, 4400000, 4500000, 4500000],
+          "labels": ["Jan-25", "Feb-25", "Mar-25", "Apr-25", "May-25", "Jun-25", "Jul-25", "Aug-25", "Sep-25", "Oct-25", "Nov-25", "Dec-25", "Jan-26"],
+          "boundary_index": 11,
+          "expected_range": [4700000, 5000000],
+          "actual": 4500000,
+          "delta_pct": -6.4
+        }
+      },
+      "recommendation": "Apply seasonal adjustment to January churn forecast or document why this year is expected to differ",
+      "confidence": 0.78
+    },
+    {
+      "id": "FM-000",
+      "severity": "info",
+      "category": "structural",
+      "title": "Model Calculation Flowchart",
+      "description": "Complete calculation DAG for the forecast model",
+      "location": { "section": "Full Model", "period": "All", "elements": [] },
+      "evidence": {
+        "mermaid": "flowchart TD\n    classDef input fill:#CEE6E6,stroke:#0A8080,color:#222525\n    classDef calc fill:#fff,stroke:#7A7C7C,color:#404646\n    classDef output fill:#0A8080,stroke:#087070,color:#fff\n    classDef hidden fill:#FFF4E0,stroke:#E8A735,color:#222525\n\n    HIST_ARR[Historical ARR]:::input\n    CHURN_RATE[Churn Rate: 3.2%]:::input\n    LAND_RATE[Monthly Lands: 1,500]:::input\n    EXP_RATE[Expansion Rate: 2.1%]:::input\n    HIRE_FACTOR[Hiring Growth: 1.05]:::hidden\n\n    CHURN[Churn Amount]:::calc\n    LANDS[Land Revenue]:::calc\n    EXPANSION[Expansion Revenue]:::calc\n    HIRING[Hiring Revenue]:::calc\n\n    END_ARR[Ending ARR]:::output\n\n    HIST_ARR --> CHURN\n    CHURN_RATE --> CHURN\n    LAND_RATE --> LANDS\n    HIST_ARR --> EXPANSION\n    EXP_RATE --> EXPANSION\n    HIST_ARR --> HIRING\n    HIRE_FACTOR --> HIRING\n    HIST_ARR --> END_ARR\n    CHURN --> END_ARR\n    LANDS --> END_ARR\n    EXPANSION --> END_ARR\n    HIRING --> END_ARR"
+      },
+      "recommendation": "Review hidden assumption: Hiring Growth Factor (1.05) is hardcoded in JS and not exposed as a configurable input",
+      "confidence": 0.85
+    },
+    {
+      "id": "FM-001",
+      "severity": "warning",
+      "category": "structural",
+      "title": "Hidden hiring growth factor not exposed in UI",
+      "description": "The value 1.05 is hardcoded in the forecast calculation for hiring-driven revenue growth. This assumption is not visible to users or adjustable via any UI control, but it affects ~$8M of the forecast.",
+      "location": {
+        "section": "Calculation Logic",
+        "period": "All forecast periods",
+        "elements": ["forecast.js:47"]
+      },
+      "evidence": {
+        "expected": "Assumption exposed in UI",
+        "actual": "Hardcoded constant"
+      },
+      "recommendation": "Surface the hiring growth factor as an explicit, configurable assumption alongside churn rate and expansion rate",
+      "confidence": 0.88
+    },
+    {
+      "id": "BT-001",
+      "severity": "info",
+      "category": "accuracy",
+      "title": "Backtesting scorecard: Grade A (MAPE 2.1%)",
+      "description": "Model backtested against 14 months of actuals. Overall MAPE is 2.1% with an optimistic bias of 0.8%. BD expansion is the weakest component at 12.3% MAPE.",
+      "location": { "section": "Full Model", "period": "Jun-24 through Jul-25", "elements": [] },
+      "evidence": {
+        "scorecard": [
+          {"period": "2024-06", "forecast": 398000000, "actual": 395000000, "error_pct": 0.8, "grade": "A"},
+          {"period": "2024-07", "forecast": 402000000, "actual": 400000000, "error_pct": 0.5, "grade": "A"},
+          {"period": "2024-08", "forecast": 406000000, "actual": 403000000, "error_pct": 0.7, "grade": "A"},
+          {"period": "2024-09", "forecast": 410000000, "actual": 407000000, "error_pct": 0.7, "grade": "A"},
+          {"period": "2024-10", "forecast": 414000000, "actual": 412500000, "error_pct": 0.4, "grade": "A"},
+          {"period": "2024-11", "forecast": 418000000, "actual": 413000000, "error_pct": 1.2, "grade": "A"},
+          {"period": "2024-12", "forecast": 421000000, "actual": 415000000, "error_pct": 1.4, "grade": "A"}
+        ],
+        "overall_mape": 2.1,
+        "overall_grade": "A",
+        "bias": "optimistic",
+        "bias_magnitude": 0.8,
+        "worst_component": "BD Expansion",
+        "worst_component_mape": 12.3
+      },
+      "recommendation": "Overall accuracy is strong. Focus improvement on BD expansion forecasting methodology.",
+      "confidence": 0.95
+    },
+    {
+      "id": "SA-001",
+      "severity": "info",
+      "category": "sensitivity",
+      "title": "Assumption impact ranking (tornado analysis)",
+      "description": "Churn rate has the largest impact on ending ARR, followed by land rate and expansion rate. Hiring growth factor has moderate impact despite being a hidden assumption.",
+      "location": { "section": "Full Model", "period": "FY27", "elements": [] },
+      "evidence": {
+        "tornado": [
+          {"assumption": "Churn Rate", "baseline": 0.032, "low_output": 450000000, "high_output": 390000000, "swing": 60000000},
+          {"assumption": "Monthly Lands", "baseline": 1500, "low_output": 405000000, "high_output": 435000000, "swing": 30000000},
+          {"assumption": "Expansion Rate", "baseline": 0.021, "low_output": 410000000, "high_output": 430000000, "swing": 20000000},
+          {"assumption": "Hiring Growth Factor", "baseline": 1.05, "low_output": 412000000, "high_output": 428000000, "swing": 16000000}
+        ],
+        "primary_output_name": "Ending ARR",
+        "primary_output_baseline": 420000000
+      },
+      "recommendation": "Churn rate is the highest-leverage assumption. Ensure it is well-sourced and regularly validated against actuals.",
+      "confidence": 0.82
+    },
+    {
+      "id": "PT-001",
+      "severity": "info",
+      "category": "provenance",
+      "title": "Data lineage map",
+      "description": "4 of 6 key model inputs have source citations. 2 inputs are hardcoded without sources.",
+      "location": { "section": "Full Model", "period": "All", "elements": [] },
+      "evidence": {
+        "lineage": [
+          {"input": "Historical ARR", "value": 400000000, "source": "Redash query 135913", "source_type": "database", "freshness": "2026-03-15", "status": "verified"},
+          {"input": "Churn Rate", "value": 0.032, "source": "GMP spreadsheet cell F12", "source_type": "spreadsheet", "freshness": "2026-03-01", "status": "cited"},
+          {"input": "Monthly Lands", "value": 1500, "source": "Redash query 145063", "source_type": "database", "freshness": "2026-03-15", "status": "verified"},
+          {"input": "Expansion Rate", "value": 0.021, "source": "Calculated from Q2 actuals", "source_type": "manual", "freshness": "2026-01-15", "status": "stale"},
+          {"input": "Hiring Growth Factor", "value": 1.05, "source": "Hardcoded in forecast.js line 47", "source_type": "hardcoded", "freshness": null, "status": "uncited"},
+          {"input": "BD Ramp Curve", "value": [0.2, 0.4, 0.6, 0.8, 1.0], "source": "Hardcoded in bd-spoke.js line 23", "source_type": "hardcoded", "freshness": null, "status": "uncited"}
+        ]
+      },
+      "recommendation": "Add source citations for Hiring Growth Factor and BD Ramp Curve. Update Expansion Rate source (last refreshed 2026-01-15, now 71 days stale).",
+      "confidence": 0.90
+    },
+    {
+      "id": "PT-002",
+      "severity": "warning",
+      "category": "provenance",
+      "title": "Expansion rate assumption sourced from stale Q2 data",
+      "description": "Expansion rate (2.1%) was calculated from Q2 actuals, last updated 2026-01-15 — now 71 days old. Q3 actuals are available and may show a different rate.",
+      "location": {
+        "section": "Assumptions",
+        "period": "All forecast periods",
+        "elements": ["expansion-rate"]
+      },
+      "evidence": {
+        "expected": "Updated within 30 days",
+        "actual": "71 days since last update"
+      },
+      "recommendation": "Recalculate expansion rate using latest available actuals",
+      "confidence": 0.93
+    }
+  ],
+  "summary": {
+    "total": 10,
+    "errors": 2,
+    "warnings": 4,
+    "info": 4,
+    "below_materiality": 1,
+    "by_agent": {
+      "math-auditor": {"errors": 1, "warnings": 1, "info": 0},
+      "jump-detector": {"errors": 1, "warnings": 1, "info": 0},
+      "flowchart-mapper": {"errors": 0, "warnings": 1, "info": 1},
+      "backtester": {"errors": 0, "warnings": 0, "info": 1},
+      "sensitivity": {"errors": 0, "warnings": 0, "info": 1},
+      "provenance": {"errors": 0, "warnings": 1, "info": 1}
+    }
+  }
+}

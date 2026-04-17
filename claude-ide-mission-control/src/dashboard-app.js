@@ -1,0 +1,916 @@
+// --- postMessage API proxy ---
+// Replaces window.api.* with async postMessage calls to the parent renderer
+var _apiPending = {};
+var api = new Proxy({}, {
+  get: function(_, method) {
+    return function() {
+      var args = Array.prototype.slice.call(arguments);
+      return new Promise(function(resolve, reject) {
+        var id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+        _apiPending[id] = { resolve: resolve, reject: reject };
+        window.parent.postMessage({ type: "mc-api", id: id, method: method, args: args }, "*");
+        // Timeout after 120s
+        setTimeout(function() {
+          if (_apiPending[id]) {
+            _apiPending[id].reject(new Error("API timeout: " + method));
+            delete _apiPending[id];
+          }
+        }, 120000);
+      });
+    };
+  }
+});
+
+window.addEventListener("message", function(e) {
+  if (!e.data) return;
+  // Only accept messages from parent window
+  if (e.source !== window.parent) return;
+  if (e.data.type === "mc-api-response" && e.data.id && _apiPending[e.data.id]) {
+    var p = _apiPending[e.data.id];
+    delete _apiPending[e.data.id];
+    if (e.data.error) p.reject(new Error(e.data.error));
+    else p.resolve(e.data.result);
+  }
+  if (e.data.type === "mc-state" && window._mcUpdateState) {
+    window._mcUpdateState(e.data.state);
+  }
+});
+
+// Notify parent we're ready
+window.parent.postMessage({ type: "mc-dashboard-ready" }, "*");
+
+// --- Convenience: dispatch to parent ---
+function dispatchToParent(action) {
+  window.parent.postMessage({ type: "mc-dispatch", action: action }, "*");
+}
+function requestTerminal(command, projectPath, label, resumeSessionId) {
+  window.parent.postMessage({ type: "mc-create-terminal", command: command, projectPath: projectPath, label: label, resumeSessionId: resumeSessionId }, "*");
+}
+
+// --- React shim for jsxRuntimeExports compatibility ---
+var h = React.createElement;
+
+// --- Utility functions ---
+function parseTodos(content) {
+  if (!content) return [];
+  var todoLines = content.split("\n");
+  var todos = [];
+  for (var idx = 0; idx < todoLines.length; idx++) {
+    var todoLine = todoLines[idx];
+    var match = todoLine.match(/^[-*]\s+\[([x ])\]\s+(?:\*\*(!!|!)\*\*\s+)?(.+)/i);
+    if (match) {
+      var done = match[1].toLowerCase() === "x";
+      var prio = match[2] === "!!" ? "high" : match[2] === "!" ? "medium" : "low";
+      var desc = match[3].trim();
+      var due = null;
+      var dueM = desc.match(/\[due:\s*([^\]]+)\]/i);
+      if (dueM) { due = dueM[1]; desc = desc.replace(dueM[0], "").trim(); }
+      var srcM = desc.match(/\[from:\s*([^\]]+)\]/i);
+      var src = null;
+      if (srcM) { src = srcM[1]; desc = desc.replace(srcM[0], "").trim(); }
+      var statusM = desc.match(/\[status:\s*([^\]]+)\]/i);
+      var status = statusM ? statusM[1].trim().toLowerCase() : "not-started";
+      if (statusM) desc = desc.replace(statusM[0], "").trim();
+      todos.push({ done: done, priority: prio, description: desc, due: due, source: src, status: status, lineIndex: idx });
+    }
+  }
+  return todos;
+}
+function todosToMarkdown(todos) {
+  return todos.map(function(t) {
+    var check = t.done ? "x" : " ";
+    var prioMark = t.priority === "high" ? "**!!** " : t.priority === "medium" ? "**!** " : "";
+    var dueMark = t.due ? " [due: " + t.due + "]" : "";
+    var srcMark = t.source ? " [from: " + t.source + "]" : "";
+    var statusMark = t.status && t.status !== "not-started" ? " [status: " + t.status + "]" : "";
+    return "- [" + check + "] " + prioMark + t.description + dueMark + srcMark + statusMark;
+  }).join("\n") + "\n";
+}
+function parseWaiting(content) {
+  if (!content) return [];
+  return content.split("\n").map(function(line, idx) {
+    var m = line.match(/^[-*]\s+\[([x ])\]\s+(.+)/i);
+    if (!m) return null;
+    var done = m[1].toLowerCase() === "x";
+    var desc = m[2].trim();
+    var ownerM = desc.match(/\[owner:\s*([^\]]+)\]/i);
+    var owner = ownerM ? ownerM[1].trim() : "";
+    if (ownerM) desc = desc.replace(ownerM[0], "").trim();
+    var sinceM = desc.match(/\[since:\s*([^\]]+)\]/i);
+    var since = sinceM ? sinceM[1].trim() : null;
+    if (sinceM) desc = desc.replace(sinceM[0], "").trim();
+    return { done: done, description: desc, owner: owner, since: since, lineIndex: idx };
+  }).filter(Boolean);
+}
+function waitingToMarkdown(items) {
+  return items.map(function(w) {
+    var check = w.done ? "x" : " ";
+    var ownerTag = w.owner ? " [owner: " + w.owner + "]" : "";
+    var sinceTag = w.since ? " [since: " + w.since + "]" : "";
+    return "- [" + check + "] " + w.description + ownerTag + sinceTag;
+  }).join("\n") + "\n";
+}
+function parseEventTime(timeStr, dateOffset) {
+  if (!timeStr) return null;
+  var m = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  var hr = parseInt(m[1], 10);
+  var min = parseInt(m[2], 10);
+  var ampm = m[3].toUpperCase();
+  if (ampm === "PM" && hr !== 12) hr += 12;
+  if (ampm === "AM" && hr === 12) hr = 0;
+  var now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + (dateOffset || 0), hr, min, 0);
+}
+function formatCountdown(ms) {
+  if (ms <= 0) return "now";
+  var totalSec = Math.floor(ms / 1000);
+  var hours = Math.floor(totalSec / 3600);
+  var mins = Math.floor((totalSec % 3600) / 60);
+  var secs = totalSec % 60;
+  if (hours > 0) return hours + "h " + mins + "m";
+  if (mins > 0) return mins + "m " + secs + "s";
+  return secs + "s";
+}
+function formatRelativeTime(isoStr) {
+  if (!isoStr) return "";
+  var age = Date.now() - new Date(isoStr).getTime();
+  var mins = Math.floor(age / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  return Math.floor(hrs / 24) + "d ago";
+}
+function mcFormatTimeAgo(timestamp) {
+  if (!timestamp) return "";
+  var age = Date.now() - (typeof timestamp === "number" ? timestamp : new Date(timestamp).getTime());
+  var mins = Math.floor(age / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return mins + "m ago";
+  var hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + "h ago";
+  return Math.floor(hrs / 24) + "d ago";
+}
+
+// --- Main Dashboard Component ---
+function MCDashboard() {
+  var useState = React.useState;
+  var useEffect = React.useEffect;
+  var useCallback = React.useCallback;
+  var useRef = React.useRef;
+
+  // App state from parent
+  var _appState = useState({ tabs: [], activeTabId: "dashboard", projectPath: null, claudeStatus: {}, behavior: { featuresUsed: { size: 0 } } });
+  var appState = _appState[0];
+  var setAppState = _appState[1];
+  window._mcUpdateState = setAppState;
+
+  // Config
+  var _cfgState = useState(null);
+  var mcConfig = _cfgState[0] || {};
+  var setMcConfig = _cfgState[1];
+  var userConfig = mcConfig.user || {};
+  var slackConfig = mcConfig.slack || {};
+  var skillsConfig = mcConfig.skills || {};
+  var marketsConfig = mcConfig.markets || {};
+  var timeSavedConfig = mcConfig.timeSaved || {};
+
+  // Dashboard state
+  var _s = function(init) { return useState(init); };
+  var _recentSessions = _s([]); var recentSessions = _recentSessions[0]; var setRecentSessions = _recentSessions[1];
+  var _todos = _s([]); var todos = _todos[0]; var setTodos = _todos[1];
+  var _calData = _s({ today: [], tomorrow: [] }); var calData = _calData[0]; var setCalData = _calData[1];
+  var _calRefreshing = _s(false); var calRefreshing = _calRefreshing[0]; var setCalRefreshing = _calRefreshing[1];
+  var _calFetchedAt = _s(null); var calFetchedAt = _calFetchedAt[0]; var setCalFetchedAt = _calFetchedAt[1];
+  var _newTodoText = _s(""); var newTodoText = _newTodoText[0]; var setNewTodoText = _newTodoText[1];
+  var _newTodoPrio = _s("medium"); var newTodoPrio = _newTodoPrio[0]; var setNewTodoPrio = _newTodoPrio[1];
+  var tomorrowStr = (function() { var d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+  var _newTodoDue = _s(tomorrowStr); var newTodoDue = _newTodoDue[0]; var setNewTodoDue = _newTodoDue[1];
+  var _newTodoStatus = _s("not-started"); var newTodoStatus = _newTodoStatus[0]; var setNewTodoStatus = _newTodoStatus[1];
+  var _todoStatusFilter = _s("all"); var todoStatusFilter = _todoStatusFilter[0]; var setTodoStatusFilter = _todoStatusFilter[1];
+  var _editingIdx = _s(null); var editingIdx = _editingIdx[0]; var setEditingIdx = _editingIdx[1];
+  var _editText = _s(""); var editText = _editText[0]; var setEditText = _editText[1];
+  var _editDue = _s(""); var editDue = _editDue[0]; var setEditDue = _editDue[1];
+  var _editPrio = _s("medium"); var editPrio = _editPrio[0]; var setEditPrio = _editPrio[1];
+  var _editStatus = _s("not-started"); var editStatus = _editStatus[0]; var setEditStatus = _editStatus[1];
+  var _nowTime = _s(Date.now()); var nowTime = _nowTime[0]; var setNowTime = _nowTime[1];
+  var _expandedEvent = _s(null); var expandedEvent = _expandedEvent[0]; var setExpandedEvent = _expandedEvent[1];
+  var _skillFilter = _s(""); var skillFilter = _skillFilter[0]; var setSkillFilter = _skillFilter[1];
+  var _slackRecipient = _s(""); var slackRecipient = _slackRecipient[0]; var setSlackRecipient = _slackRecipient[1];
+  var _slackRawText = _s(""); var slackRawText = _slackRawText[0]; var setSlackRawText = _slackRawText[1];
+  var _slackDraft = _s(""); var slackDraft = _slackDraft[0]; var setSlackDraft = _slackDraft[1];
+  var _slackDrafting = _s(false); var slackDrafting = _slackDrafting[0]; var setSlackDrafting = _slackDrafting[1];
+  var _slackSending = _s(false); var slackSending = _slackSending[0]; var setSlackSending = _slackSending[1];
+  var _slackStatus = _s(null); var slackStatus = _slackStatus[0]; var setSlackStatus = _slackStatus[1];
+  var _marketData = _s([]); var marketData = _marketData[0]; var setMarketData = _marketData[1];
+  var _newsItems = _s([]); var newsItems = _newsItems[0]; var setNewsItems = _newsItems[1];
+  var _newsRefreshing = _s(false); var newsRefreshing = _newsRefreshing[0]; var setNewsRefreshing = _newsRefreshing[1];
+  var _waitingOn = _s([]); var waitingOn = _waitingOn[0]; var setWaitingOn = _waitingOn[1];
+  var _newWaitingText = _s(""); var newWaitingText = _newWaitingText[0]; var setNewWaitingText = _newWaitingText[1];
+  var _newWaitingOwner = _s(""); var newWaitingOwner = _newWaitingOwner[0]; var setNewWaitingOwner = _newWaitingOwner[1];
+  var _meetingContexts = _s({}); var meetingContexts = _meetingContexts[0]; var setMeetingContexts = _meetingContexts[1];
+  var _meetingContextLoading = _s(null); var meetingContextLoading = _meetingContextLoading[0]; var setMeetingContextLoading = _meetingContextLoading[1];
+  var _slackPulse = _s([]); var slackPulse = _slackPulse[0]; var setSlackPulse = _slackPulse[1];
+  var _mcpStatus = _s(null); var mcpStatus = _mcpStatus[0]; var setMcpStatus = _mcpStatus[1];
+  var _mcpExpanded = _s(false); var mcpExpanded = _mcpExpanded[0]; var setMcpExpanded = _mcpExpanded[1];
+  var _timeSaved = _s({ today: 0, week: 0, actions: [] }); var timeSaved = _timeSaved[0]; var setTimeSaved = _timeSaved[1];
+  var _dbCollapsed = _s({}); var dbCollapsed = _dbCollapsed[0]; var setDbCollapsed = _dbCollapsed[1];
+
+  var timeSavedWeights = skillsConfig.timeSavedWeights || {
+    "/morning": 20, "/eod": 15, "/email-sweep": 20, "/explain-code": 8,
+    "slack-send": 5, "meeting-prep": 10, "meeting-context": 3, "todo-manage": 1,
+    "session-open": 5, "calendar-refresh": 2, "default-skill": 10
+  };
+  var logTimeSaved = function(action) {
+    var minutes = timeSavedWeights[action] || timeSavedWeights["default-skill"] || 5;
+    api.mcLogTimeSaved(action, minutes).then(function() {
+      api.mcGetTimeSaved().then(function(d) { if (d) setTimeSaved(d); });
+    });
+  };
+  var slackContacts = slackConfig.quickRecipients || [];
+
+  var loadTodos = useCallback(function() {
+    api.mcLoadTodos().then(function(content) { setTodos(parseTodos(content)); });
+  }, []);
+  var saveTodos = useCallback(function(updated) {
+    setTodos(updated);
+    api.mcSaveTodos(todosToMarkdown(updated));
+  }, []);
+  var loadWaiting = useCallback(function() {
+    api.mcLoadWaiting().then(function(content) { setWaitingOn(parseWaiting(content)); });
+  }, []);
+  var saveWaiting = useCallback(function(updated) {
+    setWaitingOn(updated);
+    api.mcSaveWaiting(waitingToMarkdown(updated));
+  }, []);
+
+  var runCommand = function(cmd) {
+    var path = recentSessions[0]?.projectPath || appState.projectPath || "/tmp";
+    requestTerminal(cmd, path);
+    var skillMatch = cmd.match(/^\/\S+/);
+    logTimeSaved(skillMatch ? skillMatch[0] : "default-skill");
+  };
+
+  // Clock tick
+  useEffect(function() {
+    var timer = setInterval(function() { setNowTime(Date.now()); }, 1000);
+    return function() { clearInterval(timer); };
+  }, []);
+
+  // Initial data load
+  useEffect(function() {
+    api.mcGetConfig().then(function(cfg) { if (cfg) setMcConfig(cfg); }).catch(function() {});
+    api.mcRecentProjects().then(function(projects) {
+      if (projects && projects.length > 0) setRecentSessions(projects);
+      else api.getRecentSessions().then(function(s) { setRecentSessions(s || []); });
+    }).catch(function() {
+      api.getRecentSessions().then(function(s) { setRecentSessions((s || []).slice(0, 8)); });
+    });
+    api.mcLoadCalendar().then(function(d) {
+      if (d && (d.today || d.tomorrow)) { setCalData(d); setCalFetchedAt(d.fetchedAt || null); }
+    });
+    loadTodos();
+    loadWaiting();
+    api.mcGetTimeSaved().then(function(d) { if (d) setTimeSaved(d); });
+    api.mcMarketData(false).then(function(d) { if (d && d.quotes) setMarketData(d.quotes); }).catch(function() {});
+    api.mcLoadNews().then(function(cached) { if (cached && cached.items && cached.items.length > 0) setNewsItems(cached.items); });
+
+    // Staggered refresh
+    setCalRefreshing(true);
+    api.mcRefreshCalendar(false).then(function(d) {
+      if (d && ((d.today && d.today.length > 0) || (d.tomorrow && d.tomorrow.length > 0))) {
+        setCalData(d); setCalFetchedAt(d.fetchedAt || null);
+      }
+      setCalRefreshing(false);
+      setNewsRefreshing(true);
+      api.mcRefreshNews(false).then(function(nd) {
+        if (nd && nd.items && nd.items.length > 0) setNewsItems(nd.items);
+        setNewsRefreshing(false);
+        api.mcSlackPulse(false).then(function(sd) { if (sd && sd.channels) setSlackPulse(sd.channels); }).catch(function() {});
+        api.mcMcpStatus().then(function(md) { if (md) setMcpStatus(md); }).catch(function() {});
+      }).catch(function() { setNewsRefreshing(false); });
+    }).catch(function() { setCalRefreshing(false); });
+  }, []);
+
+  // Polling
+  useEffect(function() {
+    var todoTimer = setInterval(function() {
+      api.mcWatchTodos().then(function(content) { if (content) setTodos(parseTodos(content)); });
+    }, 5000);
+    var waitTimer = setInterval(function() { loadWaiting(); }, 5000);
+    var calTimer = setInterval(function() {
+      api.mcRefreshCalendar(false).then(function(d) {
+        if (d && ((d.today && d.today.length > 0) || (d.tomorrow && d.tomorrow.length > 0))) {
+          setCalData(d); setCalFetchedAt(d.fetchedAt || null);
+        }
+      }).catch(function() {});
+    }, 10 * 60 * 1000);
+    return function() { clearInterval(todoTimer); clearInterval(waitTimer); clearInterval(calTimer); };
+  }, [loadWaiting]);
+
+  // Keyboard shortcuts
+  useEffect(function() {
+    function handler(e) {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+      if (e.key === "n" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        var el = document.querySelector("[data-mc-new-todo]");
+        if (el) el.focus();
+      }
+      if (e.key === "t" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        requestTerminal(null, recentSessions[0]?.projectPath || appState.projectPath);
+      }
+      if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        setCalRefreshing(true);
+        api.mcRefreshCalendar(true).then(function(d) {
+          if (d && ((d.today && d.today.length > 0) || (d.tomorrow && d.tomorrow.length > 0))) {
+            setCalData(d); setCalFetchedAt(d.fetchedAt || null);
+          }
+          setCalRefreshing(false);
+        }).catch(function() { setCalRefreshing(false); });
+      }
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        var el2 = document.querySelector("[data-mc-skill-filter]");
+        if (el2) el2.focus();
+      }
+    }
+    window.addEventListener("keydown", handler);
+    return function() { window.removeEventListener("keydown", handler); };
+  }, [recentSessions, appState.projectPath]);
+
+  // --- Computed values ---
+  var activeSessions = appState.tabs.filter(function(t) { return t.type === "terminal"; }).length;
+  var now = new Date(nowTime);
+  var todayEvents = calData.today || [];
+  var tomorrowEvents = calData.tomorrow || [];
+  var futureToday = todayEvents.filter(function(evt) {
+    var evtTime = parseEventTime(evt.time, 0);
+    if (!evtTime) return true;
+    return evtTime.getTime() > now.getTime() - 5 * 60 * 1000;
+  });
+  var showingTomorrow = futureToday.length === 0 && tomorrowEvents.length > 0;
+  var displayEvents = showingTomorrow ? tomorrowEvents : futureToday;
+  var nextEvent = null;
+  var nextCountdown = null;
+  if (!showingTomorrow) {
+    for (var ei = 0; ei < futureToday.length; ei++) {
+      var evtT = parseEventTime(futureToday[ei].time, 0);
+      if (evtT && evtT.getTime() > now.getTime()) { nextEvent = futureToday[ei]; nextCountdown = evtT.getTime() - now.getTime(); break; }
+    }
+  } else {
+    for (var ei2 = 0; ei2 < tomorrowEvents.length; ei2++) {
+      var evtT2 = parseEventTime(tomorrowEvents[ei2].time, 1);
+      if (evtT2) { nextEvent = tomorrowEvents[ei2]; nextCountdown = evtT2.getTime() - now.getTime(); break; }
+    }
+  }
+  var openTodoIndices = []; var doneTodoIndices = [];
+  todos.forEach(function(t, i) { if (!t.done) openTodoIndices.push(i); else doneTodoIndices.push(i); });
+  var overdueTodos = todos.filter(function(t) { if (t.done || !t.due) return false; return new Date(t.due + "T23:59:59") < now; });
+  var statusColors = { "not-started": "#888", "in-progress": "#4fc1ff", "blocked": "#f44747", "icebox": "#666" };
+  var statusLabels = { "not-started": "Not Started", "in-progress": "In Progress", "blocked": "Blocked", "icebox": "Icebox" };
+  var filteredTodoIndices = todoStatusFilter === "all" ? openTodoIndices : openTodoIndices.filter(function(i) { return (todos[i].status || "not-started") === todoStatusFilter; });
+  var statusCounts = {};
+  openTodoIndices.forEach(function(i) { var s = todos[i].status || "not-started"; statusCounts[s] = (statusCounts[s] || 0) + 1; });
+  var hour = now.getHours();
+  var dayOfWeek = now.getDay();
+
+  // --- Styles ---
+  var inputStyle = { padding: "6px 8px", background: "#3c3c3c", border: "1px solid #555", borderRadius: 4, color: "#fff", fontSize: 12, outline: "none" };
+  var btnStyle = { padding: "6px 12px", background: "#4fc1ff", color: "#000", border: "none", borderRadius: 4, cursor: "pointer", fontSize: 12, fontWeight: "bold" };
+  var btnSmall = { padding: "3px 8px", background: "#3c3c3c", color: "#bbb", border: "1px solid #555", borderRadius: 3, cursor: "pointer", fontSize: 10 };
+  var prioColor = function(p) { return p === "high" ? "#f44747" : p === "medium" ? "#dcdcaa" : "#888"; };
+  var chipStyle = function(active) { return { padding: "3px 7px", fontSize: 10, borderRadius: 3, cursor: "pointer", border: active ? "1px solid #4fc1ff" : "1px solid #555", background: active ? "#1a2a3a" : "#3c3c3c", color: active ? "#4fc1ff" : "#bbb", whiteSpace: "nowrap" }; };
+
+  // --- Skill categories ---
+  var skillCategories = skillsConfig.categories || [
+    { label: "Productivity", skills: [{ cmd: "/morning", desc: "Morning brief" }, { cmd: "/eod", desc: "End of day" }] },
+    { label: "Analysis", skills: [{ cmd: "/explain-code", desc: "Code explainer" }] }
+  ];
+  var filteredCategories = skillCategories.map(function(cat) {
+    if (!skillFilter) return cat;
+    var q = skillFilter.toLowerCase();
+    var matched = cat.skills.filter(function(s) { return s.cmd.toLowerCase().includes(q) || s.desc.toLowerCase().includes(q) || cat.label.toLowerCase().includes(q); });
+    return matched.length > 0 ? { label: cat.label, skills: matched } : null;
+  }).filter(Boolean);
+
+  // --- Suggestions ---
+  var suggestions = [];
+  if (overdueTodos.length > 0) suggestions.push({ icon: "\u26A0\uFE0F", text: overdueTodos.length + " overdue to-do" + (overdueTodos.length > 1 ? "s" : "") + " \u2014 review now", action: null });
+  if (hour < 10) suggestions.push({ icon: "\u2615", text: "Start the day \u2014 run /morning", action: "/morning" });
+  if (hour >= 16 && hour < 20) suggestions.push({ icon: "\uD83C\uDF05", text: "Wrap up \u2014 run /eod", action: "/eod" });
+  if (dayOfWeek === 5 && hour >= 8) suggestions.push({ icon: "\uD83D\uDCCB", text: "Friday \u2014 run /cfo-recap", action: "/cfo-recap" });
+  if (openTodoIndices.length > 0) suggestions.push({ icon: "\u2705", text: openTodoIndices.length + " open to-dos", action: null });
+  if (nextEvent) suggestions.push({ icon: "\uD83D\uDCC5", text: "Prep for " + nextEvent.title, action: null });
+  if (suggestions.length < 4) suggestions.push({ icon: "\uD83D\uDCDD", text: "Scan transcripts", action: "/transcript-scan" });
+  if (suggestions.length < 4) suggestions.push({ icon: "\uD83D\uDCE8", text: "Triage inbox", action: "/email-sweep" });
+  suggestions = suggestions.slice(0, 4);
+
+  // --- Todo helpers ---
+  var addTodo = function() {
+    if (!newTodoText.trim()) return;
+    var t = { done: false, priority: newTodoPrio, description: newTodoText.trim(), due: newTodoDue || null, source: null, status: newTodoStatus };
+    saveTodos([t].concat(todos));
+    setNewTodoText(""); setNewTodoDue(tomorrowStr); setNewTodoPrio("medium"); setNewTodoStatus("not-started");
+  };
+  var toggleTodo = function(idx) { saveTodos(todos.map(function(t, i) { return i === idx ? Object.assign({}, t, { done: !t.done }) : t; })); };
+  var deleteTodo = function(idx) { saveTodos(todos.filter(function(_, i) { return i !== idx; })); };
+  var startEdit = function(idx) { setEditingIdx(idx); setEditText(todos[idx].description); setEditDue(todos[idx].due || ""); setEditPrio(todos[idx].priority); setEditStatus(todos[idx].status || "not-started"); };
+  var saveEdit = function() {
+    if (editingIdx === null) return;
+    saveTodos(todos.map(function(t, i) { return i === editingIdx ? Object.assign({}, t, { description: editText.trim(), due: editDue || null, priority: editPrio, status: editStatus }) : t; }));
+    setEditingIdx(null);
+  };
+  var cancelEdit = function() { setEditingIdx(null); };
+  var cleanupDone = function() { saveTodos(todos.filter(function(t) { return !t.done; })); };
+
+  var handleSessionClick = function(session) {
+    requestTerminal(null, session.projectPath, session.name || session.projectPath.split("/").pop(), session.sessionId);
+    logTimeSaved("session-open");
+  };
+
+  // --- Dashboard sidebar links ---
+  var dashboardLinks = mcConfig.dashboards || [];
+  var dashSidebar = dashboardLinks.length > 0 ? h("div", { style: { width: 200, minWidth: 200, background: "#252526", borderRight: "1px solid #3e3e3e", overflowY: "auto", padding: "12px 0", fontSize: 12 } },
+    h("div", { style: { color: "#888", fontSize: 10, textTransform: "uppercase", letterSpacing: 1, padding: "0 12px 8px", borderBottom: "1px solid #3e3e3e", marginBottom: 4 } }, "Dashboards"),
+    dashboardLinks.map(function(cat, ci) {
+      var isCollapsed = dbCollapsed[cat.category];
+      return h("div", { key: "dc-" + ci },
+        h("div", {
+          onClick: function() { setDbCollapsed(function(prev) { var n = Object.assign({}, prev); n[cat.category] = !prev[cat.category]; return n; }); },
+          style: { color: "#ccc", fontSize: 11, fontWeight: "bold", padding: "6px 12px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", userSelect: "none" }
+        }, cat.category, h("span", { style: { color: "#666", fontSize: 9 } }, isCollapsed ? "\u25B6" : "\u25BC")),
+        !isCollapsed && (cat.items || []).map(function(item, ii) {
+          return h("div", {
+            key: "dl-" + ci + "-" + ii,
+            onClick: function() { api.mcOpenExternal(item.path); },
+            style: { color: "#4fc1ff", fontSize: 11, padding: "3px 12px 3px 20px", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+            onMouseOver: function(e) { e.currentTarget.style.background = "#2a2d2e"; },
+            onMouseOut: function(e) { e.currentTarget.style.background = "transparent"; },
+            title: item.path
+          }, item.name);
+        })
+      );
+    })
+  ) : null;
+
+  // --- Render event row ---
+  var renderEventRow = function(evt, i, total, isNextEvt) {
+    var evtTime = parseEventTime(evt.time, 0);
+    var isPast = !showingTomorrow && evtTime && evtTime.getTime() <= now.getTime();
+    var isExpanded = expandedEvent === i;
+    return h("div", { key: i, style: { borderBottom: i < total - 1 ? "1px solid #3e3e3e" : "none", borderLeft: isNextEvt ? "2px solid #4fc1ff" : "2px solid transparent", paddingLeft: 8, opacity: isPast ? 0.5 : 1 } },
+      h("div", {
+        onClick: function() { setExpandedEvent(isExpanded ? null : i); },
+        style: { padding: "6px 0", display: "flex", justifyContent: "space-between", alignItems: "baseline", cursor: "pointer" }
+      },
+        h("div", null,
+          h("div", { style: { color: isNextEvt ? "#fff" : "#e8e8e8", fontSize: 12, fontWeight: isNextEvt ? "bold" : "normal" } }, evt.title),
+          h("div", { style: { color: "#888", fontSize: 11 } }, evt.attendees ? evt.attendees + " attendees" : "")
+        ),
+        h("span", { style: { color: isNextEvt ? "#4fc1ff" : "#888", fontSize: 11, flexShrink: 0, marginLeft: 8, fontWeight: isNextEvt ? "bold" : "normal" } }, evt.time)
+      ),
+      isExpanded && (function() {
+        var ctx = meetingContexts[evt.title];
+        var isLoading = meetingContextLoading === evt.title;
+        if (!ctx && !isLoading) {
+          setMeetingContextLoading(evt.title);
+          api.mcMeetingContext(evt.title).then(function(result) {
+            setMeetingContexts(function(prev) { var n = Object.assign({}, prev); n[evt.title] = result; return n; });
+            setMeetingContextLoading(null);
+            logTimeSaved("meeting-context");
+          }).catch(function() { setMeetingContextLoading(null); });
+        }
+        return h("div", { style: { padding: "4px 0 8px 0", borderTop: "1px solid #333", display: "flex", flexDirection: "column", gap: 4 } },
+          evt.location && h("div", { style: { color: "#888", fontSize: 11 } }, "\uD83D\uDCCD ", evt.location),
+          isLoading && h("div", { style: { color: "#888", fontSize: 11, fontStyle: "italic", padding: "4px 0" } }, "Loading meeting context..."),
+          ctx && ctx.summary && h("div", { style: { background: "#1a2a3a", borderRadius: 4, padding: "6px 8px", marginTop: 2, border: "1px solid #333" } },
+            h("div", { style: { color: "#4fc1ff", fontSize: 9, textTransform: "uppercase", marginBottom: 3, letterSpacing: 0.5 } }, "Last Time"),
+            h("div", { style: { color: "#ccc", fontSize: 11, lineHeight: "16px", marginBottom: 4 } }, ctx.summary),
+            ctx.actionItems && ctx.actionItems.length > 0 && h("div", null,
+              h("div", { style: { color: "#dcdcaa", fontSize: 9, textTransform: "uppercase", marginTop: 4, marginBottom: 2 } }, "Open Items"),
+              ctx.actionItems.slice(0, 3).map(function(ai, j) {
+                return h("div", { key: "ai-" + j, style: { color: "#888", fontSize: 10, paddingLeft: 8 } }, "\u2022 ", ai);
+              })
+            )
+          ),
+          h("button", {
+            onClick: function(e) { e.stopPropagation(); runCommand("Prepare me for my meeting: " + evt.title.replace(/'/g, "") + ". Who is attending, what was discussed last time, what should I know?"); },
+            style: Object.assign({}, btnSmall, { marginTop: 4, background: "#1a2a3a", border: "1px solid #4fc1ff", color: "#4fc1ff", fontSize: 11, padding: "4px 10px" })
+          }, "Full prep in terminal")
+        );
+      })()
+    );
+  };
+
+  // --- Main layout ---
+  return h("div", { style: { display: "flex", flexDirection: "row", height: "100vh", overflow: "hidden" } },
+    dashSidebar,
+    h("div", { style: { flex: 1, padding: 20, overflowY: "auto" } },
+
+      // MCP banner
+      mcpStatus && mcpStatus.needsAuth > 0 && (function() {
+        var problems = mcpStatus.servers.filter(function(s) { return s.status === "needs_auth" || s.status === "error"; });
+        if (problems.length === 0) return null;
+        return h("div", { style: { background: "#2a1a1a", borderRadius: 6, padding: "10px 14px", border: "1px solid #5a2a2a", marginBottom: 12, cursor: "pointer" }, onClick: function() { setMcpExpanded(!mcpExpanded); } },
+          h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+              h("span", { style: { color: "#f44747", fontSize: 14 } }, "\u26A0"),
+              h("span", { style: { color: "#f44747", fontSize: 12, fontWeight: "bold" } }, problems.length + " MCP server" + (problems.length > 1 ? "s" : "") + " need" + (problems.length === 1 ? "s" : "") + " attention")
+            ),
+            h("div", { style: { display: "flex", gap: 8, alignItems: "center" } },
+              h("button", { onClick: function(e) { e.stopPropagation(); api.mcMcpStatus().then(function(d) { if (d) setMcpStatus(d); }); }, style: Object.assign({}, btnSmall, { fontSize: 9, padding: "2px 6px" }) }, "\u21BB"),
+              h("span", { style: { color: "#666", fontSize: 10 } }, mcpExpanded ? "\u25B2" : "\u25BC")
+            )
+          ),
+          mcpExpanded && h("div", { style: { marginTop: 8, borderTop: "1px solid #3a2020", paddingTop: 8 } },
+            mcpStatus.servers.map(function(srv) {
+              var color = srv.status === "connected" ? "#89d185" : srv.status === "needs_auth" ? "#f44747" : "#dcdcaa";
+              var icon = srv.status === "connected" ? "\u2713" : srv.status === "needs_auth" ? "\u26A0" : "\u2717";
+              var label = srv.status === "connected" ? "Connected" : srv.status === "needs_auth" ? "Needs auth" : "Error";
+              return h("div", { key: srv.name, style: { display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 } },
+                h("span", { style: { color: "#ccc" } }, srv.name),
+                h("span", { style: { color: color, fontWeight: srv.status !== "connected" ? "bold" : "normal" } }, icon + " " + label)
+              );
+            })
+          )
+        );
+      })(),
+
+      // Header
+      h("div", { style: { background: "linear-gradient(135deg, #1a2a3a 0%, #2d2d2d 100%)", borderRadius: 8, padding: "20px 24px", border: "1px solid #3e3e3e", marginBottom: 20 } },
+        h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
+          h("div", { style: { color: "#fff", fontSize: 18, fontWeight: "bold" } }, "Mission Control"),
+          h("div", { style: { color: "#555", fontSize: 10 } }, "t=terminal  n=new todo  r=refresh cal  /=search skills")
+        ),
+        h("div", { style: { color: "#bbb", fontSize: 13, lineHeight: "22px", marginBottom: 12 } }, userConfig.tagline || "Your executive orchestrator."),
+        h("div", { style: { display: "flex", gap: 16 } },
+          // Suggestions
+          h("div", { style: { flex: 2, minWidth: 0 } },
+            h("div", { style: { color: "#89d185", fontSize: 10, textTransform: "uppercase", marginBottom: 6, letterSpacing: 0.5 } }, "Suggested Actions"),
+            suggestions.map(function(s, i) {
+              return h("div", { key: "sug-" + i, onClick: s.action ? function() { runCommand(s.action); } : undefined,
+                style: { display: "flex", gap: 8, alignItems: "center", padding: "4px 0", cursor: s.action ? "pointer" : "default", borderRadius: 3 },
+                onMouseEnter: s.action ? function(e) { e.currentTarget.style.background = "#353535"; } : undefined,
+                onMouseLeave: s.action ? function(e) { e.currentTarget.style.background = "transparent"; } : undefined
+              },
+                h("span", { style: { fontSize: 12, flexShrink: 0, width: 18 } }, s.icon),
+                h("span", { style: { color: "#ccc", fontSize: 12 } }, s.text),
+                s.action && h("span", { style: { color: "#4fc1ff", fontSize: 10, marginLeft: "auto", opacity: 0.7 } }, s.action)
+              );
+            })
+          ),
+          // News
+          h("div", { style: { flex: 1, minWidth: 0, borderLeft: "1px solid #3e3e3e", paddingLeft: 16 } },
+            h("div", { style: { color: "#dcdcaa", fontSize: 10, textTransform: "uppercase", marginBottom: 6, letterSpacing: 0.5 } },
+              "What's New in Claude",
+              newsRefreshing && h("span", { style: { color: "#888", fontSize: 9, fontStyle: "italic", textTransform: "none", marginLeft: 6 } }, "updating...")
+            ),
+            newsItems.length > 0 ? newsItems.slice(0, 3).map(function(item, i) {
+              var isRecent = item.daysAgo != null && item.daysAgo <= 7;
+              return h("div", { key: "wn-" + i, onClick: item.url ? function() { api.mcOpenExternal(item.url); } : undefined,
+                style: { display: "flex", gap: 6, alignItems: "flex-start", padding: "3px 0", cursor: item.url ? "pointer" : "default" },
+                onMouseEnter: item.url ? function(e) { e.currentTarget.style.background = "#353535"; } : undefined,
+                onMouseLeave: item.url ? function(e) { e.currentTarget.style.background = "transparent"; } : undefined
+              },
+                isRecent ? h("span", { style: { background: "#4fc1ff", color: "#000", fontSize: 8, fontWeight: "bold", padding: "1px 4px", borderRadius: 3, flexShrink: 0, marginTop: 2 } }, "NEW") : h("span", { style: { width: 24, flexShrink: 0 } }),
+                h("span", { style: { color: "#ccc", fontSize: 11, lineHeight: "15px" } }, item.title)
+              );
+            }) : h("div", { style: { color: "#666", fontSize: 11, fontStyle: "italic" } }, newsRefreshing ? "Loading..." : "No updates")
+          )
+        )
+      ),
+
+      // Stats + Markets row
+      (function() {
+        var costStr = (appState.claudeStatus && appState.claudeStatus.cost) || "$0.00";
+        var costNum = parseFloat(costStr.replace(/[^0-9.]/g, "")) || 0;
+        var ratePerMin = timeSavedConfig.minuteRate || 1.00;
+        var costBonus = Math.round(costNum * 10);
+        var todayMin = timeSaved.today + costBonus;
+        var weekMin = timeSaved.week + costBonus;
+        var todayValue = (todayMin * ratePerMin).toFixed(0);
+        var fmtMin = function(m) { if (m < 60) return m + " min"; var hr = Math.floor(m / 60); var mm = m % 60; return mm > 0 ? hr + "h " + mm + "m" : hr + "h"; };
+        var actionCount = timeSaved.actions ? timeSaved.actions.length : 0;
+        var roi = costNum > 0 ? Math.round(todayMin * ratePerMin / costNum) : 0;
+        return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 } },
+          h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+            h("div", { style: { color: "#888", fontSize: 11, marginBottom: 8, textTransform: "uppercase" } }, "Session Stats"),
+            h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 } },
+              h("div", null,
+                h("div", { style: { color: "#888", fontSize: 9, textTransform: "uppercase", marginBottom: 2 } }, "Session Cost"),
+                h("div", { style: { color: "#4fc1ff", fontSize: 18, fontWeight: "bold" } }, costStr)
+              ),
+              h("div", null,
+                h("div", { style: { color: "#888", fontSize: 9, textTransform: "uppercase", marginBottom: 2 } }, "Sessions"),
+                h("div", { style: { color: "#89d185", fontSize: 18, fontWeight: "bold" } }, String(activeSessions))
+              ),
+              h("div", null,
+                h("div", { style: { color: "#888", fontSize: 9, textTransform: "uppercase", marginBottom: 2 } }, "Time Saved"),
+                h("div", { style: { display: "flex", alignItems: "baseline", gap: 4 } },
+                  h("div", { style: { color: "#c586c0", fontSize: 18, fontWeight: "bold" } }, fmtMin(todayMin)),
+                  todayMin > 0 && h("span", { style: { color: "#89d185", fontSize: 11, fontWeight: "bold" } }, "$" + todayValue)
+                ),
+                h("div", { style: { color: "#555", fontSize: 9, marginTop: 1 } }, actionCount + " actions" + (roi > 1 ? " \u00B7 " + roi + "x ROI" : ""))
+              )
+            )
+          ),
+          h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+            h("div", { style: { color: "#888", fontSize: 11, marginBottom: 4, textTransform: "uppercase" } }, "Markets"),
+            marketData.length === 0
+              ? h("div", { style: { color: "#555", fontSize: 12 } }, "Loading...")
+              : h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 16px" } },
+                  marketData.map(function(q) {
+                    var up = q.change >= 0;
+                    var color = up ? "#89d185" : "#f14c4c";
+                    var arrow = up ? "\u25B2" : "\u25BC";
+                    var pct = (q.changePct || 0).toFixed(2);
+                    var price = q.price ? q.price.toLocaleString(undefined, { maximumFractionDigits: q.price > 1000 ? 0 : 2 }) : "--";
+                    return h("div", { key: q.symbol, style: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "2px 0" } },
+                      h("div", null,
+                        h("div", { style: { color: "#ccc", fontSize: 11, fontWeight: 500 } }, q.name),
+                        h("div", { style: { color: "#666", fontSize: 10 } }, price)
+                      ),
+                      h("div", { style: { color: color, fontSize: 12, fontWeight: "bold", textAlign: "right" } }, arrow + " " + pct + "%")
+                    );
+                  })
+                )
+          )
+        );
+      })(),
+
+      // Calendar + Todos row
+      h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 } },
+        // Calendar
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+          h("div", { style: { color: "#4fc1ff", fontSize: 11, marginBottom: 8, textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("span", null, (showingTomorrow ? "Tomorrow" : "Upcoming") + (calFetchedAt ? " \u00B7 updated " + formatRelativeTime(calFetchedAt) : "")),
+            h("span", { style: { display: "flex", gap: 6, alignItems: "center" } },
+              calRefreshing && h("span", { style: { color: "#888", fontSize: 10, fontStyle: "italic" } }, "refreshing..."),
+              h("button", {
+                onClick: function() {
+                  setCalRefreshing(true);
+                  api.mcRefreshCalendar(true).then(function(d) {
+                    if (d && ((d.today && d.today.length > 0) || (d.tomorrow && d.tomorrow.length > 0))) { setCalData(d); setCalFetchedAt(d.fetchedAt || null); }
+                    else if (d) { setCalFetchedAt(d.fetchedAt || null); }
+                    setCalRefreshing(false);
+                  }).catch(function(err) { setCalRefreshing(false); setCalFetchedAt("error: " + (err.message || "unknown")); });
+                },
+                style: Object.assign({}, btnSmall, { fontSize: 9, padding: "2px 6px" })
+              }, "\u21BB")
+            )
+          ),
+          nextEvent && nextCountdown != null ? h("div", { style: { background: "linear-gradient(135deg, #1a2a3a 0%, #1a3a2a 100%)", borderRadius: 6, padding: "10px 12px", border: "1px solid #3e3e3e", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("div", null,
+              h("div", { style: { color: "#89d185", fontSize: 10, textTransform: "uppercase", marginBottom: 2 } }, showingTomorrow ? "First up tomorrow" : "Next up"),
+              h("div", { style: { color: "#fff", fontSize: 13, fontWeight: "bold" } }, nextEvent.title),
+              h("div", { style: { color: "#888", fontSize: 11 } }, nextEvent.time)
+            ),
+            h("div", { style: { textAlign: "right" } },
+              h("div", { style: { color: "#4fc1ff", fontSize: 22, fontWeight: "bold", fontFamily: "'SF Mono', Menlo, monospace" } }, formatCountdown(nextCountdown)),
+              h("div", { style: { color: "#888", fontSize: 10 } }, showingTomorrow ? "until tomorrow" : "until start")
+            )
+          ) : todayEvents.length > 0 && !showingTomorrow ? h("div", { style: { background: "#1a2a1a", borderRadius: 6, padding: "10px 12px", border: "1px solid #2d4a2d", marginBottom: 10, color: "#89d185", fontSize: 12, textAlign: "center" } }, "All done for today!") : null,
+          displayEvents.length === 0 && todayEvents.length === 0 && tomorrowEvents.length === 0
+            ? h("div", { style: { color: "#666", fontSize: 12, padding: "4px 0" } }, calRefreshing ? "Loading calendar..." : "No events.")
+            : displayEvents.map(function(evt, i) { return renderEventRow(evt, i, displayEvents.length, nextEvent && evt.title === nextEvent.title && evt.time === nextEvent.time); })
+        ),
+        // Todos
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+          h("div", { style: { color: "#89d185", fontSize: 11, marginBottom: 12, textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("span", null, "To-Do (" + openTodoIndices.length + " open)"),
+            overdueTodos.length > 0 && h("span", { style: { color: "#f44747", fontSize: 10 } }, overdueTodos.length + " overdue")
+          ),
+          // Status filter chips
+          h("div", { style: { display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" } },
+            h("button", { key: "sf-all", onClick: function() { setTodoStatusFilter("all"); }, style: chipStyle(todoStatusFilter === "all") }, "All (" + openTodoIndices.length + ")"),
+            ["in-progress", "not-started", "blocked", "icebox"].map(function(s) {
+              var count = statusCounts[s] || 0;
+              return h("button", { key: "sf-" + s, onClick: function() { setTodoStatusFilter(s); }, style: Object.assign({}, chipStyle(todoStatusFilter === s), { borderColor: todoStatusFilter === s ? statusColors[s] : "#555", color: todoStatusFilter === s ? statusColors[s] : "#bbb" }) }, statusLabels[s] + (count > 0 ? " (" + count + ")" : ""));
+            })
+          ),
+          // New todo input
+          h("div", { style: { display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" } },
+            h("input", { "data-mc-new-todo": true, value: newTodoText, onChange: function(e) { setNewTodoText(e.target.value); }, onKeyDown: function(e) { if (e.key === "Enter") addTodo(); }, placeholder: "Add a to-do...", style: Object.assign({}, inputStyle, { flex: 1, minWidth: 120 }) }),
+            h("select", { value: newTodoPrio, onChange: function(e) { setNewTodoPrio(e.target.value); }, style: Object.assign({}, inputStyle, { width: 55, fontSize: 11 }) },
+              h("option", { value: "high" }, "!!"), h("option", { value: "medium" }, "!"), h("option", { value: "low" }, "-")
+            ),
+            h("select", { value: newTodoStatus, onChange: function(e) { setNewTodoStatus(e.target.value); }, style: Object.assign({}, inputStyle, { width: 85, fontSize: 11 }) },
+              h("option", { value: "not-started" }, "Not Started"), h("option", { value: "in-progress" }, "In Progress"), h("option", { value: "blocked" }, "Blocked"), h("option", { value: "icebox" }, "Icebox")
+            ),
+            h("button", { onClick: addTodo, style: btnStyle }, "Add")
+          ),
+          filteredTodoIndices.length === 0 && h("div", { style: { color: "#666", fontSize: 12, padding: "4px 0" } }, todoStatusFilter === "all" ? "No action items." : "None " + statusLabels[todoStatusFilter].toLowerCase() + "."),
+          filteredTodoIndices.map(function(todoIdx) {
+            var todo = todos[todoIdx];
+            var isOverdue = todo.due && new Date(todo.due + "T23:59:59") < now;
+            if (editingIdx === todoIdx) {
+              return h("div", { key: "edit-" + todoIdx, style: { padding: "6px 0", borderBottom: "1px solid #3e3e3e", display: "flex", flexDirection: "column", gap: 6 } },
+                h("input", { value: editText, onChange: function(e) { setEditText(e.target.value); }, onKeyDown: function(e) { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") cancelEdit(); }, style: Object.assign({}, inputStyle, { width: "100%" }), autoFocus: true }),
+                h("div", { style: { display: "flex", gap: 6, alignItems: "center" } },
+                  h("input", { type: "date", value: editDue, onChange: function(e) { setEditDue(e.target.value); }, style: Object.assign({}, inputStyle, { width: 120, fontSize: 11 }) }),
+                  h("select", { value: editPrio, onChange: function(e) { setEditPrio(e.target.value); }, style: Object.assign({}, inputStyle, { width: 55, fontSize: 11 }) }, h("option", { value: "high" }, "!!"), h("option", { value: "medium" }, "!"), h("option", { value: "low" }, "-")),
+                  h("select", { value: editStatus, onChange: function(e) { setEditStatus(e.target.value); }, style: Object.assign({}, inputStyle, { width: 85, fontSize: 11 }) }, h("option", { value: "not-started" }, "Not Started"), h("option", { value: "in-progress" }, "In Progress"), h("option", { value: "blocked" }, "Blocked"), h("option", { value: "icebox" }, "Icebox")),
+                  h("button", { onClick: saveEdit, style: Object.assign({}, btnSmall, { background: "#4fc1ff", color: "#000", border: "none" }) }, "Save"),
+                  h("button", { onClick: cancelEdit, style: btnSmall }, "Cancel")
+                )
+              );
+            }
+            return h("div", { key: "todo-" + todoIdx, style: { padding: "5px 0", borderBottom: "1px solid #3e3e3e", display: "flex", gap: 8, alignItems: "center" } },
+              h("input", { type: "checkbox", checked: false, onChange: function() { toggleTodo(todoIdx); }, style: { cursor: "pointer", accentColor: "#89d185" } }),
+              h("span", { style: { color: prioColor(todo.priority), fontSize: 11, flexShrink: 0, width: 14 } }, todo.priority === "high" ? "!!" : todo.priority === "medium" ? "!" : ""),
+              h("div", { style: { flex: 1, minWidth: 0 } },
+                h("span", { style: { color: "#ccc", fontSize: 12 } }, todo.description),
+                todo.due && h("span", { style: { color: isOverdue ? "#f44747" : "#888", fontSize: 10, marginLeft: 6, fontWeight: isOverdue ? "bold" : "normal" } }, (isOverdue ? "OVERDUE " : "due: ") + todo.due),
+                todo.status && todo.status !== "not-started" && h("span", { style: { color: statusColors[todo.status] || "#888", fontSize: 9, marginLeft: 6, padding: "1px 4px", borderRadius: 3, border: "1px solid " + (statusColors[todo.status] || "#555") } }, statusLabels[todo.status] || todo.status)
+              ),
+              h("button", { onClick: function() { startEdit(todoIdx); }, style: Object.assign({}, btnSmall, { fontSize: 9 }) }, "edit"),
+              h("button", { onClick: function() {
+                var todayStr2 = new Date().toISOString().slice(0, 10);
+                saveWaiting([{ done: false, description: todo.description, owner: "", since: todayStr2 }].concat(waitingOn));
+                saveTodos(todos.filter(function(_, i2) { return i2 !== todoIdx; }));
+              }, style: Object.assign({}, btnSmall, { fontSize: 9, color: "#e5c07b", border: "1px solid #e5c07b" }), title: "Move to Waiting On" }, "\u2192W"),
+              h("button", { onClick: function() { deleteTodo(todoIdx); }, style: Object.assign({}, btnSmall, { color: "#f44747", fontSize: 9 }) }, "x")
+            );
+          }),
+          doneTodoIndices.length > 0 && h("div", { style: { marginTop: 8, borderTop: "1px solid #3e3e3e", paddingTop: 8 } },
+            h("div", { style: { color: "#555", fontSize: 10, marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" } },
+              h("span", null, "COMPLETED (" + doneTodoIndices.length + ")"),
+              h("button", { onClick: cleanupDone, style: Object.assign({}, btnSmall, { fontSize: 9, color: "#888" }) }, "Clear all")
+            ),
+            doneTodoIndices.slice(0, 3).map(function(todoIdx) {
+              var todo = todos[todoIdx];
+              return h("div", { key: "done-" + todoIdx, style: { padding: "3px 0", display: "flex", gap: 8, alignItems: "center" } },
+                h("input", { type: "checkbox", checked: true, onChange: function() { toggleTodo(todoIdx); }, style: { cursor: "pointer", accentColor: "#89d185" } }),
+                h("span", { style: { color: "#555", fontSize: 12, textDecoration: "line-through", flex: 1 } }, todo.description),
+                h("button", { onClick: function() { deleteTodo(todoIdx); }, style: Object.assign({}, btnSmall, { color: "#f44747", fontSize: 9 }) }, "x")
+              );
+            })
+          )
+        )
+      ),
+
+      // Quick Slack
+      h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e", marginBottom: 16 } },
+        h("div", { style: { color: "#e06c75", fontSize: 11, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 } }, "Quick Slack"),
+        h("div", { style: { display: "flex", gap: 8, marginBottom: 8 } },
+          h("select", { value: slackRecipient, onChange: function(e) { setSlackRecipient(e.target.value); setSlackDraft(""); setSlackStatus(null); }, style: Object.assign({}, inputStyle, { flex: "0 0 200px", fontSize: 11 }) },
+            h("option", { value: "" }, "Pick a recipient..."),
+            h("option", { disabled: true }, "\u2500\u2500 Channels \u2500\u2500"),
+            slackContacts.filter(function(c) { return c.type === "channel"; }).map(function(c) { return h("option", { key: c.id, value: c.id }, c.name); }),
+            h("option", { disabled: true }, "\u2500\u2500 VIPs \u2500\u2500"),
+            slackContacts.filter(function(c) { return c.type === "dm"; }).map(function(c) { return h("option", { key: c.id, value: c.id }, c.name); })
+          ),
+          h("input", { value: slackRawText, onChange: function(e) { setSlackRawText(e.target.value); setSlackStatus(null); },
+            onKeyDown: function(e) { if (e.key === "Enter" && slackRecipient && slackRawText.trim()) { setSlackDrafting(true); api.mcDraftSlack(slackRawText, (slackContacts.find(function(c) { return c.id === slackRecipient; }) || {}).name || "").then(function(d) { setSlackDraft(d); setSlackDrafting(false); }); } },
+            placeholder: "What do you want to say?", style: Object.assign({}, inputStyle, { flex: 1 }) }),
+          h("button", {
+            onClick: function() {
+              if (!slackRecipient || !slackRawText.trim()) return;
+              setSlackDrafting(true); setSlackDraft(""); setSlackStatus(null);
+              api.mcDraftSlack(slackRawText, (slackContacts.find(function(c) { return c.id === slackRecipient; }) || {}).name || "").then(function(d) { setSlackDraft(d); setSlackDrafting(false); });
+            },
+            disabled: !slackRecipient || !slackRawText.trim() || slackDrafting,
+            style: Object.assign({}, btnStyle, { opacity: !slackRecipient || !slackRawText.trim() ? 0.4 : 1, background: "#e06c75", fontSize: 11, padding: "6px 14px" })
+          }, slackDrafting ? "Drafting..." : "Draft")
+        ),
+        slackDraft && h("div", { style: { background: "#1e1e1e", borderRadius: 4, padding: "10px 12px", border: "1px solid #555", marginBottom: 8 } },
+          h("div", { style: { color: "#888", fontSize: 10, marginBottom: 4 } }, "DRAFT PREVIEW"),
+          h("textarea", { value: slackDraft, onChange: function(e) { setSlackDraft(e.target.value); }, style: { width: "100%", background: "transparent", border: "none", color: "#e8e8e8", fontSize: 12, lineHeight: "18px", resize: "vertical", minHeight: 40, outline: "none", fontFamily: "inherit" } }),
+          h("div", { style: { display: "flex", gap: 8, marginTop: 8, alignItems: "center" } },
+            h("button", {
+              onClick: function() {
+                setSlackSending(true); setSlackStatus(null);
+                api.mcSendSlack(slackRecipient, slackDraft).then(function(res) {
+                  setSlackSending(false);
+                  if (res.ok) { setSlackStatus("sent"); setSlackDraft(""); setSlackRawText(""); logTimeSaved("slack-send"); }
+                  else { setSlackStatus("error: " + (res.error || "unknown")); }
+                }).catch(function() { setSlackSending(false); setSlackStatus("error"); });
+              },
+              disabled: slackSending,
+              style: Object.assign({}, btnStyle, { background: "#89d185", fontSize: 11, padding: "5px 16px" })
+            }, slackSending ? "Sending..." : "Send"),
+            h("button", { onClick: function() { setSlackDraft(""); }, style: Object.assign({}, btnSmall, { fontSize: 10 }) }, "Discard"),
+            slackStatus && h("span", { style: { color: slackStatus === "sent" ? "#89d185" : "#f44747", fontSize: 11, marginLeft: "auto" } }, slackStatus === "sent" ? "Sent!" : slackStatus)
+          )
+        )
+      ),
+
+      // Waiting On + Slack Pulse row
+      h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 } },
+        // Waiting On
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+          h("div", { style: { color: "#e5c07b", fontSize: 11, marginBottom: 10, textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("span", null, "Waiting On (" + waitingOn.filter(function(w) { return !w.done; }).length + ")"),
+            h("button", { onClick: function() { loadWaiting(); }, style: Object.assign({}, btnSmall, { fontSize: 9, padding: "2px 6px" }) }, "\u21BB")
+          ),
+          h("div", { style: { display: "flex", gap: 6, marginBottom: 8 } },
+            h("input", { value: newWaitingText, onChange: function(e) { setNewWaitingText(e.target.value); },
+              onKeyDown: function(e) { if (e.key === "Enter" && newWaitingText.trim()) { var ts = new Date().toISOString().slice(0, 10); saveWaiting([{ done: false, description: newWaitingText.trim(), owner: newWaitingOwner.trim(), since: ts }].concat(waitingOn)); setNewWaitingText(""); setNewWaitingOwner(""); } },
+              placeholder: "What are you waiting on?", style: Object.assign({}, inputStyle, { flex: 1, minWidth: 100 }) }),
+            h("input", { value: newWaitingOwner, onChange: function(e) { setNewWaitingOwner(e.target.value); }, placeholder: "Who?", style: Object.assign({}, inputStyle, { width: 80 }) }),
+            h("button", { onClick: function() { if (!newWaitingText.trim()) return; var ts = new Date().toISOString().slice(0, 10); saveWaiting([{ done: false, description: newWaitingText.trim(), owner: newWaitingOwner.trim(), since: ts }].concat(waitingOn)); setNewWaitingText(""); setNewWaitingOwner(""); }, style: btnStyle }, "Add")
+          ),
+          waitingOn.filter(function(w) { return !w.done; }).length === 0 && h("div", { style: { color: "#666", fontSize: 12, padding: "4px 0" } }, "Nothing pending."),
+          waitingOn.filter(function(w) { return !w.done; }).map(function(w, i) {
+            var daysSince = w.since ? Math.round((Date.now() - new Date(w.since).getTime()) / 86400000) : null;
+            var isStale = daysSince !== null && daysSince > 7;
+            var ownerContact = slackContacts.find(function(c) { return c.type === "dm" && w.owner && c.name.toLowerCase().includes(w.owner.split(" ")[0].toLowerCase()); });
+            return h("div", { key: "wait-" + i, style: { padding: "5px 0", borderBottom: "1px solid #3e3e3e", display: "flex", gap: 8, alignItems: "center" } },
+              h("input", { type: "checkbox", checked: false, onChange: function() { saveWaiting(waitingOn.map(function(ww, j) { return ww === w ? Object.assign({}, ww, { done: true }) : ww; })); }, style: { cursor: "pointer", accentColor: "#e5c07b" } }),
+              h("div", { style: { flex: 1, minWidth: 0 } },
+                h("div", { style: { color: "#ccc", fontSize: 12 } }, w.description),
+                h("div", { style: { display: "flex", gap: 8, alignItems: "center", marginTop: 1 } },
+                  w.owner && h("span", { style: { color: "#e5c07b", fontSize: 10 } }, "@" + w.owner),
+                  daysSince !== null && h("span", { style: { color: isStale ? "#f44747" : "#666", fontSize: 10, fontWeight: isStale ? "bold" : "normal" } }, daysSince === 0 ? "today" : daysSince + "d ago")
+                )
+              ),
+              ownerContact && h("button", { onClick: function() { setSlackRecipient(ownerContact.id); setSlackRawText("Following up on: " + w.description); logTimeSaved("waiting-nudge"); }, style: Object.assign({}, btnSmall, { fontSize: 9, color: "#e5c07b", border: "1px solid #e5c07b" }) }, "Nudge"),
+              h("button", { onClick: function() { saveWaiting(waitingOn.filter(function(ww) { return ww !== w; })); }, style: Object.assign({}, btnSmall, { color: "#f44747", fontSize: 9 }) }, "x")
+            );
+          })
+        ),
+        // Slack Pulse
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+          h("div", { style: { color: "#61afef", fontSize: 11, marginBottom: 10, textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("span", null, "Slack Pulse"),
+            h("button", { onClick: function() { api.mcSlackPulse(true).then(function(d) { if (d && d.channels) setSlackPulse(d.channels); }); }, style: Object.assign({}, btnSmall, { fontSize: 9, padding: "2px 6px" }) }, "\u21BB")
+          ),
+          slackPulse.length === 0 && h("div", { style: { color: "#666", fontSize: 12, padding: "4px 0", fontStyle: "italic" } }, "Loading channel activity..."),
+          slackPulse.map(function(ch, i) {
+            return h("div", { key: "sp-" + i, style: { padding: "6px 0", borderBottom: i < slackPulse.length - 1 ? "1px solid #3e3e3e" : "none" } },
+              h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+                h("span", { style: { color: "#61afef", fontSize: 12 } }, ch.channel || ch.channelId),
+                h("span", { style: { display: "flex", gap: 6, alignItems: "center" } },
+                  ch.hasMention && h("span", { style: { background: "#f44747", color: "#fff", fontSize: 8, fontWeight: "bold", padding: "1px 4px", borderRadius: 3 } }, "@"),
+                  h("span", { style: { color: ch.todayCount > 0 ? "#e5c07b" : "#666", fontSize: 11 } }, ch.todayCount > 0 ? ch.todayCount + " today" : "quiet")
+                )
+              ),
+              ch.latestMessage && h("div", { style: { color: "#666", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ch.latestMessage)
+            );
+          })
+        )
+      ),
+
+      // Recent Sessions + Skills row
+      h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 } },
+        // Recent Sessions
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e", display: "flex", flexDirection: "column" } },
+          h("div", { style: { color: "#888", fontSize: 11, marginBottom: 12, textTransform: "uppercase", display: "flex", justifyContent: "space-between" } },
+            h("span", null, "Recent Sessions"),
+            recentSessions.length > 0 && h("span", { style: { color: "#555", fontSize: 10, textTransform: "none" } }, recentSessions.length + " sessions")
+          ),
+          h("div", { style: { maxHeight: 340, overflowY: "auto", flex: 1 } },
+            recentSessions.length === 0 && h("div", { style: { color: "#666", padding: "8px 0" } }, "No recent sessions"),
+            recentSessions.map(function(session, i) {
+              var title = session.name || session.projectPath.split("/").pop() || "Session";
+              var projLabel = session.projectPath.replace(/^\/Users\/[^/]+\//, "~/");
+              var msgBadge = session.msgCount ? session.msgCount + " msgs" : "";
+              return h("div", { key: session.sessionId || session.projectPath, onClick: function() { handleSessionClick(session); },
+                style: { padding: "6px 0", borderBottom: i < recentSessions.length - 1 ? "1px solid #3e3e3e" : "none", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", borderRadius: 3 },
+                onMouseEnter: function(e) { e.currentTarget.style.background = "#353535"; },
+                onMouseLeave: function(e) { e.currentTarget.style.background = "transparent"; }
+              },
+                h("div", { style: { flex: 1, minWidth: 0 } },
+                  h("div", { style: { color: "#4fc1ff", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, title),
+                  h("div", { style: { color: "#555", fontSize: 10 } }, projLabel + (msgBadge ? " \u00B7 " + msgBadge : ""))
+                ),
+                h("span", { style: { color: "#888", fontSize: 10, flexShrink: 0, marginLeft: 8 } }, mcFormatTimeAgo(session.lastOpened))
+              );
+            })
+          )
+        ),
+        // Skills
+        h("div", { style: { background: "#2d2d2d", borderRadius: 6, padding: 16, border: "1px solid #3e3e3e" } },
+          h("div", { style: { color: "#c586c0", fontSize: 11, marginBottom: 8, textTransform: "uppercase", display: "flex", justifyContent: "space-between", alignItems: "center" } },
+            h("span", null, "Skills"),
+            h("input", { "data-mc-skill-filter": true, value: skillFilter, onChange: function(e) { setSkillFilter(e.target.value); }, placeholder: "Filter...", style: Object.assign({}, inputStyle, { width: 100, fontSize: 10, padding: "3px 6px" }) })
+          ),
+          h("div", { style: { maxHeight: 340, overflowY: "auto" } },
+            filteredCategories.map(function(cat) {
+              return h("div", { key: cat.label },
+                h("div", { style: { color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.5px", padding: "6px 4px 2px", borderBottom: "1px solid #333" } }, cat.label),
+                cat.skills.map(function(skill) {
+                  return h("div", { key: skill.cmd, onClick: function() { runCommand(skill.cmd); },
+                    style: { display: "flex", padding: "4px 4px", gap: 6, alignItems: "baseline", cursor: "pointer", borderRadius: 3 },
+                    onMouseEnter: function(e) { e.currentTarget.style.background = "#353535"; },
+                    onMouseLeave: function(e) { e.currentTarget.style.background = "transparent"; }
+                  },
+                    h("code", { style: { color: "#c586c0", fontSize: 11, whiteSpace: "nowrap", flexShrink: 0, fontFamily: "'SF Mono', Menlo, Consolas, monospace" } }, skill.cmd),
+                    h("span", { style: { color: "#666", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, skill.desc)
+                  );
+                })
+              );
+            })
+          )
+        )
+      )
+    )
+  );
+}
+
+// --- Mount ---
+ReactDOM.render(React.createElement(MCDashboard), document.getElementById("root"));

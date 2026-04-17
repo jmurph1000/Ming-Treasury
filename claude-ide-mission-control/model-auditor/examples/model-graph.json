@@ -1,0 +1,114 @@
+{
+  "meta": {
+    "model_path": "fy27-revenue-model.html",
+    "model_name": "FY27 Revenue Model",
+    "generated": "2026-04-03T14:00:00Z"
+  },
+  "zones": [
+    { "id": "inputs", "label": "Inputs & Assumptions", "labelX": 25, "labelY": 22, "separatorX": 260 },
+    { "id": "hidden", "label": "Hidden Assumptions", "labelX": 25, "labelY": 200, "separatorX": null },
+    { "id": "calculations", "label": "Calculations", "labelX": 290, "labelY": 22, "separatorX": 620 },
+    { "id": "outputs", "label": "Outputs", "labelX": 650, "labelY": 22, "separatorX": null }
+  ],
+  "nodes": [
+    { "id": "inp_base_arr", "label": "Base ARR", "code_name": "baseARR", "type": "input", "zone": "inputs", "x": 25, "y": 45, "width": 110, "height": 52, "description": "Starting ARR from prior year actuals", "value": "$380M", "location": "model.html:L42" },
+    { "id": "inp_growth_rate", "label": "Growth Rate", "code_name": "growthRateSlider", "type": "input", "zone": "inputs", "x": 145, "y": 45, "width": 100, "height": 52, "description": "Annual growth target (slider: 15-45%)", "value": "35%", "location": "model.html:L58" },
+    { "id": "inp_churn_rate", "label": "Gross Churn", "code_name": "churnRate", "type": "input", "zone": "inputs", "x": 25, "y": 110, "width": 110, "height": 52, "description": "Annual gross churn rate", "value": "8.2%", "location": "model.html:L73" },
+    { "id": "inp_expansion", "label": "Net Expansion", "code_name": "expansionRate", "type": "input", "zone": "inputs", "x": 145, "y": 110, "width": 100, "height": 52, "description": "Net revenue expansion rate from existing customers", "value": "112%", "location": "model.html:L81" },
+    { "id": "inp_new_logos", "label": "New Logo Count", "code_name": "newLogos", "type": "input", "zone": "inputs", "x": 25, "y": 175, "width": 110, "height": 48, "description": "Monthly new customer additions", "value": "1,250/mo" },
+    { "id": "inp_arpc", "label": "Avg Rev/Customer", "code_name": "avgRevPerCustomer", "type": "input", "zone": "inputs", "x": 145, "y": 175, "width": 100, "height": 48, "description": "Average revenue per new customer", "value": "$2,400/yr" },
+
+    { "id": "hid_seasonality", "label": "Seasonality Factor", "code_name": "SEASONALITY_WEIGHTS", "type": "hidden", "zone": "hidden", "x": 25, "y": 250, "width": 110, "height": 48, "description": "Hardcoded Q1=0.22, Q2=0.24, Q3=0.26, Q4=0.28", "value": "[0.22, 0.24, 0.26, 0.28]", "location": "model.html:L156" },
+    { "id": "hid_ramp_months", "label": "Ramp Period", "code_name": "RAMP_MONTHS", "type": "hidden", "zone": "hidden", "x": 145, "y": 250, "width": 100, "height": 48, "description": "3-month ramp for new logos (hardcoded)", "value": "3 months", "location": "model.html:L162" },
+
+    { "id": "calc_new_arr", "label": "New Logo ARR", "code_name": "calcNewARR()", "type": "calc", "zone": "calculations", "x": 290, "y": 45, "width": 130, "height": 52, "description": "ARR from new customer acquisitions", "formula": "newLogos * avgRevPerCustomer * (1 - rampDiscount)", "location": "model.html:L201" },
+    { "id": "calc_churned", "label": "Churned ARR", "code_name": "calcChurnedARR()", "type": "calc", "zone": "calculations", "x": 290, "y": 110, "width": 130, "height": 52, "description": "ARR lost to gross churn", "formula": "baseARR * churnRate * seasonalityFactor", "location": "model.html:L215" },
+    { "id": "calc_expanded", "label": "Expansion ARR", "code_name": "calcExpansionARR()", "type": "calc", "zone": "calculations", "x": 290, "y": 175, "width": 130, "height": 52, "description": "Net expansion from existing customers", "formula": "(baseARR - churnedARR) * (expansionRate - 1)", "location": "model.html:L228" },
+    { "id": "calc_net_new", "label": "Net New ARR", "code_name": "calcNetNewARR()", "type": "calc", "zone": "calculations", "x": 450, "y": 110, "width": 140, "height": 52, "description": "Total net new ARR in period", "formula": "newLogoARR + expansionARR - churnedARR", "location": "model.html:L240" },
+    { "id": "calc_quarterly", "label": "Quarterly ARR", "code_name": "calcQuarterlyARR()", "type": "calc", "zone": "calculations", "x": 450, "y": 45, "width": 140, "height": 52, "description": "ARR at end of each quarter", "formula": "priorQuarterARR + netNewARR", "location": "model.html:L252" },
+    { "id": "calc_revenue", "label": "Revenue (Recognized)", "code_name": "calcRevenue()", "type": "calc", "zone": "calculations", "x": 450, "y": 175, "width": 140, "height": 52, "description": "GAAP-recognized quarterly revenue", "formula": "avgARR_in_quarter / 4", "location": "model.html:L265" },
+
+    { "id": "out_ending_arr", "label": "Ending ARR", "code_name": "endingARR", "type": "output", "zone": "outputs", "x": 650, "y": 45, "width": 130, "height": 56, "description": "Total ARR at fiscal year end", "value": "$513M", "location": "model.html:L290" },
+    { "id": "out_total_revenue", "label": "Total Revenue", "code_name": "totalRevenue", "type": "output", "zone": "outputs", "x": 650, "y": 115, "width": 130, "height": 56, "description": "Full-year recognized revenue", "value": "$446.5M", "location": "model.html:L295" },
+    { "id": "out_net_retention", "label": "Net Retention", "code_name": "netRetention", "type": "output", "zone": "outputs", "x": 650, "y": 185, "width": 130, "height": 52, "description": "Dollar-based net retention rate", "value": "103.8%", "formula": "(baseARR - churnedARR + expansionARR) / baseARR", "location": "model.html:L302" },
+    { "id": "out_growth_pct", "label": "YoY Growth", "code_name": "yoyGrowth", "type": "output", "zone": "outputs", "x": 650, "y": 250, "width": 130, "height": 48, "description": "Year-over-year ARR growth rate", "value": "35.0%", "formula": "(endingARR - baseARR) / baseARR", "location": "model.html:L310" }
+  ],
+  "edges": [
+    { "source": "inp_base_arr", "target": "calc_churned", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_base_arr", "target": "calc_expanded", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_base_arr", "target": "out_net_retention", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_base_arr", "target": "out_growth_pct", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_growth_rate", "target": "calc_new_arr", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_churn_rate", "target": "calc_churned", "color": "#F45D48", "type": "forward" },
+    { "source": "inp_expansion", "target": "calc_expanded", "color": "#6CB3B3", "type": "forward" },
+    { "source": "inp_new_logos", "target": "calc_new_arr", "color": "#0A8080", "type": "forward" },
+    { "source": "inp_arpc", "target": "calc_new_arr", "color": "#0A8080", "type": "forward" },
+    { "source": "hid_seasonality", "target": "calc_churned", "color": "#E8A735", "type": "forward" },
+    { "source": "hid_ramp_months", "target": "calc_new_arr", "color": "#E8A735", "type": "forward" },
+    { "source": "calc_new_arr", "target": "calc_net_new", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_churned", "target": "calc_net_new", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_churned", "target": "out_net_retention", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_expanded", "target": "calc_net_new", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_expanded", "target": "out_net_retention", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_net_new", "target": "calc_quarterly", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_quarterly", "target": "calc_revenue", "color": "#7A7C7C", "type": "forward" },
+    { "source": "calc_quarterly", "target": "out_ending_arr", "color": "#0A8080", "type": "forward" },
+    { "source": "calc_revenue", "target": "out_total_revenue", "color": "#0A8080", "type": "forward" },
+    { "source": "out_ending_arr", "target": "out_growth_pct", "color": "#0A8080", "type": "forward" }
+  ],
+  "flows": [
+    {
+      "id": "new-logo-to-arr",
+      "label": "New Logos to ARR",
+      "color": "#0A8080",
+      "path": ["inp_new_logos", "calc_new_arr", "calc_net_new", "calc_quarterly", "out_ending_arr"],
+      "description": "Traces how monthly new customer acquisitions flow through new logo ARR, net new ARR, and quarterly roll-up to produce ending ARR."
+    },
+    {
+      "id": "churn-impact",
+      "label": "Churn Impact",
+      "color": "#F45D48",
+      "path": ["inp_churn_rate", "calc_churned", "calc_net_new", "calc_quarterly", "out_ending_arr"],
+      "description": "Shows how the gross churn assumption reduces net new ARR and ultimately impacts ending ARR. Note: seasonality factor (hidden) also affects this path."
+    },
+    {
+      "id": "expansion-to-retention",
+      "label": "Expansion to Retention",
+      "color": "#6CB3B3",
+      "path": ["inp_expansion", "calc_expanded", "out_net_retention"],
+      "description": "Traces the net expansion rate through expansion ARR calculation to the net dollar retention output."
+    },
+    {
+      "id": "arr-to-revenue",
+      "label": "ARR to Revenue",
+      "color": "#3B9999",
+      "path": ["calc_quarterly", "calc_revenue", "out_total_revenue"],
+      "description": "Shows how quarterly ARR converts to GAAP-recognized revenue through the averaging method."
+    },
+    {
+      "id": "hidden-seasonality",
+      "label": "Hidden: Seasonality",
+      "color": "#E8A735",
+      "path": ["hid_seasonality", "calc_churned", "calc_net_new", "calc_quarterly", "out_ending_arr"],
+      "description": "Exposes the hidden seasonality weight array (Q1=0.22 to Q4=0.28) that modulates churn calculations but is not surfaced in the UI."
+    }
+  ],
+  "issues": [
+    {
+      "id": "FM-001",
+      "severity": "warning",
+      "title": "Hidden assumption: Seasonality weights hardcoded",
+      "description": "SEASONALITY_WEIGHTS at L156 applies quarterly weighting [0.22, 0.24, 0.26, 0.28] to churn calculations. This materially affects quarterly ARR distribution but is not exposed as a configurable input. A +/-10% change shifts ending ARR by ~2.1%.",
+      "nodes_involved": ["hid_seasonality", "calc_churned"],
+      "recommendation": "Surface seasonality weights as an advanced configuration option, or at minimum document the assumption."
+    },
+    {
+      "id": "FM-002",
+      "severity": "warning",
+      "title": "Hidden assumption: 3-month ramp period hardcoded",
+      "description": "RAMP_MONTHS at L162 assumes all new logos take exactly 3 months to reach full ARR. This creates a hidden discount on new logo ARR that is not visible to the user.",
+      "nodes_involved": ["hid_ramp_months", "calc_new_arr"],
+      "recommendation": "Add a ramp period control to the assumptions panel, or show the effective ramp discount in the model output."
+    }
+  ]
+}
