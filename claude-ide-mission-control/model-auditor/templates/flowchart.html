@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Flowchart — {{MODEL_NAME}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root {
+  --teal: #0A8080;
+  --teal-80: #3B9999;
+  --teal-60: #6CB3B3;
+  --teal-40: #9DCCCC;
+  --teal-20: #CEE6E6;
+  --coral: #F45D48;
+  --coral-80: #F67D6D;
+  --coral-60: #F89E92;
+  --coral-40: #FBBEB7;
+  --coral-20: #FDDFDB;
+  --amber: #E8A735;
+  --amber-light: #FFF4E0;
+  --error-light: #F4C7C3;
+  --gray-900: #222525;
+  --gray-700: #4E5151;
+  --gray-500: #7A7C7C;
+  --gray-300: #A7A8A8;
+  --gray-100: #E8E8E8;
+  --bg: #FAFAFA;
+  --card-bg: #FFFFFF;
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-900);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+#app-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 10px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.header-left { flex-shrink: 0; }
+
+.site-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+  letter-spacing: -0.3px;
+}
+
+.site-subtitle {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.header-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-pill {
+  padding: 5px 12px;
+  background: var(--bg);
+  border: 1px solid var(--gray-100);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.stat-num { font-weight: 700; color: var(--teal); margin-right: 3px; }
+.stat-num--warn { color: var(--amber); }
+.stat-num--error { color: var(--coral); }
+
+/* Narrative Panel */
+#narrative-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 28px 0;
+}
+
+#narrative-text {
+  color: var(--gray-700);
+  font-size: 13px;
+  line-height: 1.7;
+  transition: opacity 0.3s;
+  max-width: 920px;
+}
+
+/* Flow Selector */
+#flow-selector {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 14px 28px 0;
+}
+
+.flow-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.flow-pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid var(--gray-100);
+  background: var(--card-bg);
+  color: var(--gray-700);
+  transition: all 0.2s;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.flow-pill:hover { border-color: var(--gray-300); }
+.flow-pill.active { color: #fff; }
+
+/* Main content */
+#app-content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 28px 60px;
+}
+
+/* Graph container */
+.graph-container {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--gray-100);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+
+.graph-container svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Nodes */
+.node rect {
+  transition: opacity 0.3s ease, filter 0.2s ease;
+  cursor: pointer;
+}
+
+.node text {
+  pointer-events: none;
+  font-family: var(--font);
+}
+
+.node .node-label {
+  font-weight: 600;
+}
+
+.node .node-desc {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.node .badge {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.node:hover rect {
+  filter: url(#drop-shadow);
+}
+
+.node.prominent rect {
+  rx: 10;
+  ry: 10;
+}
+
+.node.external rect {
+  stroke-dasharray: 6 3;
+  cursor: default;
+}
+
+.node.crosscutting rect { cursor: default; }
+
+/* Edges */
+.edge {
+  transition: opacity 0.3s ease;
+}
+
+.edge line,
+.edge path {
+  stroke-linecap: round;
+  fill: none;
+}
+
+.edge.feedback path {
+  stroke-dasharray: 6 4;
+}
+
+.edge-label {
+  font-size: 7px;
+  font-family: var(--font);
+  fill: var(--gray-500);
+}
+
+/* Zone labels / separators */
+.zone-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  fill: var(--gray-300);
+  text-transform: uppercase;
+  font-family: var(--font);
+}
+
+.zone-separator {
+  stroke: var(--gray-100);
+  stroke-width: 1;
+}
+
+/* Flow highlight states */
+.dimmed {
+  opacity: 0.12 !important;
+  transition: opacity 0.4s ease;
+}
+
+.highlighted rect {
+  filter: drop-shadow(0 0 8px currentColor);
+}
+
+.flow-particle {
+  will-change: transform;
+}
+
+/* Tooltip */
+.graph-tooltip {
+  position: fixed;
+  background: var(--gray-900);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: var(--font);
+  pointer-events: none;
+  z-index: 60;
+  max-width: 300px;
+  line-height: 1.5;
+  opacity: 0;
+  transition: opacity 0.15s;
+  white-space: normal;
+}
+
+.graph-tooltip.visible { opacity: 1; }
+
+.tooltip-type {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: 0.6;
+}
+
+.tooltip-formula {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  background: rgba(255,255,255,0.1);
+  padding: 4px 6px;
+  border-radius: 3px;
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.tooltip-issue {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,0.15);
+  font-size: 10px;
+}
+
+.tooltip-issue-icon { margin-right: 4px; }
+
+/* Detail panel (slide-in) */
+#detail-panel {
+  position: fixed;
+  right: -440px;
+  top: 0;
+  bottom: 0;
+  width: 420px;
+  background: var(--card-bg);
+  border-left: 1px solid var(--gray-100);
+  box-shadow: -4px 0 20px rgba(0,0,0,.08);
+  z-index: 100;
+  overflow-y: auto;
+  transition: right 0.3s ease;
+  padding: 24px;
+}
+
+#detail-panel.open { right: 0; }
+
+.detail-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--bg);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-close:hover { background: var(--gray-100); }
+
+.detail-header {
+  margin-bottom: 20px;
+  padding-right: 40px;
+}
+
+.detail-type {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.detail-type--input { color: var(--teal); }
+.detail-type--calc { color: var(--gray-500); }
+.detail-type--output { color: var(--teal); }
+.detail-type--hidden { color: var(--amber); }
+.detail-type--broken { color: var(--coral); }
+
+.detail-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 4px;
+}
+
+.detail-code-name {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--gray-500);
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+}
+
+.detail-section h4 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gray-300);
+  margin-bottom: 8px;
+}
+
+.detail-formula {
+  background: var(--gray-900);
+  color: var(--teal-20);
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.detail-deps {
+  list-style: none;
+}
+
+.detail-deps li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--gray-100);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.detail-deps li:hover { color: var(--teal); }
+
+.detail-deps li:last-child { border-bottom: none; }
+
+.dep-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.detail-issue {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.detail-issue--error {
+  background: var(--error-light);
+  border-left: 3px solid var(--coral);
+}
+
+.detail-issue--warning {
+  background: var(--amber-light);
+  border-left: 3px solid var(--amber);
+}
+
+.detail-issue-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.detail-issue-desc {
+  font-size: 11px;
+  color: var(--gray-700);
+  line-height: 1.5;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.legend-swatch--input { background: var(--teal-20); border: 1.5px solid var(--teal); }
+.legend-swatch--calc { background: #fff; border: 1.5px solid var(--gray-500); }
+.legend-swatch--output { background: var(--teal); }
+.legend-swatch--hidden { background: var(--amber-light); border: 1.5px solid var(--amber); }
+.legend-swatch--broken { background: var(--error-light); border: 1.5px solid var(--coral); }
+
+/* Overlay for detail panel */
+#detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.15);
+  z-index: 90;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+#detail-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Footer */
+.folio {
+  text-align: center;
+  padding: 20px;
+  font-size: 11px;
+  color: var(--gray-300);
+}
+
+@media (max-width: 768px) {
+  .header-inner { flex-wrap: wrap; padding: 10px 16px; }
+  .header-stats { display: none; }
+  #app-content { padding: 16px; }
+  #detail-panel { width: 100%; right: -100%; }
+  .flow-pills { overflow-x: auto; flex-wrap: nowrap; }
+}
+</style>
+</head>
+<body>
+
+<header id="app-header">
+  <div class="header-inner">
+    <div class="header-left">
+      <h1 class="site-title">Model Flowchart</h1>
+      <div class="site-subtitle" id="model-path">{{MODEL_PATH}}</div>
+    </div>
+    <div class="header-stats" id="header-stats"></div>
+  </div>
+</header>
+
+<div id="narrative-panel">
+  <p id="narrative-text">Click a flow path below to trace data through the model, or click any node to see its formula and dependencies.</p>
+</div>
+
+<div id="flow-selector">
+  <div class="flow-pills" id="flow-pills"></div>
+</div>
+
+<div id="app-content">
+  <div class="legend" id="legend">
+    <div class="legend-item"><div class="legend-swatch legend-swatch--input"></div>Input / Assumption</div>
+    <div class="legend-item"><div class="legend-swatch legend-swatch--calc"></div>Calculation</div>
+    <div class="legend-item"><div class="legend-swatch legend-swatch--output"></div>Output</div>
+    <div class="legend-item"><div class="legend-swatch legend-swatch--hidden"></div>Hidden Assumption</div>
+    <div class="legend-item"><div class="legend-swatch legend-swatch--broken"></div>Structural Issue</div>
+  </div>
+  <div class="graph-container" id="graph-container"></div>
+</div>
+
+<div id="detail-overlay"></div>
+<div id="detail-panel">
+  <button class="detail-close" id="detail-close">&times;</button>
+  <div id="detail-content"></div>
+</div>
+
+<div class="folio">Model Audit Flowchart | Generated by Model Auditor</div>
+
+<script>
+// ── Data ──
+// The orchestrator injects this. In standalone mode, it's loaded from a JSON file.
+let GRAPH_DATA = null;
+const APP = { activeFlow: null, nodeMap: {} };
+
+// ── Bootstrap ──
+async function init() {
+  // Try inline data first (embedded by orchestrator), then fetch JSON
+  if (window.__MODEL_GRAPH__) {
+    GRAPH_DATA = window.__MODEL_GRAPH__;
+  } else {
+    try {
+      const resp = await fetch('model-graph.json');
+      GRAPH_DATA = await resp.json();
+    } catch (e) {
+      document.getElementById('graph-container').innerHTML =
+        '<p style="padding:40px;color:#7A7C7C;">No model-graph.json found. Run the flowchart-mapper agent first.</p>';
+      return;
+    }
+  }
+
+  // Build lookup
+  GRAPH_DATA.nodes.forEach(n => { APP.nodeMap[n.id] = n; });
+
+  renderStats();
+  renderFlowPills();
+  renderGraph();
+  setupDetailPanel();
+}
+
+// ── Stats pills ──
+function renderStats() {
+  const g = GRAPH_DATA;
+  const inputs = g.nodes.filter(n => n.type === 'input').length;
+  const calcs = g.nodes.filter(n => n.type === 'calc').length;
+  const outputs = g.nodes.filter(n => n.type === 'output').length;
+  const hidden = g.nodes.filter(n => n.type === 'hidden').length;
+  const issues = (g.issues || []).length;
+
+  let html = `<div class="stat-pill"><span class="stat-num">${inputs}</span>inputs</div>`;
+  html += `<div class="stat-pill"><span class="stat-num">${calcs}</span>calculations</div>`;
+  html += `<div class="stat-pill"><span class="stat-num">${outputs}</span>outputs</div>`;
+  if (hidden > 0) html += `<div class="stat-pill"><span class="stat-num stat-num--warn">${hidden}</span>hidden</div>`;
+  if (issues > 0) html += `<div class="stat-pill"><span class="stat-num stat-num--error">${issues}</span>issues</div>`;
+  document.getElementById('header-stats').innerHTML = html;
+}
+
+// ── Flow pills ──
+function renderFlowPills() {
+  const container = document.getElementById('flow-pills');
+  if (!GRAPH_DATA.flows || GRAPH_DATA.flows.length === 0) {
+    container.parentElement.style.display = 'none';
+    return;
+  }
+
+  GRAPH_DATA.flows.forEach(flow => {
+    const pill = document.createElement('div');
+    pill.className = 'flow-pill';
+    pill.textContent = flow.label;
+    pill.dataset.flowId = flow.id;
+    pill.style.setProperty('--flow-color', flow.color);
+    pill.addEventListener('click', () => toggleFlow(flow));
+    container.appendChild(pill);
+  });
+}
+
+function toggleFlow(flow) {
+  const pills = document.querySelectorAll('.flow-pill');
+
+  if (APP.activeFlow === flow.id) {
+    // Deactivate
+    APP.activeFlow = null;
+    pills.forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.borderColor = ''; p.style.color = ''; });
+    document.querySelectorAll('.node, .edge').forEach(el => el.classList.remove('dimmed', 'highlighted'));
+    document.getElementById('narrative-text').textContent =
+      'Click a flow path below to trace data through the model, or click any node to see its formula and dependencies.';
+    // Remove particles
+    document.querySelectorAll('.flow-particle').forEach(p => p.remove());
+    return;
+  }
+
+  // Activate
+  APP.activeFlow = flow.id;
+  pills.forEach(p => {
+    if (p.dataset.flowId === flow.id) {
+      p.classList.add('active');
+      p.style.background = flow.color;
+      p.style.borderColor = flow.color;
+      p.style.color = '#fff';
+    } else {
+      p.classList.remove('active');
+      p.style.background = '';
+      p.style.borderColor = '';
+      p.style.color = '';
+    }
+  });
+
+  // Highlight path
+  const pathSet = new Set(flow.path);
+  document.querySelectorAll('.node').forEach(el => {
+    if (pathSet.has(el.dataset.nodeId)) {
+      el.classList.remove('dimmed');
+      el.classList.add('highlighted');
+    } else {
+      el.classList.add('dimmed');
+      el.classList.remove('highlighted');
+    }
+  });
+  document.querySelectorAll('.edge').forEach(el => {
+    const src = el.dataset.source;
+    const tgt = el.dataset.target;
+    if (pathSet.has(src) && pathSet.has(tgt)) {
+      el.classList.remove('dimmed');
+    } else {
+      el.classList.add('dimmed');
+    }
+  });
+
+  document.getElementById('narrative-text').textContent = flow.description;
+  animateFlowParticles(flow);
+}
+
+// ── Particle animation ──
+function animateFlowParticles(flow) {
+  document.querySelectorAll('.flow-particle').forEach(p => p.remove());
+  const svg = document.querySelector('.graph-container svg');
+  if (!svg) return;
+
+  for (let i = 0; i < flow.path.length - 1; i++) {
+    const src = APP.nodeMap[flow.path[i]];
+    const tgt = APP.nodeMap[flow.path[i + 1]];
+    if (!src || !tgt) continue;
+
+    const sx = src.x + src.width / 2, sy = src.y + src.height / 2;
+    const tx = tgt.x + tgt.width / 2, ty = tgt.y + tgt.height / 2;
+
+    const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    particle.setAttribute('r', '5');
+    particle.setAttribute('fill', flow.color);
+    particle.setAttribute('opacity', '0.8');
+    particle.classList.add('flow-particle');
+    svg.appendChild(particle);
+
+    function loop() {
+      if (APP.activeFlow !== flow.id) { particle.remove(); return; }
+      d3.select(particle)
+        .attr('cx', sx).attr('cy', sy).attr('opacity', 0.8)
+        .transition().duration(1800).delay(i * 400).ease(d3.easeLinear)
+        .attr('cx', tx).attr('cy', ty)
+        .transition().duration(200)
+        .attr('opacity', 0)
+        .on('end', () => { if (APP.activeFlow === flow.id) setTimeout(loop, 600); else particle.remove(); });
+    }
+    setTimeout(loop, i * 500);
+  }
+}
+
+// ── Color helpers ──
+function needsDarkText(hex) {
+  if (!hex || hex === '#F0F0F0' || hex === '#FFFFFF' || hex === '#fff') return true;
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+}
+
+function truncateToFit(text, maxWidthPx, fontSize) {
+  const charWidth = fontSize * 0.56;
+  const maxChars = Math.floor((maxWidthPx - 12) / charWidth);
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars - 1) + '\u2026';
+}
+
+// ── Node colors by type (fallback when node.color is not set) ──
+const NODE_COLORS = {
+  input:  { fill: '#CEE6E6', stroke: '#0A8080' },
+  calc:   { fill: '#FFFFFF', stroke: '#7A7C7C' },
+  output: { fill: '#0A8080', stroke: '#087070' },
+  hidden: { fill: '#FFF4E0', stroke: '#E8A735' },
+  broken: { fill: '#F4C7C3', stroke: '#F45D48' }
+};
+
+// Resolve node colors: explicit color wins, then type-based, then default
+function getNodeColors(node) {
+  if (node.color) {
+    // Use explicit color (Luke's convention — zone-based coloring)
+    return { fill: node.color, stroke: node.color };
+  }
+  return NODE_COLORS[node.type] || NODE_COLORS.calc;
+}
+
+// ── Main graph render ──
+function renderGraph() {
+  const g = GRAPH_DATA;
+  const container = document.getElementById('graph-container');
+
+  // Calculate viewBox from data
+  let maxX = 0, maxY = 0;
+  g.nodes.forEach(n => {
+    maxX = Math.max(maxX, n.x + n.width + 40);
+    maxY = Math.max(maxY, n.y + n.height + 40);
+  });
+  const vbWidth = Math.max(maxX, 800);
+  const vbHeight = Math.max(maxY, 400);
+
+  const svg = d3.select(container).append('svg')
+    .attr('viewBox', `0 0 ${vbWidth} ${vbHeight}`)
+    .attr('preserveAspectRatio', 'xMidYMid meet');
+
+  // Arrow markers per edge color
+  const edgeColors = new Set(g.edges.map(e => e.color || '#7A7C7C'));
+  const defs = svg.append('defs');
+
+  // SVG drop shadow filter (from Luke's guide — smoother than CSS filter)
+  const dropShadow = defs.append('filter')
+    .attr('id', 'drop-shadow').attr('height', '130%');
+  dropShadow.append('feGaussianBlur').attr('in', 'SourceAlpha').attr('stdDeviation', 3);
+  dropShadow.append('feOffset').attr('dx', 0).attr('dy', 2).attr('result', 'offsetblur');
+  const feMerge = dropShadow.append('feMerge');
+  feMerge.append('feMergeNode');
+  feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Arrow markers per edge color
+  edgeColors.forEach(c => {
+    defs.append('marker')
+      .attr('id', `arrow-${c.replace('#', '')}`)
+      .attr('viewBox', '0 0 10 6')
+      .attr('refX', 9).attr('refY', 3)
+      .attr('markerWidth', 6).attr('markerHeight', 4)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0 0L10 3L0 6z')
+      .attr('fill', c)
+      .attr('opacity', 0.6);
+  });
+
+  // Zone labels and separators
+  if (g.zones) {
+    g.zones.forEach(z => {
+      svg.append('text').attr('class', 'zone-label')
+        .attr('x', z.labelX || z.x || 25).attr('y', z.labelY || 22)
+        .text(z.label.toUpperCase());
+
+      if (z.separatorX) {
+        svg.append('line').attr('class', 'zone-separator')
+          .attr('x1', z.separatorX).attr('y1', 32)
+          .attr('x2', z.separatorX).attr('y2', vbHeight - 20);
+      }
+    });
+  }
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div').attr('class', 'graph-tooltip');
+
+  // Edges
+  g.edges.forEach(edge => {
+    const src = APP.nodeMap[edge.source];
+    const tgt = APP.nodeMap[edge.target];
+    if (!src || !tgt) return;
+
+    const color = edge.color || '#7A7C7C';
+    const eg = svg.append('g')
+      .attr('class', `edge ${edge.type === 'feedback' ? 'feedback' : ''}`)
+      .attr('data-source', edge.source)
+      .attr('data-target', edge.target);
+
+    if (edge.type === 'feedback') {
+      const sc = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+      const tc = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+      const mx = (sc.x + tc.x) / 2;
+      const my = Math.max(sc.y, tc.y) + 40;
+      const path = `M ${sc.x} ${sc.y + src.height / 2} Q ${mx} ${my} ${tc.x} ${tc.y + tgt.height / 2}`;
+      eg.append('path')
+        .attr('d', path)
+        .attr('stroke', color)
+        .attr('stroke-width', 1.8)
+        .attr('stroke-dasharray', '6,4')
+        .attr('opacity', 0.5)
+        .attr('marker-end', `url(#arrow-${color.replace('#', '')})`);
+      if (edge.label) {
+        eg.append('text').attr('class', 'edge-label')
+          .attr('x', mx).attr('y', my - 5)
+          .attr('text-anchor', 'middle')
+          .attr('fill', color)
+          .attr('opacity', 0.6)
+          .text(edge.label);
+      }
+    } else {
+      const sc = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+      const tc = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+      const dx = tc.x - sc.x, dy = tc.y - sc.y;
+      const angle = Math.atan2(dy, dx);
+      const sx = sc.x + Math.cos(angle) * (src.width / 2 + 2);
+      const sy = sc.y + Math.sin(angle) * (src.height / 2 + 2);
+      const tx = tc.x - Math.cos(angle) * (tgt.width / 2 + 2);
+      const ty = tc.y - Math.sin(angle) * (tgt.height / 2 + 2);
+
+      eg.append('line')
+        .attr('x1', sx).attr('y1', sy)
+        .attr('x2', tx).attr('y2', ty)
+        .attr('stroke', color)
+        .attr('stroke-width', 1.4)
+        .attr('opacity', 0.45)
+        .attr('marker-end', `url(#arrow-${color.replace('#', '')})`);
+
+      if (edge.label) {
+        eg.append('text').attr('class', 'edge-label')
+          .attr('x', (sx + tx) / 2).attr('y', (sy + ty) / 2 - 5)
+          .attr('text-anchor', 'middle')
+          .attr('fill', color)
+          .attr('opacity', 0.6)
+          .text(edge.label);
+      }
+    }
+  });
+
+  // Build issue lookup by node
+  const issuesByNode = {};
+  (g.issues || []).forEach(issue => {
+    (issue.nodes_involved || []).forEach(nid => {
+      if (!issuesByNode[nid]) issuesByNode[nid] = [];
+      issuesByNode[nid].push(issue);
+    });
+  });
+
+  // Nodes
+  g.nodes.forEach(node => {
+    const baseColors = getNodeColors(node);
+    const hasIssue = issuesByNode[node.id] && issuesByNode[node.id].length > 0;
+    const effectiveColors = hasIssue ? NODE_COLORS.broken : baseColors;
+
+    const isExternal = node.external === true;
+    const isProminent = node.prominent === true;
+    const isCrosscutting = node.crosscutting === true;
+
+    const ng = svg.append('g')
+      .attr('class', `node ${isProminent ? 'prominent' : ''} ${isExternal ? 'external' : ''} ${isCrosscutting ? 'crosscutting' : ''}`)
+      .attr('data-node-id', node.id)
+      .attr('transform', `translate(${node.x + node.width / 2}, ${node.y + node.height / 2}) scale(1) translate(${-node.width / 2}, ${-node.height / 2})`);
+
+    // Background rect
+    const rx = isProminent ? 10 : 8;
+    const strokeW = isProminent ? 2.5 : (isExternal ? 1.2 : (node.type === 'output' ? 2 : 1.2));
+    const rect = ng.append('rect')
+      .attr('width', node.width).attr('height', node.height)
+      .attr('rx', rx).attr('ry', rx)
+      .attr('fill', effectiveColors.fill)
+      .attr('stroke', effectiveColors.stroke)
+      .attr('stroke-width', strokeW);
+    if (isExternal) {
+      rect.attr('stroke', '#D0D0D0').attr('stroke-width', 1.2).attr('stroke-dasharray', '6,3');
+    }
+
+    // Label
+    const dark = needsDarkText(effectiveColors.fill);
+    const textColor = dark ? '#222525' : '#FFFFFF';
+    const descColor = dark ? 'rgba(34,37,37,0.55)' : 'rgba(255,255,255,0.7)';
+    const labelFontSize = isProminent ? 11 : (isCrosscutting ? 9 : 10);
+    const hasDesc = node.description && node.height >= 44 && !isCrosscutting;
+    const labelY = hasDesc ? node.height / 2 - 5 : node.height / 2 + 1;
+
+    ng.append('text')
+      .attr('class', 'node-label')
+      .attr('x', node.width / 2).attr('y', labelY)
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .attr('fill', textColor)
+      .attr('font-size', labelFontSize)
+      .text(truncateToFit(node.label, node.width, labelFontSize));
+
+    if (hasDesc) {
+      ng.append('text')
+        .attr('class', 'node-desc')
+        .attr('x', node.width / 2).attr('y', labelY + 13)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', descColor)
+        .attr('font-size', 7)
+        .text(truncateToFit(node.description, node.width, 7));
+    }
+
+    // Badge (top-right): custom badge wins, then type-based fallback
+    const badgeText = node.badge || ({ input: 'INPUT', output: 'OUTPUT', hidden: 'HIDDEN' }[node.type] || '');
+    if (badgeText) {
+      const bw = badgeText.length * 5.5 + 8;
+      ng.append('rect')
+        .attr('x', node.width - bw - 3).attr('y', 3)
+        .attr('width', bw).attr('height', 13)
+        .attr('rx', 3).attr('fill', '#fff').attr('opacity', 0.9);
+      ng.append('text')
+        .attr('class', 'badge')
+        .attr('x', node.width - bw / 2 - 3).attr('y', 11.5)
+        .attr('text-anchor', 'middle')
+        .attr('fill', effectiveColors.fill === '#FFFFFF' ? effectiveColors.stroke : effectiveColors.fill)
+        .attr('font-size', 7)
+        .text(badgeText);
+    }
+
+    // Pack count badge (bottom-left) — from Luke's convention
+    if (node.packs && node.packs.length > 0 && !isExternal && !isCrosscutting) {
+      const countText = node.packs.length + (node.packs.length === 1 ? ' pack' : ' packs');
+      ng.append('text')
+        .attr('x', 6).attr('y', node.height - 5)
+        .attr('font-size', 7)
+        .attr('fill', dark ? 'rgba(34,37,37,0.4)' : 'rgba(255,255,255,0.45)')
+        .attr('font-weight', 500)
+        .text(countText);
+    }
+
+    // Issue warning icon (bottom-left, after packs)
+    if (hasIssue) {
+      const issueX = (node.packs && node.packs.length > 0) ? node.width - 16 : 6;
+      ng.append('text')
+        .attr('x', issueX).attr('y', node.height - 5)
+        .attr('font-size', 10)
+        .text('\u26A0');
+    }
+
+    // Hover + click (skip for external/crosscutting per Luke's pattern)
+    const ncx = node.width / 2, ncy = node.height / 2;
+    if (!isExternal && !isCrosscutting) {
+      ng.style('cursor', 'pointer');
+    }
+
+    ng.on('mouseenter', (event) => {
+      if (!isCrosscutting) {
+        ng.transition().duration(180).ease(d3.easeCubicOut)
+          .attr('transform', `translate(${node.x + ncx}, ${node.y + ncy}) scale(1.05) translate(${-ncx}, ${-ncy})`);
+      }
+      if (node.description) {
+        let html = '';
+        const typeLabel = { input: 'Input', calc: 'Calculation', output: 'Output', hidden: 'Hidden Assumption', broken: 'Structural Issue' }[node.type] || '';
+        if (typeLabel) html += `<div class="tooltip-type">${typeLabel}</div>`;
+        html += `<strong>${node.label}</strong>`;
+        html += `<br>${node.description}`;
+        if (node.formula) html += `<div class="tooltip-formula">${node.formula}</div>`;
+        if (hasIssue) {
+          issuesByNode[node.id].forEach(iss => {
+            const icon = iss.severity === 'error' ? '\u274C' : '\u26A0\uFE0F';
+            html += `<div class="tooltip-issue"><span class="tooltip-issue-icon">${icon}</span>${iss.title}</div>`;
+          });
+        }
+        tooltip.html(html)
+          .style('left', (event.clientX + 14) + 'px')
+          .style('top', (event.clientY - 10) + 'px')
+          .classed('visible', true);
+      }
+    }).on('mousemove', (event) => {
+      tooltip.style('left', (event.clientX + 14) + 'px').style('top', (event.clientY - 10) + 'px');
+    }).on('mouseleave', () => {
+      if (!isCrosscutting) {
+        ng.transition().duration(250).ease(d3.easeCubicIn)
+          .attr('transform', `translate(${node.x + ncx}, ${node.y + ncy}) scale(1) translate(${-ncx}, ${-ncy})`);
+      }
+      tooltip.classed('visible', false);
+    });
+
+    // Click → detail panel (not for external/crosscutting)
+    if (!isExternal && !isCrosscutting) {
+      ng.on('click', () => openDetail(node));
+    }
+  });
+}
+
+// ── Detail panel ──
+function setupDetailPanel() {
+  document.getElementById('detail-close').addEventListener('click', closeDetail);
+  document.getElementById('detail-overlay').addEventListener('click', closeDetail);
+}
+
+function openDetail(node) {
+  const panel = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+  const overlay = document.getElementById('detail-overlay');
+
+  const typeClass = `detail-type--${node.type}`;
+  const typeLabel = { input: 'Input / Assumption', calc: 'Calculation', output: 'Output', hidden: 'Hidden Assumption', broken: 'Structural Issue' }[node.type] || 'Node';
+
+  // Find upstream and downstream
+  const upstream = GRAPH_DATA.edges.filter(e => e.target === node.id).map(e => APP.nodeMap[e.source]).filter(Boolean);
+  const downstream = GRAPH_DATA.edges.filter(e => e.source === node.id).map(e => APP.nodeMap[e.target]).filter(Boolean);
+
+  // Find issues
+  const issues = (GRAPH_DATA.issues || []).filter(iss => (iss.nodes_involved || []).includes(node.id));
+
+  let html = `
+    <div class="detail-header">
+      <div class="detail-type ${typeClass}">${typeLabel}</div>
+      <div class="detail-name">${node.label}</div>
+      ${node.code_name ? `<div class="detail-code-name">${node.code_name}</div>` : ''}
+    </div>
+  `;
+
+  if (node.description) {
+    html += `<div class="detail-section"><p style="font-size:13px;color:var(--gray-700);">${node.description}</p></div>`;
+  }
+
+  if (node.formula) {
+    html += `
+      <div class="detail-section">
+        <h4>Formula</h4>
+        <div class="detail-formula">${node.formula}</div>
+      </div>
+    `;
+  }
+
+  if (node.value !== undefined) {
+    html += `
+      <div class="detail-section">
+        <h4>Current Value</h4>
+        <p style="font-size:16px;font-weight:700;color:var(--teal);">${node.value}</p>
+      </div>
+    `;
+  }
+
+  if (node.location) {
+    html += `
+      <div class="detail-section">
+        <h4>Source Location</h4>
+        <div class="detail-code-name">${node.location}</div>
+      </div>
+    `;
+  }
+
+  if (upstream.length > 0) {
+    html += `<div class="detail-section"><h4>Feeds from (${upstream.length})</h4><ul class="detail-deps">`;
+    upstream.forEach(n => {
+      const c = NODE_COLORS[n.type] || NODE_COLORS.calc;
+      html += `<li data-node-id="${n.id}"><div class="dep-dot" style="background:${c.fill};border:1px solid ${c.stroke}"></div>${n.label}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (downstream.length > 0) {
+    html += `<div class="detail-section"><h4>Feeds into (${downstream.length})</h4><ul class="detail-deps">`;
+    downstream.forEach(n => {
+      const c = NODE_COLORS[n.type] || NODE_COLORS.calc;
+      html += `<li data-node-id="${n.id}"><div class="dep-dot" style="background:${c.fill};border:1px solid ${c.stroke}"></div>${n.label}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  if (issues.length > 0) {
+    html += '<div class="detail-section"><h4>Issues</h4>';
+    issues.forEach(iss => {
+      const cls = iss.severity === 'error' ? 'detail-issue--error' : 'detail-issue--warning';
+      html += `
+        <div class="detail-issue ${cls}">
+          <div class="detail-issue-title">${iss.id}: ${iss.title}</div>
+          <div class="detail-issue-desc">${iss.description}</div>
+          ${iss.recommendation ? `<div class="detail-issue-desc" style="margin-top:6px;font-style:italic;">\u2192 ${iss.recommendation}</div>` : ''}
+        </div>
+      `;
+    });
+    html += '</div>';
+  }
+
+  content.innerHTML = html;
+
+  // Wire up dependency clicks to navigate to that node
+  content.querySelectorAll('.detail-deps li').forEach(li => {
+    li.addEventListener('click', () => {
+      const targetNode = APP.nodeMap[li.dataset.nodeId];
+      if (targetNode) openDetail(targetNode);
+    });
+  });
+
+  panel.classList.add('open');
+  overlay.classList.add('visible');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.getElementById('detail-overlay').classList.remove('visible');
+}
+
+// ── Init ──
+init();
+</script>
+</body>
+</html>

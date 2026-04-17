@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Model Audit Report — {{MODEL_NAME}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=Nunito+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<style>
+:root {
+  --kale: #0A8080;
+  --kale-dark: #087070;
+  --kale-80: #3B9999;
+  --kale-60: #6CB3B3;
+  --kale-40: #9DCCCC;
+  --kale-20: #CEE6E6;
+  --guava: #F45D48;
+  --guava-80: #F67D6D;
+  --guava-60: #F89E91;
+  --guava-40: #FBBEB6;
+  --guava-20: #FDDFDA;
+  --charcoal: #222525;
+  --body-text: #404646;
+  --neutral-60: #7A7C7C;
+  --neutral-40: #A7A8A8;
+  --neutral-20: #D3D3D3;
+  --muted: #999999;
+  --alt-row: #fafafa;
+  --pos-fill: #B7E1CD;
+  --neg-fill: #F4C7C3;
+  --caution-fill: #FFF4E0;
+  --bg-linen: #F7F4F2;
+  --bg-cream: #FFF4E0;
+  --white: #FFFFFF;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Nunito Sans', 'Proxima Nova', sans-serif;
+  color: var(--body-text);
+  background: var(--bg-linen);
+  line-height: 1.5;
+}
+h1, h2, h3 { font-family: 'Song Myung', Georgia, serif; color: var(--charcoal); }
+
+/* Header */
+.page-header {
+  background: var(--charcoal);
+  color: var(--white);
+  padding: 28px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.page-header h1 { color: var(--white); font-size: 26px; }
+.page-header .subtitle { color: var(--kale-20); font-family: 'Nunito Sans', sans-serif; font-size: 13px; margin-top: 2px; }
+.page-header .meta { font-family: 'Nunito Sans', sans-serif; font-size: 11px; color: var(--neutral-40); text-align: right; line-height: 1.6; }
+
+/* Layout */
+.container { max-width: 1440px; margin: 0 auto; padding: 24px 32px 60px; }
+.section { margin-bottom: 32px; }
+.section-title { font-size: 20px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--kale); }
+
+/* Grade badge */
+.grade-row { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
+.grade-badge {
+  width: 80px; height: 80px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: var(--white);
+  font-family: 'Nunito Sans', sans-serif;
+  flex-shrink: 0;
+}
+.grade-A { background: var(--kale); }
+.grade-B { background: var(--kale-60); }
+.grade-C { background: #E8A735; }
+.grade-D { background: var(--guava-60); }
+.grade-F { background: var(--guava); }
+.verdict { font-size: 16px; color: var(--charcoal); font-weight: 600; }
+.verdict-detail { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Agent badges */
+.agent-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+.agent-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--white); border-radius: 6px;
+  padding: 8px 14px; font-size: 12px; font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.agent-badge .icon { font-size: 14px; }
+.status-ok .icon { color: var(--kale); }
+.status-warn .icon { color: #E8A735; }
+.status-error .icon { color: var(--guava); }
+
+/* Findings table */
+.findings-controls {
+  display: flex; gap: 12px; margin-bottom: 12px; align-items: center;
+  font-size: 12px;
+}
+.findings-controls select, .findings-controls label {
+  font-family: 'Nunito Sans', sans-serif; font-size: 12px;
+  padding: 4px 8px; border: 1px solid var(--neutral-20); border-radius: 4px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th {
+  background: var(--charcoal); color: var(--white);
+  padding: 8px 10px; text-align: left; font-weight: 600; font-size: 11px;
+  position: sticky; top: 0;
+}
+th:first-child { border-radius: 6px 0 0 0; }
+th:last-child { border-radius: 0 6px 0 0; }
+td { padding: 7px 10px; border-bottom: 1px solid #E1E1E2; vertical-align: top; }
+tr:nth-child(even) { background: var(--alt-row); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.sev-error { color: var(--guava); font-weight: 700; }
+.sev-warning { color: #E8A735; font-weight: 600; }
+.sev-info { color: var(--neutral-60); }
+
+details { margin-top: 4px; }
+details summary { cursor: pointer; color: var(--kale); font-size: 11px; }
+details .detail-body {
+  background: var(--bg-linen); border-radius: 4px;
+  padding: 10px 12px; margin-top: 6px; font-size: 11px; line-height: 1.6;
+}
+details .detail-body .rec {
+  background: var(--kale-20); border-radius: 4px;
+  padding: 6px 10px; margin-top: 8px; font-size: 11px;
+}
+
+/* Interactive Flowchart */
+.graph-container {
+  width: 100%; background: var(--white); border: 1px solid var(--neutral-20);
+  border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.graph-container svg { display: block; width: 100%; height: auto; }
+.node rect { transition: opacity 0.3s ease, filter 0.2s ease; cursor: pointer; }
+.node text { pointer-events: none; }
+.node:hover rect { filter: drop-shadow(0 2px 8px rgba(0,0,0,.12)); }
+.edge { transition: opacity 0.3s ease; }
+.edge line, .edge path { stroke-linecap: round; fill: none; }
+.dimmed { opacity: 0.12 !important; transition: opacity 0.4s ease; }
+.highlighted rect { filter: drop-shadow(0 0 8px currentColor); }
+.flow-particle { will-change: transform; }
+
+.flowchart-controls { margin-bottom: 12px; }
+.flow-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.flow-pill {
+  padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  cursor: pointer; border: 1.5px solid var(--neutral-20); background: var(--white);
+  color: var(--body-text); transition: all 0.2s; user-select: none;
+}
+.flow-pill:hover { border-color: var(--neutral-40); }
+.flow-pill.active { color: #fff; }
+.flowchart-narrative { font-size: 13px; color: var(--neutral-60); line-height: 1.6; }
+.flowchart-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--neutral-60); margin-bottom: 10px; }
+.fc-legend-item { display: flex; align-items: center; gap: 5px; }
+.fc-swatch { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+
+.fc-detail-panel {
+  position: fixed; right: -440px; top: 0; bottom: 0; width: 420px;
+  background: var(--white); border-left: 1px solid var(--neutral-20);
+  box-shadow: -4px 0 20px rgba(0,0,0,.08); z-index: 100; overflow-y: auto;
+  transition: right 0.3s ease; padding: 24px;
+}
+.fc-detail-panel.open { right: 0; }
+.fc-detail-close {
+  position: absolute; top: 16px; right: 16px; width: 28px; height: 28px;
+  border: none; background: var(--alt-row); border-radius: 6px; cursor: pointer;
+  font-size: 16px; color: var(--neutral-60); display: flex; align-items: center; justify-content: center;
+}
+.fc-detail-close:hover { background: var(--neutral-20); }
+.fc-detail-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.15); z-index: 90;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.fc-detail-overlay.visible { opacity: 1; pointer-events: auto; }
+
+/* Sparklines */
+.sparkline-row {
+  display: grid; grid-template-columns: 200px 1fr 100px;
+  align-items: center; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid #E1E1E2;
+}
+.sparkline-label { font-size: 12px; font-weight: 600; }
+.sparkline-delta { font-size: 12px; text-align: right; }
+
+/* Scorecard */
+.scorecard-grade {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  color: var(--white); font-size: 10px; font-weight: 700;
+}
+.grade-cell-A { background: var(--kale); }
+.grade-cell-B { background: var(--kale-60); }
+.grade-cell-C { background: #E8A735; }
+.grade-cell-D { background: var(--guava-60); }
+.grade-cell-F { background: var(--guava); }
+
+/* Tornado chart */
+.tornado-chart { width: 100%; max-width: 800px; }
+.tornado-bar-row { display: flex; align-items: center; margin-bottom: 6px; font-size: 12px; }
+.tornado-label { width: 180px; text-align: right; padding-right: 12px; font-weight: 600; }
+.tornado-bar-area { flex: 1; display: flex; align-items: center; position: relative; height: 24px; }
+.tornado-bar {
+  height: 20px; border-radius: 3px; position: absolute;
+}
+.tornado-neg { background: var(--guava-40); right: 50%; }
+.tornado-pos { background: var(--kale-40); left: 50%; }
+.tornado-center { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: var(--charcoal); }
+
+/* Provenance */
+.status-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 10px; font-weight: 700;
+}
+.status-verified { background: var(--pos-fill); color: var(--charcoal); }
+.status-cited { background: var(--kale-20); color: var(--charcoal); }
+.status-uncited { background: var(--neg-fill); color: var(--charcoal); }
+.status-stale { background: var(--caution-fill); color: var(--charcoal); }
+
+/* Audit trail */
+.audit-meta {
+  background: var(--white); border-radius: 8px; padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08); font-size: 12px;
+}
+.audit-meta dt { font-weight: 700; color: var(--charcoal); display: inline; }
+.audit-meta dd { display: inline; margin-left: 4px; margin-right: 20px; }
+
+/* Raw JSON */
+.raw-json pre {
+  background: var(--charcoal); color: var(--kale-20);
+  padding: 16px; border-radius: 6px; overflow-x: auto;
+  font-size: 11px; line-height: 1.5; max-height: 500px;
+}
+.copy-btn {
+  background: var(--kale); color: var(--white); border: none;
+  padding: 6px 14px; border-radius: 4px; font-size: 11px;
+  cursor: pointer; margin-bottom: 8px; font-family: 'Nunito Sans', sans-serif;
+}
+.copy-btn:hover { background: var(--kale-dark); }
+
+/* Cards */
+.card {
+  background: var(--white); border-radius: 8px;
+  padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .container { padding: 16px; }
+  .grade-row { flex-direction: column; align-items: flex-start; }
+}
+
+.folio { text-align: center; padding: 24px; font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <h1>Model Audit Report</h1>
+    <div class="subtitle">{{MODEL_PATH}}</div>
+  </div>
+  <div class="meta">
+    Generated {{TIMESTAMP}}<br>
+    Materiality: {{MATERIALITY}}
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Section 1: Executive Summary -->
+  <div class="section">
+    <div class="grade-row">
+      <div class="grade-badge grade-{{GRADE_LETTER}}">{{GRADE}}</div>
+      <div>
+        <div class="verdict">{{VERDICT}}</div>
+        <div class="verdict-detail">{{ERROR_COUNT}} errors, {{WARNING_COUNT}} warnings, {{INFO_COUNT}} info findings</div>
+      </div>
+    </div>
+    <div class="agent-row">
+      {{AGENT_BADGES}}
+    </div>
+  </div>
+
+  <!-- Section 2: Findings Table -->
+  <div class="section">
+    <h2 class="section-title">Findings</h2>
+    <div class="findings-controls">
+      <select id="filter-severity" onchange="filterFindings()">
+        <option value="all">All severities</option>
+        <option value="error">Errors only</option>
+        <option value="warning">Warnings only</option>
+        <option value="info">Info only</option>
+      </select>
+      <select id="filter-agent" onchange="filterFindings()">
+        <option value="all">All agents</option>
+        <option value="math-auditor">Math Auditor</option>
+        <option value="jump-detector">Jump Detector</option>
+        <option value="flowchart-mapper">Flowchart Mapper</option>
+        <option value="backtester">Backtester</option>
+        <option value="sensitivity">Sensitivity</option>
+        <option value="provenance">Provenance</option>
+      </select>
+      <label><input type="checkbox" id="filter-material" onchange="filterFindings()"> Material only</label>
+    </div>
+    <table id="findings-table">
+      <thead>
+        <tr>
+          <th style="width:70px">Severity</th>
+          <th style="width:70px">ID</th>
+          <th style="width:120px">Agent</th>
+          <th style="width:100px">Category</th>
+          <th>Title</th>
+          <th style="width:80px">Period</th>
+          <th style="width:90px">Delta</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{FINDINGS_ROWS}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Section 3: Interactive Flowchart -->
+  <div class="section" id="section-flowchart" style="{{FLOWCHART_DISPLAY}}">
+    <h2 class="section-title">Calculation Flowchart</h2>
+    <div class="flowchart-controls">
+      <div class="flow-pills" id="flow-pills"></div>
+      <p class="flowchart-narrative" id="flowchart-narrative">Click a flow path to trace data through the model, or click any node for details.</p>
+    </div>
+    <div class="flowchart-legend">
+      <span class="fc-legend-item"><span class="fc-swatch" style="background:#CEE6E6;border:1.5px solid #0A8080;"></span>Input</span>
+      <span class="fc-legend-item"><span class="fc-swatch" style="background:#fff;border:1.5px solid #7A7C7C;"></span>Calculation</span>
+      <span class="fc-legend-item"><span class="fc-swatch" style="background:#0A8080;"></span>Output</span>
+      <span class="fc-legend-item"><span class="fc-swatch" style="background:#FFF4E0;border:1.5px solid #E8A735;"></span>Hidden</span>
+      <span class="fc-legend-item"><span class="fc-swatch" style="background:#F4C7C3;border:1.5px solid #F45D48;"></span>Issue</span>
+    </div>
+    <div class="graph-container" id="flowchart-graph"></div>
+    <div id="fc-detail-overlay" class="fc-detail-overlay"></div>
+    <div id="fc-detail-panel" class="fc-detail-panel">
+      <button class="fc-detail-close" id="fc-detail-close">&times;</button>
+      <div id="fc-detail-content"></div>
+    </div>
+    {{FLOWCHART_FINDINGS}}
+  </div>
+
+  <!-- Section 4: Jump Analysis -->
+  <div class="section" id="section-jumps" style="{{JUMPS_DISPLAY}}">
+    <h2 class="section-title">Jump Analysis</h2>
+    <div class="card">
+      {{SPARKLINES}}
+    </div>
+  </div>
+
+  <!-- Section 5: Backtesting Scorecard -->
+  <div class="section" id="section-backtest" style="{{BACKTEST_DISPLAY}}">
+    <h2 class="section-title">Backtesting Scorecard</h2>
+    <div class="card">
+      {{SCORECARD}}
+    </div>
+  </div>
+
+  <!-- Section 6: Sensitivity Dashboard -->
+  <div class="section" id="section-sensitivity" style="{{SENSITIVITY_DISPLAY}}">
+    <h2 class="section-title">Sensitivity Analysis</h2>
+    <div class="card">
+      <h3 style="font-size:14px; margin-bottom:16px; font-family:'Nunito Sans',sans-serif;">Assumption Impact Ranking</h3>
+      {{TORNADO_CHART}}
+    </div>
+    {{SENSITIVITY_TABLES}}
+  </div>
+
+  <!-- Section 7: Provenance Map -->
+  <div class="section" id="section-provenance" style="{{PROVENANCE_DISPLAY}}">
+    <h2 class="section-title">Data Provenance</h2>
+    <div class="card">
+      {{PROVENANCE_MAP}}
+    </div>
+  </div>
+
+  <!-- Section 8: Version Delta -->
+  <div class="section" id="section-delta" style="{{DELTA_DISPLAY}}">
+    <h2 class="section-title">Version Comparison</h2>
+    <div class="card">
+      {{DELTA_SECTION}}
+    </div>
+  </div>
+
+  <!-- Section 9: Audit Trail -->
+  <div class="section">
+    <h2 class="section-title">Audit Trail</h2>
+    <div class="audit-meta">
+      {{AUDIT_META}}
+    </div>
+  </div>
+
+  <!-- Section 10: Raw JSON -->
+  <div class="section">
+    <h2 class="section-title">Raw Findings</h2>
+    <details>
+      <summary>Show audit-findings.json</summary>
+      <div class="raw-json" style="margin-top:8px;">
+        <button class="copy-btn" onclick="copyJSON()">Copy to clipboard</button>
+        <pre><code id="raw-json-content">{{RAW_JSON}}</code></pre>
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<div class="folio">Model Audit Report | Generated by Model Auditor Plugin</div>
+
+<script>
+// ── Interactive Flowchart Engine (embedded) ──
+(function() {
+  const GRAPH_DATA = {{GRAPH_DATA_JSON}};
+  if (!GRAPH_DATA || !GRAPH_DATA.nodes) return;
+
+  const APP = { activeFlow: null, nodeMap: {} };
+  GRAPH_DATA.nodes.forEach(n => { APP.nodeMap[n.id] = n; });
+
+  const NODE_COLORS = {
+    input:  { fill: '#CEE6E6', stroke: '#0A8080' },
+    calc:   { fill: '#FFFFFF', stroke: '#7A7C7C' },
+    output: { fill: '#0A8080', stroke: '#087070' },
+    hidden: { fill: '#FFF4E0', stroke: '#E8A735' },
+    broken: { fill: '#F4C7C3', stroke: '#F45D48' }
+  };
+
+  function needsDarkText(hex) {
+    if (!hex || hex === '#F0F0F0' || hex === '#FFFFFF' || hex === '#fff') return true;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+  }
+
+  function truncText(text, maxW, fs) {
+    const maxC = Math.floor((maxW - 12) / (fs * 0.56));
+    return text.length <= maxC ? text : text.slice(0, maxC - 1) + '\u2026';
+  }
+
+  // Build issue lookup
+  const issuesByNode = {};
+  (GRAPH_DATA.issues || []).forEach(iss => {
+    (iss.nodes_involved || []).forEach(nid => {
+      if (!issuesByNode[nid]) issuesByNode[nid] = [];
+      issuesByNode[nid].push(iss);
+    });
+  });
+
+  // Flow pills
+  const pillContainer = document.getElementById('flow-pills');
+  if (GRAPH_DATA.flows && GRAPH_DATA.flows.length > 0 && pillContainer) {
+    GRAPH_DATA.flows.forEach(flow => {
+      const pill = document.createElement('span');
+      pill.className = 'flow-pill';
+      pill.textContent = flow.label;
+      pill.dataset.flowId = flow.id;
+      pill.addEventListener('click', () => toggleFlow(flow));
+      pillContainer.appendChild(pill);
+    });
+  }
+
+  function toggleFlow(flow) {
+    const pills = document.querySelectorAll('#flow-pills .flow-pill');
+    const narr = document.getElementById('flowchart-narrative');
+    if (APP.activeFlow === flow.id) {
+      APP.activeFlow = null;
+      pills.forEach(p => { p.classList.remove('active'); p.style.background = ''; p.style.borderColor = ''; p.style.color = ''; });
+      document.querySelectorAll('#flowchart-graph .node, #flowchart-graph .edge').forEach(el => el.classList.remove('dimmed', 'highlighted'));
+      document.querySelectorAll('.flow-particle').forEach(p => p.remove());
+      if (narr) narr.textContent = 'Click a flow path to trace data through the model, or click any node for details.';
+      return;
+    }
+    APP.activeFlow = flow.id;
+    pills.forEach(p => {
+      if (p.dataset.flowId === flow.id) {
+        p.classList.add('active'); p.style.background = flow.color; p.style.borderColor = flow.color; p.style.color = '#fff';
+      } else {
+        p.classList.remove('active'); p.style.background = ''; p.style.borderColor = ''; p.style.color = '';
+      }
+    });
+    const pathSet = new Set(flow.path);
+    document.querySelectorAll('#flowchart-graph .node').forEach(el => {
+      if (pathSet.has(el.dataset.nodeId)) { el.classList.remove('dimmed'); el.classList.add('highlighted'); }
+      else { el.classList.add('dimmed'); el.classList.remove('highlighted'); }
+    });
+    document.querySelectorAll('#flowchart-graph .edge').forEach(el => {
+      if (pathSet.has(el.dataset.source) && pathSet.has(el.dataset.target)) el.classList.remove('dimmed');
+      else el.classList.add('dimmed');
+    });
+    if (narr) narr.textContent = flow.description;
+    animateParticles(flow);
+  }
+
+  function animateParticles(flow) {
+    document.querySelectorAll('.flow-particle').forEach(p => p.remove());
+    const svg = document.querySelector('#flowchart-graph svg');
+    if (!svg) return;
+    for (let i = 0; i < flow.path.length - 1; i++) {
+      const src = APP.nodeMap[flow.path[i]], tgt = APP.nodeMap[flow.path[i + 1]];
+      if (!src || !tgt) continue;
+      const sx = src.x + src.width / 2, sy = src.y + src.height / 2;
+      const tx = tgt.x + tgt.width / 2, ty = tgt.y + tgt.height / 2;
+      const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      particle.setAttribute('r', '5'); particle.setAttribute('fill', flow.color);
+      particle.setAttribute('opacity', '0.8'); particle.classList.add('flow-particle');
+      svg.appendChild(particle);
+      (function loop(idx) {
+        if (APP.activeFlow !== flow.id) { particle.remove(); return; }
+        d3.select(particle).attr('cx', sx).attr('cy', sy).attr('opacity', 0.8)
+          .transition().duration(1800).delay(idx * 400).ease(d3.easeLinear).attr('cx', tx).attr('cy', ty)
+          .transition().duration(200).attr('opacity', 0)
+          .on('end', () => { if (APP.activeFlow === flow.id) setTimeout(() => loop(idx), 600); else particle.remove(); });
+      })(i);
+    }
+  }
+
+  // Render graph
+  const container = document.getElementById('flowchart-graph');
+  if (!container) return;
+
+  let maxX = 0, maxY = 0;
+  GRAPH_DATA.nodes.forEach(n => { maxX = Math.max(maxX, n.x + n.width + 40); maxY = Math.max(maxY, n.y + n.height + 40); });
+  const vbW = Math.max(maxX, 800), vbH = Math.max(maxY, 400);
+
+  const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${vbW} ${vbH}`).attr('preserveAspectRatio', 'xMidYMid meet');
+  const edgeColors = new Set(GRAPH_DATA.edges.map(e => e.color || '#7A7C7C'));
+  const defs = svg.append('defs');
+  edgeColors.forEach(c => {
+    defs.append('marker').attr('id', `fca-${c.replace('#', '')}`).attr('viewBox', '0 0 10 6')
+      .attr('refX', 9).attr('refY', 3).attr('markerWidth', 6).attr('markerHeight', 4).attr('orient', 'auto')
+      .append('path').attr('d', 'M0 0L10 3L0 6z').attr('fill', c).attr('opacity', 0.6);
+  });
+
+  // Zones
+  if (GRAPH_DATA.zones) {
+    GRAPH_DATA.zones.forEach(z => {
+      svg.append('text').attr('class', 'zone-label').attr('x', z.labelX || 25).attr('y', z.labelY || 22)
+        .text(z.label.toUpperCase()).style('font-size', '9px').style('font-weight', '700')
+        .style('letter-spacing', '3px').style('fill', '#A7A8A8').style('font-family', "'Inter','Nunito Sans',sans-serif");
+      if (z.separatorX) {
+        svg.append('line').attr('x1', z.separatorX).attr('y1', 32).attr('x2', z.separatorX).attr('y2', vbH - 20)
+          .attr('stroke', '#E8E8E8').attr('stroke-width', 1);
+      }
+    });
+  }
+
+  // Tooltip
+  const tooltip = d3.select('body').append('div').style('position', 'fixed').style('background', '#222525')
+    .style('color', '#fff').style('padding', '8px 12px').style('border-radius', '6px').style('font-size', '11px')
+    .style('font-family', "'Inter','Nunito Sans',sans-serif").style('pointer-events', 'none').style('z-index', '60')
+    .style('max-width', '300px').style('line-height', '1.5').style('opacity', '0').style('transition', 'opacity 0.15s');
+
+  // Edges
+  GRAPH_DATA.edges.forEach(edge => {
+    const src = APP.nodeMap[edge.source], tgt = APP.nodeMap[edge.target];
+    if (!src || !tgt) return;
+    const color = edge.color || '#7A7C7C';
+    const eg = svg.append('g').attr('class', `edge ${edge.type === 'feedback' ? 'feedback' : ''}`)
+      .attr('data-source', edge.source).attr('data-target', edge.target);
+    if (edge.type === 'feedback') {
+      const sc = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+      const tc = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+      const mx = (sc.x + tc.x) / 2, my = Math.max(sc.y, tc.y) + 40;
+      eg.append('path').attr('d', `M ${sc.x} ${sc.y + src.height / 2} Q ${mx} ${my} ${tc.x} ${tc.y + tgt.height / 2}`)
+        .attr('stroke', color).attr('stroke-width', 1.8).attr('stroke-dasharray', '6,4').attr('opacity', 0.5)
+        .attr('fill', 'none').attr('marker-end', `url(#fca-${color.replace('#', '')})`);
+      if (edge.label) eg.append('text').attr('x', mx).attr('y', my - 5).attr('text-anchor', 'middle')
+        .attr('fill', color).attr('opacity', 0.6).style('font-size', '7px').text(edge.label);
+    } else {
+      const sc = { x: src.x + src.width / 2, y: src.y + src.height / 2 };
+      const tc = { x: tgt.x + tgt.width / 2, y: tgt.y + tgt.height / 2 };
+      const dx = tc.x - sc.x, dy = tc.y - sc.y, angle = Math.atan2(dy, dx);
+      const sx2 = sc.x + Math.cos(angle) * (src.width / 2 + 2), sy2 = sc.y + Math.sin(angle) * (src.height / 2 + 2);
+      const tx2 = tc.x - Math.cos(angle) * (tgt.width / 2 + 2), ty2 = tc.y - Math.sin(angle) * (tgt.height / 2 + 2);
+      eg.append('line').attr('x1', sx2).attr('y1', sy2).attr('x2', tx2).attr('y2', ty2)
+        .attr('stroke', color).attr('stroke-width', 1.4).attr('opacity', 0.45)
+        .attr('marker-end', `url(#fca-${color.replace('#', '')})`);
+      if (edge.label) eg.append('text').attr('x', (sx2 + tx2) / 2).attr('y', (sy2 + ty2) / 2 - 5)
+        .attr('text-anchor', 'middle').attr('fill', color).attr('opacity', 0.6).style('font-size', '7px').text(edge.label);
+    }
+  });
+
+  // Nodes
+  GRAPH_DATA.nodes.forEach(node => {
+    const colors = NODE_COLORS[node.type] || NODE_COLORS.calc;
+    const hasIssue = !!(issuesByNode[node.id] && issuesByNode[node.id].length);
+    const ec = hasIssue ? NODE_COLORS.broken : colors;
+    const ng = svg.append('g').attr('class', 'node').attr('data-node-id', node.id)
+      .attr('transform', `translate(${node.x + node.width / 2}, ${node.y + node.height / 2}) scale(1) translate(${-node.width / 2}, ${-node.height / 2})`);
+    ng.append('rect').attr('width', node.width).attr('height', node.height).attr('rx', 8).attr('ry', 8)
+      .attr('fill', ec.fill).attr('stroke', ec.stroke).attr('stroke-width', node.type === 'output' ? 2 : 1.2);
+    const dark = needsDarkText(ec.fill);
+    const textColor = dark ? '#222525' : '#FFFFFF';
+    const hasDesc = node.description && node.height >= 44;
+    const labelY = hasDesc ? node.height / 2 - 5 : node.height / 2 + 1;
+    ng.append('text').attr('x', node.width / 2).attr('y', labelY).attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle').attr('fill', textColor).style('font-size', '10px').style('font-weight', '600')
+      .style('pointer-events', 'none').style('font-family', "'Inter','Nunito Sans',sans-serif")
+      .text(truncText(node.label, node.width, 10));
+    if (hasDesc) {
+      ng.append('text').attr('x', node.width / 2).attr('y', labelY + 13).attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle').attr('fill', dark ? 'rgba(34,37,37,0.55)' : 'rgba(255,255,255,0.7)')
+        .style('font-size', '7px').style('pointer-events', 'none').style('font-family', "'Inter','Nunito Sans',sans-serif")
+        .text(truncText(node.description, node.width, 7));
+    }
+    const typeBadge = { input: 'INPUT', output: 'OUTPUT', hidden: 'HIDDEN' }[node.type] || '';
+    if (typeBadge) {
+      const bw = typeBadge.length * 5.5 + 8;
+      ng.append('rect').attr('x', node.width - bw - 3).attr('y', 3).attr('width', bw).attr('height', 13).attr('rx', 3).attr('fill', '#fff').attr('opacity', 0.9);
+      ng.append('text').attr('x', node.width - bw / 2 - 3).attr('y', 11.5).attr('text-anchor', 'middle')
+        .attr('fill', ec.stroke).style('font-size', '7px').style('font-weight', '700').style('letter-spacing', '0.4px')
+        .style('pointer-events', 'none').text(typeBadge);
+    }
+    if (hasIssue) ng.append('text').attr('x', 6).attr('y', node.height - 5).style('font-size', '10px').text('\u26A0');
+
+    const ncx = node.width / 2, ncy = node.height / 2;
+    ng.style('cursor', 'pointer');
+    ng.on('mouseenter', (ev) => {
+      ng.transition().duration(180).ease(d3.easeCubicOut)
+        .attr('transform', `translate(${node.x + ncx}, ${node.y + ncy}) scale(1.05) translate(${-ncx}, ${-ncy})`);
+      let h = `<div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;opacity:0.6">${node.type}</div>`;
+      h += `<strong>${node.label}</strong>`;
+      if (node.description) h += `<br>${node.description}`;
+      if (node.formula) h += `<div style="font-family:monospace;font-size:10px;background:rgba(255,255,255,0.1);padding:4px 6px;border-radius:3px;margin-top:6px">${node.formula}</div>`;
+      tooltip.html(h).style('left', (ev.clientX + 14) + 'px').style('top', (ev.clientY - 10) + 'px').style('opacity', 1);
+    }).on('mousemove', (ev) => {
+      tooltip.style('left', (ev.clientX + 14) + 'px').style('top', (ev.clientY - 10) + 'px');
+    }).on('mouseleave', () => {
+      ng.transition().duration(250).ease(d3.easeCubicIn)
+        .attr('transform', `translate(${node.x + ncx}, ${node.y + ncy}) scale(1) translate(${-ncx}, ${-ncy})`);
+      tooltip.style('opacity', 0);
+    }).on('click', () => openFcDetail(node));
+  });
+
+  // Detail panel
+  const detailPanel = document.getElementById('fc-detail-panel');
+  const detailOverlay = document.getElementById('fc-detail-overlay');
+  document.getElementById('fc-detail-close').addEventListener('click', closeFcDetail);
+  if (detailOverlay) detailOverlay.addEventListener('click', closeFcDetail);
+
+  function openFcDetail(node) {
+    const content = document.getElementById('fc-detail-content');
+    const typeLabel = { input: 'Input / Assumption', calc: 'Calculation', output: 'Output', hidden: 'Hidden Assumption' }[node.type] || 'Node';
+    const upstream = GRAPH_DATA.edges.filter(e => e.target === node.id).map(e => APP.nodeMap[e.source]).filter(Boolean);
+    const downstream = GRAPH_DATA.edges.filter(e => e.source === node.id).map(e => APP.nodeMap[e.target]).filter(Boolean);
+    const issues = (GRAPH_DATA.issues || []).filter(iss => (iss.nodes_involved || []).includes(node.id));
+    let h = `<div style="margin-bottom:20px"><div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:${(NODE_COLORS[node.type] || NODE_COLORS.calc).stroke};margin-bottom:4px">${typeLabel}</div>`;
+    h += `<div style="font-size:18px;font-weight:700;color:#222525;margin-bottom:4px">${node.label}</div>`;
+    if (node.code_name) h += `<span style="font-family:monospace;font-size:12px;color:#7A7C7C;background:#FAFAFA;padding:2px 6px;border-radius:4px">${node.code_name}</span>`;
+    h += '</div>';
+    if (node.description) h += `<p style="font-size:13px;color:#4E5151;margin-bottom:16px">${node.description}</p>`;
+    if (node.formula) h += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#A7A8A8;margin-bottom:8px">Formula</div><div style="background:#222525;color:#CEE6E6;padding:12px 14px;border-radius:6px;font-family:monospace;font-size:12px;line-height:1.6;word-break:break-all">${node.formula}</div></div>`;
+    if (node.value !== undefined) h += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#A7A8A8;margin-bottom:8px">Current Value</div><div style="font-size:16px;font-weight:700;color:#0A8080">${node.value}</div></div>`;
+    if (node.location) h += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#A7A8A8;margin-bottom:8px">Source</div><span style="font-family:monospace;font-size:12px;color:#7A7C7C;background:#FAFAFA;padding:2px 6px;border-radius:4px">${node.location}</span></div>`;
+    [['Feeds from', upstream], ['Feeds into', downstream]].forEach(([title, list]) => {
+      if (list.length === 0) return;
+      h += `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#A7A8A8;margin-bottom:8px">${title} (${list.length})</div><ul style="list-style:none;padding:0">`;
+      list.forEach(n => {
+        const c = NODE_COLORS[n.type] || NODE_COLORS.calc;
+        h += `<li style="padding:6px 0;border-bottom:1px solid #E8E8E8;font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer" data-node-id="${n.id}"><span style="width:8px;height:8px;border-radius:50%;background:${c.fill};border:1px solid ${c.stroke};flex-shrink:0"></span>${n.label}</li>`;
+      });
+      h += '</ul></div>';
+    });
+    if (issues.length > 0) {
+      h += '<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#A7A8A8;margin-bottom:8px">Issues</div>';
+      issues.forEach(iss => {
+        const bg = iss.severity === 'error' ? '#F4C7C3' : '#FFF4E0';
+        const border = iss.severity === 'error' ? '#F45D48' : '#E8A735';
+        h += `<div style="padding:10px 12px;border-radius:6px;background:${bg};border-left:3px solid ${border};margin-bottom:8px;font-size:12px"><div style="font-weight:600;margin-bottom:2px">${iss.id}: ${iss.title}</div><div style="font-size:11px;color:#4E5151;line-height:1.5">${iss.description}</div>`;
+        if (iss.recommendation) h += `<div style="font-size:11px;color:#4E5151;margin-top:6px;font-style:italic">\u2192 ${iss.recommendation}</div>`;
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    content.innerHTML = h;
+    content.querySelectorAll('li[data-node-id]').forEach(li => {
+      li.addEventListener('click', () => { const n = APP.nodeMap[li.dataset.nodeId]; if (n) openFcDetail(n); });
+    });
+    detailPanel.classList.add('open');
+    if (detailOverlay) detailOverlay.classList.add('visible');
+  }
+
+  function closeFcDetail() {
+    detailPanel.classList.remove('open');
+    if (detailOverlay) detailOverlay.classList.remove('visible');
+  }
+})();
+
+function filterFindings() {
+  const severity = document.getElementById('filter-severity').value;
+  const agent = document.getElementById('filter-agent').value;
+  const materialOnly = document.getElementById('filter-material').checked;
+  const rows = document.querySelectorAll('#findings-table tbody tr');
+  rows.forEach(row => {
+    const s = row.dataset.severity;
+    const a = row.dataset.agent;
+    const m = row.dataset.material;
+    let show = true;
+    if (severity !== 'all' && s !== severity) show = false;
+    if (agent !== 'all' && a !== agent) show = false;
+    if (materialOnly && m === 'false') show = false;
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function copyJSON() {
+  const json = document.getElementById('raw-json-content').textContent;
+  navigator.clipboard.writeText(json).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to clipboard', 2000);
+  });
+}
+</script>
+</body>
+</html>
