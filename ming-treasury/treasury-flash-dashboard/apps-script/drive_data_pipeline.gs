@@ -1439,3 +1439,12 @@ function backfillFromManifest(manifestFileId) {
     Logger.log('Stack: ' + (err.stack || 'N/A'));
   }
 }
+
+function testOneJPM() {
+  var fileId = "1Q0oQJLu4NVSG3m14GxYGBkgXrGE1q6-_";
+  var result = processJpmFile_(fileId, "test.xls");
+  Logger.log("Corporate records: " + result.corporate.length);
+  if (result.corporate.length > 0) {
+    Logger.log("Sample: " + JSON.stringify(result.corporate[0]));
+  }
+}
