@@ -846,14 +846,14 @@ function processJpmFile_(fileId, fileName) {
 
       var accountNumber = String(getJpmCellValue_(row, colMapping.accountNumber) || '').trim();
 
-      // Get the balance (use Current Balance / Current Ledger as primary)
+      // Get the balance (use Current Available as primary — matches JPM Export tab)
       var balanceValue = null;
-      if (colMapping.currentBalance !== undefined) {
-        balanceValue = parseJpmNumeric_(getJpmCellValue_(row, colMapping.currentBalance));
-      }
-      // Fallback to Current Available if no Current Balance
-      if (balanceValue === null && colMapping.currentAvailable !== undefined) {
+      if (colMapping.currentAvailable !== undefined) {
         balanceValue = parseJpmNumeric_(getJpmCellValue_(row, colMapping.currentAvailable));
+      }
+      // Fallback to Current Balance if no Current Available
+      if (balanceValue === null && colMapping.currentBalance !== undefined) {
+        balanceValue = parseJpmNumeric_(getJpmCellValue_(row, colMapping.currentBalance));
       }
       if (balanceValue === null) balanceValue = 0;
 
