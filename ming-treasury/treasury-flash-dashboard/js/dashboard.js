@@ -3,24 +3,12 @@
  * Loads corporate and gustomer cash data, calculates KPIs,
  * renders Chart.js line charts and account detail tables.
  *
- * Data source priority:
- * 1. Google Apps Script web app (live from Google Sheet) if APPS_SCRIPT_URL is set
- * 2. Static JSON files (data/corporate_cash.json, data/gustomer_cash.json) as fallback
+ * Data source: Static JSON files (data/corporate_cash.json, data/gustomer_cash.json)
+ * kept up-to-date by the Apps Script pipeline pushing to GitHub.
  */
 
 (function () {
   'use strict';
-
-  // ===== Data Source Configuration =====
-  //
-  // After deploying the Apps Script (see apps-script/sheet_data_api.gs),
-  // paste the deployed web app URL here. Set to null to use static JSON only.
-  //
-  // Example: 'https://script.google.com/macros/s/AKfycbx.../exec'
-  var APPS_SCRIPT_URL = 'https://script.google.com/a/macros/gusto.com/s/AKfycbwPVAD6xflKgIhcgb7OJOd43QllgB3wqfs-iWv8U3yrsx_J5kDvHMk0UYbzPJ_SgZCfeg/exec';
-
-  // Number of business days to fetch from the Apps Script (ignored for static JSON)
-  var APPS_SCRIPT_DAYS = 12;
 
   // ===== Utility Functions =====
 
@@ -189,32 +177,13 @@
   }
 
   /**
-   * Fetch data from the Apps Script web app.
+   * Load dashboard data from static JSON files.
+   * The JSON files are kept up-to-date by the Apps Script pipeline
+   * which commits directly to GitHub.
+   *
    * Returns a promise that resolves to {corporate: [...], gustomer: [...]}.
    */
-  function fetchFromAppsScript(url, days) {
-    var fullUrl = url + '?days=' + (days || APPS_SCRIPT_DAYS);
-    return fetch(fullUrl)
-      .then(function (res) {
-        if (!res.ok) throw new Error('Apps Script returned HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function (data) {
-        if (data.error) {
-          throw new Error('Apps Script error: ' + data.error);
-        }
-        return {
-          corporate: data.corporate || [],
-          gustomer: data.gustomer || []
-        };
-      });
-  }
-
-  /**
-   * Fetch data from static JSON files (original approach).
-   * Returns a promise that resolves to {corporate: [...], gustomer: [...]}.
-   */
-  function fetchFromStaticJSON() {
+  function loadDashboardData() {
     return Promise.all([
       fetchJSON('data/corporate_cash.json'),
       fetchJSON('data/gustomer_cash.json')
@@ -224,47 +193,6 @@
         gustomer: results[1]
       };
     });
-  }
-
-  /**
-   * Load dashboard data with fallback:
-   *   1. Try Apps Script URL if configured
-   *   2. Fall back to static JSON files on failure
-   */
-  function loadDashboardData() {
-    if (APPS_SCRIPT_URL) {
-      var usedFallback = false;
-      return fetchFromAppsScript(APPS_SCRIPT_URL, APPS_SCRIPT_DAYS)
-        .catch(function (err) {
-          console.warn('Apps Script fetch failed, falling back to static JSON:', err.message);
-          usedFallback = true;
-          updateDataSourceIndicator('static', err.message);
-          return fetchFromStaticJSON();
-        })
-        .then(function (data) {
-          if (!usedFallback) {
-            updateDataSourceIndicator('live');
-          }
-          return data;
-        });
-    }
-    updateDataSourceIndicator('static');
-    return fetchFromStaticJSON();
-  }
-
-  /**
-   * Update a small indicator in the UI showing the data source.
-   */
-  function updateDataSourceIndicator(source, errorMsg) {
-    var el = document.getElementById('data-source-indicator');
-    if (!el) return;
-    if (source === 'live') {
-      el.textContent = 'Live data from Google Sheet';
-      el.className = 'data-source-live';
-    } else {
-      el.textContent = 'Static JSON data' + (errorMsg ? ' (live fetch failed)' : '');
-      el.className = 'data-source-static';
-    }
   }
 
   // ===== Chart Rendering =====
@@ -594,9 +522,7 @@
         if (dash) {
           dash.innerHTML =
             '<div class="loading" style="color:#ef4444;">Error loading data. ' +
-            (APPS_SCRIPT_URL
-              ? 'Check Apps Script URL and sheet permissions. '
-              : 'Make sure JSON files are accessible. ') +
+            'Make sure JSON files are accessible. ' +
             err.message +
             '</div>';
         }

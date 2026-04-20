@@ -1,15 +1,14 @@
 /**
- * Treasury Flash Dashboard - Drive Data Pipeline
+ * Treasury Flash Dashboard - Drive Data Pipeline (GitHub-backed)
  *
  * Reads JPM and PNC bank files that were saved to Google Drive by the Gmail
- * Attachment Downloader, parses balances, and stores daily snapshots in a
- * dedicated "Treasury Dashboard Data" Google Sheet. Serves the accumulated
- * data as JSON via a doGet() web app endpoint.
+ * Attachment Downloader, parses balances, and pushes daily snapshots as JSON
+ * files directly to a GitHub repository.
  *
  * DATA FLOW:
  *   Gmail Attachment Downloader -> Google Drive (PNC CSVs, JPM XLS files, manifest JSONs)
- *     -> This script reads from Drive, parses, stores in Dashboard Data sheet
- *       -> doGet() serves JSON to the dashboard front-end
+ *     -> This script reads from Drive, parses, pushes JSON to GitHub
+ *       -> GitHub Pages / raw files serve JSON to the dashboard front-end
  *
  * FILE NAMING CONVENTIONS (saved by the attachment downloader):
  *   PNC Balance CSV:  20260420_150218_1101_20260420_0859AM_Balance.csv
@@ -20,9 +19,11 @@
  *   { files: [ { originalName, driveFileId, mimeType, ... }, ... ] }
  *
  * STORAGE:
- *   A dedicated Google Sheet ("Treasury Dashboard Data") with two tabs:
- *     - "corporate_daily": date | account_name | value
- *     - "gustomer_daily":  date | account_name | value
+ *   Two JSON files committed to GitHub:
+ *     - ming-treasury/treasury-flash-dashboard/data/corporate_cash.json
+ *     - ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json
+ *   Each file is an array of:
+ *     [{ account_description: "...", reporting_date: "YYYY-MM-DD", value: 123.45 }, ...]
  *   Keeps 252 business days of history (approx 1 year of trading days).
  *
  * DEPLOYMENT:
@@ -30,16 +31,17 @@
  *   2. Paste this entire file as Code.gs (or add as a .gs file)
  *   3. Enable the Drive API advanced service:
  *      Resources > Advanced Google Services > Drive API > ON
- *   4. Run setupPipelineTrigger() once to install the daily trigger
- *   5. Deploy as web app:
- *      Deploy > New deployment > Web app
- *      Execute as: Me | Who has access: Anyone (or within Gusto)
- *   6. Copy the web app URL into the dashboard's APPS_SCRIPT_URL config
+ *   4. Store your GitHub personal access token in Script Properties:
+ *      Project Settings > Script Properties > Add:
+ *        Property: GITHUB_TOKEN
+ *        Value:    ghp_... (your token with repo scope)
+ *   5. Run setupPipelineTrigger() once to install the daily trigger
  *
  * PREREQUISITES:
  *   - Drive API advanced service enabled
  *   - Gmail Attachment Downloader has already saved files to Drive
  *   - Script timezone set to America/New_York
+ *   - GITHUB_TOKEN set in Script Properties (needs repo scope)
  */
 
 // ============================================================================
@@ -47,15 +49,6 @@
 // ============================================================================
 
 var PIPELINE_CONFIG = {
-  // The dedicated sheet for storing dashboard time-series data.
-  // Created automatically on first run if it does not exist.
-  DATA_SHEET_NAME: 'Treasury Dashboard Data',
-  DATA_SHEET_ID: null, // populated at runtime by getOrCreateDataSheet_()
-
-  // Tab names within the data sheet
-  CORPORATE_TAB: 'corporate_daily',
-  GUSTOMER_TAB: 'gustomer_daily',
-
   // Maximum business days of history to retain
   MAX_BUSINESS_DAYS: 252,
 
@@ -78,11 +71,15 @@ var PIPELINE_CONFIG = {
   // Notification email on errors
   NOTIFICATION_EMAIL: 'ming.huey@gusto.com',
 
-  // Number of days to serve by default via doGet()
-  DEFAULT_SERVE_DAYS: 12,
-
   // Temp file prefix for JPM XLS conversion
-  TEMP_PREFIX: '_TEMP_PIPELINE_JPM_'
+  TEMP_PREFIX: '_TEMP_PIPELINE_JPM_',
+
+  // GitHub repository details
+  GITHUB_OWNER: 'gustomingh',
+  GITHUB_REPO: 'Ming-Treasury',
+  GITHUB_BRANCH: 'ming-treasury',
+  GITHUB_CORPORATE_PATH: 'ming-treasury/treasury-flash-dashboard/data/corporate_cash.json',
+  GITHUB_GUSTOMER_PATH: 'ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json'
 };
 
 // ============================================================================
@@ -156,12 +153,145 @@ var JPM_ACCOUNT_MAP = {
 };
 
 // ============================================================================
+// GITHUB API FUNCTIONS
+// ============================================================================
+
+/**
+ * Retrieves the GitHub personal access token from Script Properties.
+ *
+ * SETUP: Project Settings > Script Properties > Add:
+ *   Property: GITHUB_TOKEN
+ *   Value:    ghp_... (your token with "repo" scope)
+ *
+ * @return {string} The GitHub token
+ * @throws {Error}  If the token is not configured
+ */
+function getGitHubToken_() {
+  var token = PropertiesService.getScriptProperties().getProperty('GITHUB_TOKEN');
+  if (!token) {
+    throw new Error(
+      'GITHUB_TOKEN not found in Script Properties. ' +
+      'Go to Project Settings > Script Properties and add: ' +
+      'GITHUB_TOKEN = ghp_...'
+    );
+  }
+  return token;
+}
+
+/**
+ * Reads a file from a GitHub repository via the Contents API.
+ *
+ * GET /repos/:owner/:repo/contents/:path?ref=:branch
+ *
+ * @param  {string} filePath  Path within the repo (e.g. "data/corporate_cash.json")
+ * @return {Object}           { content: <parsed JSON>, sha: <string> }
+ *                            content is the decoded file contents (parsed as JSON);
+ *                            sha is needed for subsequent updates.
+ *                            Returns { content: [], sha: null } if the file does not exist.
+ */
+function readFileFromGitHub_(filePath) {
+  var token = getGitHubToken_();
+  var url = 'https://api.github.com/repos/' +
+            PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+            PIPELINE_CONFIG.GITHUB_REPO +
+            '/contents/' + filePath +
+            '?ref=' + PIPELINE_CONFIG.GITHUB_BRANCH;
+
+  var options = {
+    method: 'get',
+    headers: {
+      'Authorization': 'token ' + token,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'TreasuryDashboard-AppsScript'
+    },
+    muteHttpExceptions: true
+  };
+
+  var response = UrlFetchApp.fetch(url, options);
+  var code = response.getResponseCode();
+
+  if (code === 404) {
+    Logger.log('GitHub file not found (will be created): ' + filePath);
+    return { content: [], sha: null };
+  }
+
+  if (code !== 200) {
+    throw new Error('GitHub API GET failed (' + code + '): ' + response.getContentText());
+  }
+
+  var json = JSON.parse(response.getContentText());
+
+  // The content is base64-encoded; decode it
+  var decoded = Utilities.newBlob(
+    Utilities.base64Decode(json.content.replace(/\n/g, ''))
+  ).getDataAsString();
+
+  var parsed = JSON.parse(decoded);
+  return { content: parsed, sha: json.sha };
+}
+
+/**
+ * Updates (or creates) a file in a GitHub repository via the Contents API.
+ *
+ * PUT /repos/:owner/:repo/contents/:path
+ *
+ * @param {string} filePath    Path within the repo
+ * @param {Array}  jsonContent The data to write (will be JSON-stringified)
+ * @param {string|null} sha    The current file SHA (required for updates, null for creates)
+ * @param {string} commitMsg   Commit message
+ */
+function writeFileToGitHub_(filePath, jsonContent, sha, commitMsg) {
+  var token = getGitHubToken_();
+  var url = 'https://api.github.com/repos/' +
+            PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+            PIPELINE_CONFIG.GITHUB_REPO +
+            '/contents/' + filePath;
+
+  var contentStr = JSON.stringify(jsonContent, null, 2);
+  var base64Content = Utilities.base64Encode(
+    Utilities.newBlob(contentStr).getBytes()
+  );
+
+  var payload = {
+    message: commitMsg,
+    content: base64Content,
+    branch: PIPELINE_CONFIG.GITHUB_BRANCH
+  };
+
+  if (sha) {
+    payload.sha = sha;
+  }
+
+  var options = {
+    method: 'put',
+    headers: {
+      'Authorization': 'token ' + token,
+      'Accept': 'application/vnd.github.v3+json',
+      'User-Agent': 'TreasuryDashboard-AppsScript'
+    },
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  var response = UrlFetchApp.fetch(url, options);
+  var code = response.getResponseCode();
+
+  if (code !== 200 && code !== 201) {
+    throw new Error('GitHub API PUT failed (' + code + '): ' + response.getContentText());
+  }
+
+  Logger.log('Successfully committed ' + filePath + ' to GitHub (' + code + ').');
+}
+
+// ============================================================================
 // MAIN PROCESSING FUNCTION (triggered daily)
 // ============================================================================
 
 /**
  * Main daily processing function. Finds today's manifest from Drive,
- * reads PNC and JPM files, parses balances, and appends to the data sheet.
+ * reads PNC and JPM files, parses balances, merges with existing GitHub
+ * JSON data, and pushes the updated files back to GitHub.
  *
  * Intended to run daily at ~11:00 AM ET via time-driven trigger, after
  * the attachment downloader has saved the files.
@@ -223,14 +353,23 @@ function processDailyData() {
     Logger.log('Parsed totals - Corporate: ' + corporateRecords.length +
                ' records, Gustomer: ' + gustomerRecords.length + ' records.');
 
-    // Step 4: Write to the data sheet
+    // Step 4: Merge with existing GitHub data and push updates
     if (corporateRecords.length > 0 || gustomerRecords.length > 0) {
-      var dataSheet = getOrCreateDataSheet_();
+      var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+
       if (corporateRecords.length > 0) {
-        appendRecordsToTab_(dataSheet, PIPELINE_CONFIG.CORPORATE_TAB, corporateRecords);
+        mergeAndPushToGitHub_(
+          PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
+          corporateRecords,
+          'Update corporate_cash.json for ' + todayStr
+        );
       }
       if (gustomerRecords.length > 0) {
-        appendRecordsToTab_(dataSheet, PIPELINE_CONFIG.GUSTOMER_TAB, gustomerRecords);
+        mergeAndPushToGitHub_(
+          PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
+          gustomerRecords,
+          'Update gustomer_cash.json for ' + todayStr
+        );
       }
     }
 
@@ -242,6 +381,115 @@ function processDailyData() {
     Logger.log('Stack: ' + (err.stack || 'N/A'));
     sendPipelineErrorNotification_(err, 'processDailyData');
   }
+}
+
+// ============================================================================
+// GITHUB MERGE & PUSH LOGIC
+// ============================================================================
+
+/**
+ * Reads the current JSON from GitHub, appends new records (replacing any
+ * records that share the same date), trims to MAX_BUSINESS_DAYS unique
+ * dates, and commits the result back to GitHub.
+ *
+ * @param {string}   filePath    GitHub repo path to the JSON file
+ * @param {Object[]} newRecords  Array of { date, account_name, value }
+ * @param {string}   commitMsg   Commit message
+ */
+function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
+  Logger.log('Merging data into GitHub: ' + filePath);
+
+  // Step 1: Read the current JSON from GitHub
+  var ghFile = readFileFromGitHub_(filePath);
+  var existingData = ghFile.content; // Array of { account_description, reporting_date, value }
+  var sha = ghFile.sha;
+
+  Logger.log('Existing records from GitHub: ' + existingData.length);
+
+  // Step 2: Determine which dates are being updated
+  var newDates = {};
+  for (var i = 0; i < newRecords.length; i++) {
+    newDates[newRecords[i].date] = true;
+  }
+
+  // Step 3: Filter out existing records for dates being replaced
+  var keptRecords = [];
+  for (var j = 0; j < existingData.length; j++) {
+    var existingDate = existingData[j].reporting_date;
+    if (!newDates[existingDate]) {
+      keptRecords.push(existingData[j]);
+    }
+  }
+
+  // Step 4: Convert new records to the JSON format and append
+  for (var k = 0; k < newRecords.length; k++) {
+    keptRecords.push({
+      account_description: newRecords[k].account_name,
+      reporting_date: newRecords[k].date,
+      value: newRecords[k].value
+    });
+  }
+
+  // Step 5: Sort by date ascending, then by account_description
+  keptRecords.sort(function(a, b) {
+    if (a.reporting_date < b.reporting_date) return -1;
+    if (a.reporting_date > b.reporting_date) return 1;
+    if (a.account_description < b.account_description) return -1;
+    if (a.account_description > b.account_description) return 1;
+    return 0;
+  });
+
+  // Step 6: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
+  keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
+
+  Logger.log('Total records after merge and trim: ' + keptRecords.length);
+
+  // Step 7: Push the updated JSON back to GitHub
+  writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
+}
+
+/**
+ * Trims a sorted array of JSON records to keep only the last
+ * MAX_BUSINESS_DAYS unique reporting_date values.
+ *
+ * @param  {Object[]} records  Sorted array of { account_description, reporting_date, value }
+ * @return {Object[]}          Trimmed array
+ */
+function trimToMaxBusinessDaysJson_(records) {
+  if (records.length === 0) return records;
+
+  // Collect unique dates
+  var uniqueDates = [];
+  var seenDates = {};
+  for (var i = 0; i < records.length; i++) {
+    var d = records[i].reporting_date;
+    if (!seenDates[d]) {
+      seenDates[d] = true;
+      uniqueDates.push(d);
+    }
+  }
+
+  // If within limits, return as-is
+  if (uniqueDates.length <= PIPELINE_CONFIG.MAX_BUSINESS_DAYS) {
+    return records;
+  }
+
+  // Keep only the most recent MAX_BUSINESS_DAYS dates
+  uniqueDates.sort();
+  var cutoffIndex = uniqueDates.length - PIPELINE_CONFIG.MAX_BUSINESS_DAYS;
+  var cutoffDate = uniqueDates[cutoffIndex];
+
+  Logger.log('Trimming data: keeping dates from ' + cutoffDate + ' onward (' +
+             PIPELINE_CONFIG.MAX_BUSINESS_DAYS + ' unique dates).');
+
+  var trimmed = [];
+  for (var j = 0; j < records.length; j++) {
+    if (records[j].reporting_date >= cutoffDate) {
+      trimmed.push(records[j]);
+    }
+  }
+
+  return trimmed;
 }
 
 // ============================================================================
@@ -736,330 +984,6 @@ function parseJpmDateToISO_(val) {
 }
 
 // ============================================================================
-// DATA SHEET MANAGEMENT
-// ============================================================================
-
-/**
- * Gets or creates the "Treasury Dashboard Data" Google Sheet.
- * Creates two tabs: "corporate_daily" and "gustomer_daily", each with
- * columns: date | account_name | value
- *
- * @return {Spreadsheet} Google Spreadsheet object
- */
-function getOrCreateDataSheet_() {
-  // If we already have the ID cached from a previous call this run, use it
-  if (PIPELINE_CONFIG.DATA_SHEET_ID) {
-    try {
-      return SpreadsheetApp.openById(PIPELINE_CONFIG.DATA_SHEET_ID);
-    } catch (e) {
-      Logger.log('Cached DATA_SHEET_ID invalid, searching Drive...');
-      PIPELINE_CONFIG.DATA_SHEET_ID = null;
-    }
-  }
-
-  // Search Drive for existing sheet by name
-  var files = DriveApp.searchFiles(
-    'title = "' + PIPELINE_CONFIG.DATA_SHEET_NAME + '"' +
-    ' and mimeType = "application/vnd.google-apps.spreadsheet"' +
-    ' and trashed = false'
-  );
-
-  if (files.hasNext()) {
-    var existing = files.next();
-    PIPELINE_CONFIG.DATA_SHEET_ID = existing.getId();
-    Logger.log('Found existing data sheet: ' + PIPELINE_CONFIG.DATA_SHEET_ID);
-    var ss = SpreadsheetApp.openById(PIPELINE_CONFIG.DATA_SHEET_ID);
-
-    // Ensure both tabs exist
-    ensureTab_(ss, PIPELINE_CONFIG.CORPORATE_TAB);
-    ensureTab_(ss, PIPELINE_CONFIG.GUSTOMER_TAB);
-
-    return ss;
-  }
-
-  // Create new sheet
-  Logger.log('Creating new data sheet: ' + PIPELINE_CONFIG.DATA_SHEET_NAME);
-  var ss = SpreadsheetApp.create(PIPELINE_CONFIG.DATA_SHEET_NAME);
-  PIPELINE_CONFIG.DATA_SHEET_ID = ss.getId();
-
-  // Rename the default "Sheet1" to the corporate tab
-  var defaultSheet = ss.getSheets()[0];
-  defaultSheet.setName(PIPELINE_CONFIG.CORPORATE_TAB);
-  defaultSheet.getRange(1, 1, 1, 3).setValues([['date', 'account_name', 'value']]);
-  defaultSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
-
-  // Create the gustomer tab
-  var gustomerSheet = ss.insertSheet(PIPELINE_CONFIG.GUSTOMER_TAB);
-  gustomerSheet.getRange(1, 1, 1, 3).setValues([['date', 'account_name', 'value']]);
-  gustomerSheet.getRange(1, 1, 1, 3).setFontWeight('bold');
-
-  Logger.log('Created data sheet with ID: ' + PIPELINE_CONFIG.DATA_SHEET_ID);
-  return ss;
-}
-
-/**
- * Ensures a tab exists in the spreadsheet. If missing, creates it with headers.
- *
- * @param {Spreadsheet} ss       Spreadsheet object
- * @param {string}      tabName  Tab name to ensure
- */
-function ensureTab_(ss, tabName) {
-  var sheet = ss.getSheetByName(tabName);
-  if (!sheet) {
-    Logger.log('Creating missing tab: ' + tabName);
-    sheet = ss.insertSheet(tabName);
-    sheet.getRange(1, 1, 1, 3).setValues([['date', 'account_name', 'value']]);
-    sheet.getRange(1, 1, 1, 3).setFontWeight('bold');
-  }
-}
-
-/**
- * Appends new records to a tab in the data sheet. If records for today's date
- * already exist, they are replaced (to support re-runs). Then trims to keep
- * only the last MAX_BUSINESS_DAYS worth of unique dates.
- *
- * @param {Spreadsheet} ss       Data spreadsheet
- * @param {string}      tabName  Tab name ("corporate_daily" or "gustomer_daily")
- * @param {Object[]}    records  Array of { date, account_name, value }
- */
-function appendRecordsToTab_(ss, tabName, records) {
-  var sheet = ss.getSheetByName(tabName);
-  if (!sheet) {
-    throw new Error('Tab "' + tabName + '" not found in data sheet.');
-  }
-
-  Logger.log('Appending ' + records.length + ' records to "' + tabName + '"...');
-
-  // Read existing data (skip header in row 1)
-  var lastRow = sheet.getLastRow();
-  var existingData = [];
-  if (lastRow >= 2) {
-    existingData = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-  }
-
-  // Determine which dates are being updated
-  var newDates = {};
-  for (var i = 0; i < records.length; i++) {
-    newDates[records[i].date] = true;
-  }
-
-  // Filter out existing rows for dates being replaced
-  var keptRows = [];
-  for (var j = 0; j < existingData.length; j++) {
-    var existingDate = String(existingData[j][0]).trim();
-    // Handle Date objects from Sheets
-    if (existingData[j][0] instanceof Date) {
-      existingDate = Utilities.formatDate(existingData[j][0], 'America/New_York', 'yyyy-MM-dd');
-    }
-    if (!newDates[existingDate]) {
-      keptRows.push(existingData[j]);
-    }
-  }
-
-  // Append new records
-  for (var k = 0; k < records.length; k++) {
-    keptRows.push([
-      records[k].date,
-      records[k].account_name,
-      records[k].value
-    ]);
-  }
-
-  // Sort by date ascending, then by account_name
-  keptRows.sort(function(a, b) {
-    var dateA = String(a[0]);
-    var dateB = String(b[0]);
-    if (dateA < dateB) return -1;
-    if (dateA > dateB) return 1;
-    var nameA = String(a[1]);
-    var nameB = String(b[1]);
-    if (nameA < nameB) return -1;
-    if (nameA > nameB) return 1;
-    return 0;
-  });
-
-  // Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
-  keptRows = trimToMaxBusinessDays_(keptRows);
-
-  // Clear existing data and write everything back
-  if (lastRow >= 2) {
-    sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
-  }
-
-  if (keptRows.length > 0) {
-    sheet.getRange(2, 1, keptRows.length, 3).setValues(keptRows);
-  }
-
-  Logger.log('Wrote ' + keptRows.length + ' total rows to "' + tabName + '".');
-}
-
-/**
- * Trims a sorted array of [date, account_name, value] rows to keep only
- * the last MAX_BUSINESS_DAYS unique dates.
- *
- * @param  {Array[]} rows  Sorted 2D array
- * @return {Array[]}       Trimmed 2D array
- */
-function trimToMaxBusinessDays_(rows) {
-  if (rows.length === 0) return rows;
-
-  // Collect unique dates
-  var uniqueDates = [];
-  var seenDates = {};
-  for (var i = 0; i < rows.length; i++) {
-    var d = String(rows[i][0]);
-    if (!seenDates[d]) {
-      seenDates[d] = true;
-      uniqueDates.push(d);
-    }
-  }
-
-  // If within limits, return as-is
-  if (uniqueDates.length <= PIPELINE_CONFIG.MAX_BUSINESS_DAYS) {
-    return rows;
-  }
-
-  // Keep only the most recent MAX_BUSINESS_DAYS dates
-  uniqueDates.sort();
-  var cutoffIndex = uniqueDates.length - PIPELINE_CONFIG.MAX_BUSINESS_DAYS;
-  var cutoffDate = uniqueDates[cutoffIndex];
-
-  Logger.log('Trimming data: keeping dates from ' + cutoffDate + ' onward (' +
-             PIPELINE_CONFIG.MAX_BUSINESS_DAYS + ' unique dates).');
-
-  var trimmed = [];
-  for (var j = 0; j < rows.length; j++) {
-    if (String(rows[j][0]) >= cutoffDate) {
-      trimmed.push(rows[j]);
-    }
-  }
-
-  return trimmed;
-}
-
-// ============================================================================
-// WEB APP: doGet() - Serve data as JSON
-// ============================================================================
-
-/**
- * Web app entry point. Reads from the "Treasury Dashboard Data" sheet
- * and serves JSON in the format expected by the dashboard:
- *   {
- *     corporate: [ { account_description, reporting_date, value }, ... ],
- *     gustomer:  [ { account_description, reporting_date, value }, ... ],
- *     generated_at: "...",
- *     days_requested: N
- *   }
- *
- * Query parameters:
- *   ?type=corporate|gustomer|all  (default: all)
- *   ?days=N                       (default: 12)
- *
- * @param  {Object} e  Event object with URL parameters
- * @return {TextOutput} JSON response
- */
-function doGet(e) {
-  try {
-    var params = e ? e.parameter : {};
-    var type = (params.type || 'all').toLowerCase();
-    var days = parseInt(params.days, 10) || PIPELINE_CONFIG.DEFAULT_SERVE_DAYS;
-
-    var result = {};
-
-    var dataSheet = getOrCreateDataSheet_();
-
-    if (type === 'all' || type === 'corporate') {
-      result.corporate = readTabAsJson_(dataSheet, PIPELINE_CONFIG.CORPORATE_TAB, days);
-    }
-
-    if (type === 'all' || type === 'gustomer') {
-      result.gustomer = readTabAsJson_(dataSheet, PIPELINE_CONFIG.GUSTOMER_TAB, days);
-    }
-
-    result.generated_at = new Date().toISOString();
-    result.days_requested = days;
-
-    return ContentService
-      .createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-
-  } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        error: err.message,
-        stack: err.stack
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
- * Reads a tab from the data sheet and returns records for the last N
- * unique dates, formatted for the dashboard.
- *
- * @param  {Spreadsheet} ss       Data spreadsheet
- * @param  {string}      tabName  Tab name
- * @param  {number}      numDays  Number of most-recent unique dates to include
- * @return {Object[]}    Array of { account_description, reporting_date, value }
- */
-function readTabAsJson_(ss, tabName, numDays) {
-  var sheet = ss.getSheetByName(tabName);
-  if (!sheet) return [];
-
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return [];
-
-  var data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
-
-  // Collect all unique dates
-  var uniqueDates = [];
-  var seenDates = {};
-  for (var i = 0; i < data.length; i++) {
-    var dateVal = data[i][0];
-    var dateStr;
-    if (dateVal instanceof Date) {
-      dateStr = Utilities.formatDate(dateVal, 'America/New_York', 'yyyy-MM-dd');
-    } else {
-      dateStr = String(dateVal).trim();
-    }
-    data[i][0] = dateStr; // normalize in-place
-    if (!seenDates[dateStr]) {
-      seenDates[dateStr] = true;
-      uniqueDates.push(dateStr);
-    }
-  }
-
-  // Sort dates and take the last N
-  uniqueDates.sort();
-  var recentDates = {};
-  var startIdx = Math.max(0, uniqueDates.length - numDays);
-  for (var d = startIdx; d < uniqueDates.length; d++) {
-    recentDates[uniqueDates[d]] = true;
-  }
-
-  // Build the result array
-  var results = [];
-  for (var j = 0; j < data.length; j++) {
-    var rowDate = data[j][0];
-    if (!recentDates[rowDate]) continue;
-
-    var val = data[j][2];
-    if (typeof val === 'string') {
-      val = parseFloat(val.replace(/,/g, ''));
-    }
-    if (val === null || val === undefined || isNaN(val)) continue;
-
-    results.push({
-      account_description: String(data[j][1]).trim(),
-      reporting_date: rowDate,
-      value: val
-    });
-  }
-
-  return results;
-}
-
-// ============================================================================
 // SHARED PARSING UTILITIES
 // ============================================================================
 
@@ -1254,35 +1178,31 @@ function testProcessDailyData() {
 }
 
 /**
- * Test function: tests the doGet() web app endpoint locally.
- * Logs sample output for both corporate and gustomer data.
+ * Test function: verifies GitHub API connectivity by reading both JSON files.
+ * Logs record counts and date ranges. Does NOT modify any data.
  */
-function testDoGet() {
-  Logger.log('=== MANUAL TEST: doGet ===');
+function testGitHubRead() {
+  Logger.log('=== MANUAL TEST: GitHub Read ===');
 
-  var mockEvent = {
-    parameter: { days: '5' }
-  };
+  var paths = [
+    PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
+    PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH
+  ];
 
-  var output = doGet(mockEvent);
-  var json = JSON.parse(output.getContent());
+  for (var i = 0; i < paths.length; i++) {
+    Logger.log('Reading: ' + paths[i]);
+    var result = readFileFromGitHub_(paths[i]);
+    Logger.log('  Records: ' + result.content.length);
+    Logger.log('  SHA: ' + (result.sha || 'null (file does not exist)'));
 
-  Logger.log('Generated at: ' + json.generated_at);
-  Logger.log('Days requested: ' + json.days_requested);
-  Logger.log('Corporate records: ' + (json.corporate ? json.corporate.length : 'N/A'));
-  Logger.log('Gustomer records: ' + (json.gustomer ? json.gustomer.length : 'N/A'));
-
-  if (json.corporate && json.corporate.length > 0) {
-    Logger.log('Sample corporate records (first 5):');
-    for (var i = 0; i < Math.min(5, json.corporate.length); i++) {
-      Logger.log('  ' + JSON.stringify(json.corporate[i]));
-    }
-  }
-
-  if (json.gustomer && json.gustomer.length > 0) {
-    Logger.log('Sample gustomer records (first 5):');
-    for (var i = 0; i < Math.min(5, json.gustomer.length); i++) {
-      Logger.log('  ' + JSON.stringify(json.gustomer[i]));
+    if (result.content.length > 0) {
+      var dates = {};
+      for (var j = 0; j < result.content.length; j++) {
+        dates[result.content[j].reporting_date] = true;
+      }
+      var sortedDates = Object.keys(dates).sort();
+      Logger.log('  Date range: ' + sortedDates[0] + ' to ' + sortedDates[sortedDates.length - 1]);
+      Logger.log('  Unique dates: ' + sortedDates.length);
     }
   }
 
@@ -1320,62 +1240,6 @@ function debugFindManifest() {
   }
 
   Logger.log('Summary: ' + pncCount + ' PNC Balance CSV(s), ' + jpmCount + ' JPM XLS file(s).');
-  Logger.log('=== DEBUG COMPLETE ===');
-}
-
-/**
- * Debug function: reads the data sheet and reports statistics.
- */
-function debugDataSheetStats() {
-  Logger.log('=== DEBUG: Data Sheet Statistics ===');
-
-  var ss = getOrCreateDataSheet_();
-  Logger.log('Data sheet ID: ' + ss.getId());
-  Logger.log('Data sheet URL: ' + ss.getUrl());
-
-  var tabs = [PIPELINE_CONFIG.CORPORATE_TAB, PIPELINE_CONFIG.GUSTOMER_TAB];
-  for (var t = 0; t < tabs.length; t++) {
-    var sheet = ss.getSheetByName(tabs[t]);
-    if (!sheet) {
-      Logger.log(tabs[t] + ': TAB NOT FOUND');
-      continue;
-    }
-
-    var lastRow = sheet.getLastRow();
-    var dataRows = Math.max(0, lastRow - 1); // exclude header
-
-    if (dataRows > 0) {
-      var data = sheet.getRange(2, 1, dataRows, 3).getValues();
-
-      // Count unique dates and accounts
-      var dates = {};
-      var accounts = {};
-      for (var i = 0; i < data.length; i++) {
-        var d = String(data[i][0]);
-        if (data[i][0] instanceof Date) {
-          d = Utilities.formatDate(data[i][0], 'America/New_York', 'yyyy-MM-dd');
-        }
-        dates[d] = true;
-        accounts[String(data[i][1])] = true;
-      }
-
-      var uniqueDates = Object.keys(dates).sort();
-      var uniqueAccounts = Object.keys(accounts).sort();
-
-      Logger.log(tabs[t] + ':');
-      Logger.log('  Total rows: ' + dataRows);
-      Logger.log('  Unique dates: ' + uniqueDates.length +
-                 ' (earliest: ' + uniqueDates[0] +
-                 ', latest: ' + uniqueDates[uniqueDates.length - 1] + ')');
-      Logger.log('  Unique accounts: ' + uniqueAccounts.length);
-      for (var a = 0; a < uniqueAccounts.length; a++) {
-        Logger.log('    - ' + uniqueAccounts[a]);
-      }
-    } else {
-      Logger.log(tabs[t] + ': EMPTY (no data rows)');
-    }
-  }
-
   Logger.log('=== DEBUG COMPLETE ===');
 }
 
@@ -1422,12 +1286,21 @@ function backfillFromManifest(manifestFileId) {
                ', Gustomer: ' + gustomerRecords.length);
 
     if (corporateRecords.length > 0 || gustomerRecords.length > 0) {
-      var dataSheet = getOrCreateDataSheet_();
+      var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+
       if (corporateRecords.length > 0) {
-        appendRecordsToTab_(dataSheet, PIPELINE_CONFIG.CORPORATE_TAB, corporateRecords);
+        mergeAndPushToGitHub_(
+          PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
+          corporateRecords,
+          'Backfill corporate_cash.json (' + todayStr + ')'
+        );
       }
       if (gustomerRecords.length > 0) {
-        appendRecordsToTab_(dataSheet, PIPELINE_CONFIG.GUSTOMER_TAB, gustomerRecords);
+        mergeAndPushToGitHub_(
+          PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
+          gustomerRecords,
+          'Backfill gustomer_cash.json (' + todayStr + ')'
+        );
       }
     }
 
