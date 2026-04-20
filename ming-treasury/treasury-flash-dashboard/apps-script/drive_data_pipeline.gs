@@ -719,22 +719,53 @@ function processJpmFile_(fileId, fileName) {
   var corporate = [];
   var gustomer = [];
 
-  // Step 1: Get the file blob from Drive
+  // Step 1: Get the file from Drive
   var file = DriveApp.getFileById(fileId);
-  var blob = file.getBlob();
-  var fileSize = blob.getBytes().length;
+  var fileSize = file.getSize();
   Logger.log('JPM file size: ' + fileSize + ' bytes');
 
-  // Step 2: Convert XLS to a temporary Google Sheet using Drive API
-  var tempSheetId = convertXlsToDriveSheet_(blob, fileName);
-  if (!tempSheetId) {
-    throw new Error('Failed to convert JPM XLS: ' + fileName);
+  // Step 2: Open the XLS file as a spreadsheet
+  // Drive already treats uploaded XLS files as openable spreadsheets.
+  // Try opening directly first; if that fails, convert via Drive API.
+  var ss = null;
+  var tempSheetId = null;
+
+  try {
+    ss = SpreadsheetApp.openById(fileId);
+    Logger.log('Opened XLS directly as spreadsheet (ID: ' + fileId + ')');
+  } catch (directErr) {
+    Logger.log('Direct open failed, converting via Drive API: ' + directErr.message);
+    var blob = file.getBlob();
+    tempSheetId = convertXlsToDriveSheet_(blob, fileName);
+    if (!tempSheetId) {
+      throw new Error('Failed to convert JPM XLS: ' + fileName);
+    }
+    ss = SpreadsheetApp.openById(tempSheetId);
   }
 
   try {
-    // Step 3: Read the converted sheet
-    var ss = SpreadsheetApp.openById(tempSheetId);
-    var sheet = ss.getSheets()[0];
+    // Step 3: Read the sheet — try all sheets to find the one with data
+    var sheets = ss.getSheets();
+    var sheet = null;
+    var lastRow = 0;
+    var lastCol = 0;
+
+    for (var s = 0; s < sheets.length; s++) {
+      var lr = sheets[s].getLastRow();
+      var lc = sheets[s].getLastColumn();
+      Logger.log('Sheet "' + sheets[s].getName() + '": ' + lr + ' rows x ' + lc + ' cols');
+      if (lr > lastRow) {
+        lastRow = lr;
+        lastCol = lc;
+        sheet = sheets[s];
+      }
+    }
+
+    if (!sheet) {
+      sheet = sheets[0];
+      lastRow = sheet.getLastRow();
+      lastCol = sheet.getLastColumn();
+    }
 
     var lastRow = sheet.getLastRow();
     var lastCol = sheet.getLastColumn();
@@ -826,8 +857,10 @@ function processJpmFile_(fileId, fileName) {
     }
 
   } finally {
-    // Step 6: Clean up the temporary converted file
-    deleteTempFile_(tempSheetId);
+    // Step 6: Clean up the temporary converted file (only if we created one)
+    if (tempSheetId) {
+      deleteTempFile_(tempSheetId);
+    }
   }
 
   Logger.log('JPM parse complete: ' + corporate.length + ' corporate, ' +
