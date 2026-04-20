@@ -493,7 +493,20 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     });
   }
 
-  // Step 5: Sort by date ascending, then by account_description
+  // Step 5: Deduplicate — keep only one record per (account_description, reporting_date)
+  // If multiple reports contain the same account on the same date, keep the last value
+  var deduped = {};
+  for (var d = 0; d < keptRecords.length; d++) {
+    var key = keptRecords[d].reporting_date + '|' + keptRecords[d].account_description;
+    deduped[key] = keptRecords[d];
+  }
+  keptRecords = [];
+  var keys = Object.keys(deduped);
+  for (var dk = 0; dk < keys.length; dk++) {
+    keptRecords.push(deduped[keys[dk]]);
+  }
+
+  // Step 6: Sort by date ascending, then by account_description
   keptRecords.sort(function(a, b) {
     if (a.reporting_date < b.reporting_date) return -1;
     if (a.reporting_date > b.reporting_date) return 1;
@@ -502,12 +515,12 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return 0;
   });
 
-  // Step 6: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
+  // Step 7: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
   keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
 
   Logger.log('Total records after merge and trim: ' + keptRecords.length);
 
-  // Step 7: Push the updated JSON back to GitHub
+  // Step 8: Push the updated JSON back to GitHub
   writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
 }
 
