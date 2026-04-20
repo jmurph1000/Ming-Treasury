@@ -821,6 +821,8 @@ function processJpmFile_(fileId, fileName) {
       if (colMapping) {
         headerRowIndex = r;
         Logger.log('JPM header row found at index ' + r);
+        Logger.log('Column mapping: ' + JSON.stringify(colMapping));
+        Logger.log('Header row values: ' + JSON.stringify(allData[r]));
         break;
       }
     }
