@@ -562,13 +562,14 @@ function trimToMaxBusinessDaysJson_(records) {
  */
 function findTodaysManifest_() {
   var today = new Date();
-  var todayStr = Utilities.formatDate(today, 'America/New_York', 'yyyyMMdd');
+  var todayStr = Utilities.formatDate(today, 'America/New_York', 'yyyy-MM-dd');
   var searchName = PIPELINE_CONFIG.MANIFEST_PATTERN + todayStr;
 
   Logger.log('Searching Drive for manifest files matching: ' + searchName);
 
-  // Search Drive for files whose name starts with the pattern
-  var query = 'title contains "' + searchName + '" and mimeType = "application/json" and trashed = false';
+  // Search Drive for files whose name contains today's date pattern
+  // Manifest files are saved as text/plain, not application/json
+  var query = 'title contains "' + searchName + '" and trashed = false';
 
   // If a specific folder is configured, scope the search
   if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
@@ -593,9 +594,8 @@ function findTodaysManifest_() {
     Logger.log('No exact match. Trying broader search for manifests modified today...');
     var todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    var broadQuery = 'title contains "manifest_" and mimeType = "application/json"' +
-                     ' and modifiedDate >= "' + todayStart.toISOString() + '"' +
-                     ' and trashed = false';
+    var broadQuery = 'title contains "manifest_" and modifiedDate >= "' +
+                     todayStart.toISOString() + '" and trashed = false';
     var broadFiles = DriveApp.searchFiles(broadQuery);
     while (broadFiles.hasNext()) {
       var bf = broadFiles.next();
