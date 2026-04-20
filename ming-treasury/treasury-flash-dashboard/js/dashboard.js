@@ -391,6 +391,22 @@
       return bankTotals[b] - bankTotals[a];
     });
 
+    // Grand total row (at top of table)
+    var total = records.reduce(function (s, r) { return s + r.value; }, 0);
+    var trTotal = document.createElement('tr');
+    trTotal.className = 'grand-total-row';
+    trTotal.style.fontWeight = '700';
+    trTotal.style.borderBottom = '2px solid #1e3054';
+    var tdLabel = document.createElement('td');
+    tdLabel.textContent = 'Total';
+    tdLabel.style.color = '#e8ecf4';
+    var tdTotalVal = document.createElement('td');
+    tdTotalVal.textContent = formatCurrencyFull(total);
+    tdTotalVal.style.color = '#e8ecf4';
+    trTotal.appendChild(tdLabel);
+    trTotal.appendChild(tdTotalVal);
+    tbody.appendChild(trTotal);
+
     // Render each bank group
     bankOrder.forEach(function (bank) {
       var bankAccounts = bankGroups[bank];
@@ -457,21 +473,6 @@
       })(bank, chevron, accountRows, trBank);
     });
 
-    // Grand total row
-    var total = records.reduce(function (s, r) { return s + r.value; }, 0);
-    var trTotal = document.createElement('tr');
-    trTotal.className = 'grand-total-row';
-    trTotal.style.fontWeight = '700';
-    trTotal.style.borderTop = '2px solid #1e3054';
-    var tdLabel = document.createElement('td');
-    tdLabel.textContent = 'Total';
-    tdLabel.style.color = '#e8ecf4';
-    var tdTotalVal = document.createElement('td');
-    tdTotalVal.textContent = formatCurrencyFull(total);
-    tdTotalVal.style.color = '#e8ecf4';
-    trTotal.appendChild(tdLabel);
-    trTotal.appendChild(tdTotalVal);
-    tbody.appendChild(trTotal);
   }
 
   // ===== KPI Rendering =====
