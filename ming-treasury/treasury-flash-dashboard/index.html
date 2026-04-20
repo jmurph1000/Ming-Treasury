@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Treasury Flash Dashboard</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+  <!-- Dashboard Styles -->
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+
+  <!-- ===== Header ===== -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo">TF</div>
+      <h1>Treasury Flash Dashboard</h1>
+    </div>
+    <div class="header-right">
+      <span class="header-badge">Live</span>
+      <span class="header-date" id="header-date"></span>
+    </div>
+  </header>
+
+  <!-- ===== Main Dashboard ===== -->
+  <main class="dashboard">
+
+    <!-- KPI Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card corporate">
+        <div class="kpi-label">Total Corporate Cash</div>
+        <div class="kpi-value" id="kpi-corporate">--</div>
+        <div class="kpi-sub" id="kpi-corp-sub">Loading...</div>
+      </div>
+      <div class="kpi-card gustomer">
+        <div class="kpi-label">Total Gustomer Cash</div>
+        <div class="kpi-value" id="kpi-gustomer">--</div>
+        <div class="kpi-sub" id="kpi-gust-sub">Loading...</div>
+      </div>
+      <div class="kpi-card combined">
+        <div class="kpi-label">Total Combined</div>
+        <div class="kpi-value" id="kpi-combined">--</div>
+        <div class="kpi-sub">Corporate + Gustomer</div>
+      </div>
+      <div class="kpi-card change">
+        <div class="kpi-label">Daily Change (Combined)</div>
+        <div class="kpi-value" id="kpi-change">--</div>
+        <div class="kpi-sub">vs. prior business day</div>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3><span class="dot blue"></span> Corporate Cash Trend</h3>
+          <div class="chart-range-buttons" id="range-buttons-corporate">
+            <button data-days="252">1Y</button>
+            <button data-days="189">9M</button>
+            <button data-days="126">6M</button>
+            <button data-days="63">3M</button>
+            <button data-days="21">1M</button>
+            <button data-days="5" class="active">1W</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-corporate"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h3><span class="dot green"></span> Gustomer Cash Trend</h3>
+          <div class="chart-range-buttons" id="range-buttons-gustomer">
+            <button data-days="252">1Y</button>
+            <button data-days="189">9M</button>
+            <button data-days="126">6M</button>
+            <button data-days="63">3M</button>
+            <button data-days="21">1M</button>
+            <button data-days="5" class="active">1W</button>
+          </div>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="chart-gustomer"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Account Detail Tables -->
+    <section class="tables-grid">
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Corporate Accounts</h3>
+          <span class="table-date" id="corp-table-date">--</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Bank / Account</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-corporate">
+              <tr><td colspan="2" class="loading">Loading data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Gustomer Accounts</h3>
+          <span class="table-date" id="gust-table-date">--</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Bank / Account</th>
+                <th>Balance</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-gustomer">
+              <tr><td colspan="2" class="loading">Loading data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== Footer ===== -->
+  <footer class="footer">
+    Data source: <span id="data-source-indicator">Loading...</span> &middot;
+    Treasury Flash Google Sheet &middot;
+    Dashboard served via GitHub Pages
+  </footer>
+
+  <!-- Dashboard Logic -->
+  <script src="js/dashboard.js"></script>
+
+  <!-- Set today's date in header -->
+  <script>
+    (function () {
+      var el = document.getElementById('header-date');
+      if (el) {
+        var now = new Date();
+        el.textContent = now.toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+      }
+    })();
+  </script>
+
+</body>
+</html>
