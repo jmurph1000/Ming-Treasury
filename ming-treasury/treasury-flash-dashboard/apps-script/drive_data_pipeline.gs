@@ -749,20 +749,37 @@ function processJpmFile_(fileId, fileName) {
   }
 
   try {
-    // Step 3: Read the sheet — try all sheets to find the one with data
+    // Step 3: Read the "Summary" sheet (contains account balances)
+    // The XLS workbook has: "Filters" (small), "Summary" (balances), "Other Balances" (transactions)
     var sheets = ss.getSheets();
     var sheet = null;
     var lastRow = 0;
     var lastCol = 0;
 
+    // Prefer a sheet named "Summary"
     for (var s = 0; s < sheets.length; s++) {
       var lr = sheets[s].getLastRow();
       var lc = sheets[s].getLastColumn();
-      Logger.log('Sheet "' + sheets[s].getName() + '": ' + lr + ' rows x ' + lc + ' cols');
-      if (lr > lastRow) {
+      var sheetName = sheets[s].getName();
+      Logger.log('Sheet "' + sheetName + '": ' + lr + ' rows x ' + lc + ' cols');
+      if (sheetName.toLowerCase() === 'summary') {
+        sheet = sheets[s];
         lastRow = lr;
         lastCol = lc;
-        sheet = sheets[s];
+        Logger.log('Using "Summary" sheet.');
+        break;
+      }
+    }
+
+    // Fallback: use the sheet with the most columns (Summary has 33 cols, Others has 8)
+    if (!sheet) {
+      for (var s2 = 0; s2 < sheets.length; s2++) {
+        var lc2 = sheets[s2].getLastColumn();
+        if (lc2 > lastCol) {
+          lastCol = lc2;
+          lastRow = sheets[s2].getLastRow();
+          sheet = sheets[s2];
+        }
       }
     }
 
