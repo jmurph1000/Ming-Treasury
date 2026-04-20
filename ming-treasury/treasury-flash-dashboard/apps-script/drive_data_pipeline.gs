@@ -179,109 +179,167 @@ function getGitHubToken_() {
 }
 
 /**
- * Reads a file from a GitHub repository via the Contents API.
- *
- * GET /repos/:owner/:repo/contents/:path?ref=:branch
+ * Reads a file from a GitHub repository. Uses the Contents API for small files
+ * and the Git Blobs API for large files (>1MB).
  *
  * @param  {string} filePath  Path within the repo (e.g. "data/corporate_cash.json")
  * @return {Object}           { content: <parsed JSON>, sha: <string> }
- *                            content is the decoded file contents (parsed as JSON);
- *                            sha is needed for subsequent updates.
  *                            Returns { content: [], sha: null } if the file does not exist.
  */
 function readFileFromGitHub_(filePath) {
   var token = getGitHubToken_();
-  var url = 'https://api.github.com/repos/' +
-            PIPELINE_CONFIG.GITHUB_OWNER + '/' +
-            PIPELINE_CONFIG.GITHUB_REPO +
-            '/contents/' + filePath +
-            '?ref=' + PIPELINE_CONFIG.GITHUB_BRANCH;
-
-  var options = {
-    method: 'get',
-    headers: {
-      'Authorization': 'token ' + token,
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'TreasuryDashboard-AppsScript'
-    },
-    muteHttpExceptions: true
+  var baseUrl = 'https://api.github.com/repos/' +
+                PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+                PIPELINE_CONFIG.GITHUB_REPO;
+  var headers = {
+    'Authorization': 'token ' + token,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'TreasuryDashboard-AppsScript'
   };
 
-  var response = UrlFetchApp.fetch(url, options);
-  var code = response.getResponseCode();
+  // First get the file metadata (sha and size) via Contents API
+  var metaUrl = baseUrl + '/contents/' + filePath + '?ref=' + PIPELINE_CONFIG.GITHUB_BRANCH;
+  var metaResp = UrlFetchApp.fetch(metaUrl, { method: 'get', headers: headers, muteHttpExceptions: true });
+  var metaCode = metaResp.getResponseCode();
 
-  if (code === 404) {
+  if (metaCode === 404) {
     Logger.log('GitHub file not found (will be created): ' + filePath);
     return { content: [], sha: null };
   }
 
-  if (code !== 200) {
-    throw new Error('GitHub API GET failed (' + code + '): ' + response.getContentText());
+  if (metaCode !== 200) {
+    throw new Error('GitHub API GET metadata failed (' + metaCode + '): ' + metaResp.getContentText());
   }
 
-  var json = JSON.parse(response.getContentText());
+  var meta = JSON.parse(metaResp.getContentText());
+  var fileSha = meta.sha;
+  var fileSize = meta.size || 0;
 
-  // The content is base64-encoded; decode it
-  var decoded = Utilities.newBlob(
-    Utilities.base64Decode(json.content.replace(/\n/g, ''))
+  // For files <= 1MB, content is inline (base64)
+  if (meta.content && meta.content.length > 0) {
+    var decoded = Utilities.newBlob(
+      Utilities.base64Decode(meta.content.replace(/\n/g, ''))
+    ).getDataAsString();
+    return { content: JSON.parse(decoded), sha: fileSha };
+  }
+
+  // For large files, fetch via Git Blobs API
+  Logger.log('File too large for Contents API (' + fileSize + ' bytes), using Blobs API...');
+  var blobUrl = baseUrl + '/git/blobs/' + fileSha;
+  var blobResp = UrlFetchApp.fetch(blobUrl, { method: 'get', headers: headers, muteHttpExceptions: true });
+  var blobCode = blobResp.getResponseCode();
+
+  if (blobCode !== 200) {
+    throw new Error('GitHub Blobs API failed (' + blobCode + '): ' + blobResp.getContentText());
+  }
+
+  var blobJson = JSON.parse(blobResp.getContentText());
+  var blobDecoded = Utilities.newBlob(
+    Utilities.base64Decode(blobJson.content.replace(/\n/g, ''))
   ).getDataAsString();
 
-  var parsed = JSON.parse(decoded);
-  return { content: parsed, sha: json.sha };
+  return { content: JSON.parse(blobDecoded), sha: fileSha };
 }
 
 /**
- * Updates (or creates) a file in a GitHub repository via the Contents API.
- *
- * PUT /repos/:owner/:repo/contents/:path
+ * Updates (or creates) a file in a GitHub repository.
+ * Uses the Git Data API (blobs/trees/commits) to handle files of any size.
  *
  * @param {string} filePath    Path within the repo
  * @param {Array}  jsonContent The data to write (will be JSON-stringified)
- * @param {string|null} sha    The current file SHA (required for updates, null for creates)
+ * @param {string|null} sha    Unused (kept for API compat) - tree approach doesn't need it
  * @param {string} commitMsg   Commit message
  */
 function writeFileToGitHub_(filePath, jsonContent, sha, commitMsg) {
   var token = getGitHubToken_();
-  var url = 'https://api.github.com/repos/' +
-            PIPELINE_CONFIG.GITHUB_OWNER + '/' +
-            PIPELINE_CONFIG.GITHUB_REPO +
-            '/contents/' + filePath;
+  var baseUrl = 'https://api.github.com/repos/' +
+                PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+                PIPELINE_CONFIG.GITHUB_REPO;
+  var headers = {
+    'Authorization': 'token ' + token,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'TreasuryDashboard-AppsScript'
+  };
 
   var contentStr = JSON.stringify(jsonContent, null, 2);
-  var base64Content = Utilities.base64Encode(
-    Utilities.newBlob(contentStr).getBytes()
-  );
 
-  var payload = {
-    message: commitMsg,
-    content: base64Content,
-    branch: PIPELINE_CONFIG.GITHUB_BRANCH
-  };
-
-  if (sha) {
-    payload.sha = sha;
-  }
-
-  var options = {
-    method: 'put',
-    headers: {
-      'Authorization': 'token ' + token,
-      'Accept': 'application/vnd.github.v3+json',
-      'User-Agent': 'TreasuryDashboard-AppsScript'
-    },
+  // Step 1: Create a blob with the file content
+  var blobResp = UrlFetchApp.fetch(baseUrl + '/git/blobs', {
+    method: 'post',
+    headers: headers,
     contentType: 'application/json',
-    payload: JSON.stringify(payload),
+    payload: JSON.stringify({ content: contentStr, encoding: 'utf-8' }),
     muteHttpExceptions: true
-  };
+  });
+  if (blobResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create blob failed: ' + blobResp.getContentText());
+  }
+  var blobSha = JSON.parse(blobResp.getContentText()).sha;
 
-  var response = UrlFetchApp.fetch(url, options);
-  var code = response.getResponseCode();
+  // Step 2: Get the current commit SHA for the branch
+  var refResp = UrlFetchApp.fetch(baseUrl + '/git/ref/heads/' + PIPELINE_CONFIG.GITHUB_BRANCH, {
+    method: 'get', headers: headers, muteHttpExceptions: true
+  });
+  if (refResp.getResponseCode() !== 200) {
+    throw new Error('GitHub get ref failed: ' + refResp.getContentText());
+  }
+  var currentCommitSha = JSON.parse(refResp.getContentText()).object.sha;
 
-  if (code !== 200 && code !== 201) {
-    throw new Error('GitHub API PUT failed (' + code + '): ' + response.getContentText());
+  // Step 3: Get the tree SHA of the current commit
+  var commitResp = UrlFetchApp.fetch(baseUrl + '/git/commits/' + currentCommitSha, {
+    method: 'get', headers: headers, muteHttpExceptions: true
+  });
+  if (commitResp.getResponseCode() !== 200) {
+    throw new Error('GitHub get commit failed: ' + commitResp.getContentText());
+  }
+  var baseTreeSha = JSON.parse(commitResp.getContentText()).tree.sha;
+
+  // Step 4: Create a new tree with the updated file
+  var treeResp = UrlFetchApp.fetch(baseUrl + '/git/trees', {
+    method: 'post',
+    headers: headers,
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      base_tree: baseTreeSha,
+      tree: [{ path: filePath, mode: '100644', type: 'blob', sha: blobSha }]
+    }),
+    muteHttpExceptions: true
+  });
+  if (treeResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create tree failed: ' + treeResp.getContentText());
+  }
+  var newTreeSha = JSON.parse(treeResp.getContentText()).sha;
+
+  // Step 5: Create a new commit
+  var newCommitResp = UrlFetchApp.fetch(baseUrl + '/git/commits', {
+    method: 'post',
+    headers: headers,
+    contentType: 'application/json',
+    payload: JSON.stringify({
+      message: commitMsg,
+      tree: newTreeSha,
+      parents: [currentCommitSha]
+    }),
+    muteHttpExceptions: true
+  });
+  if (newCommitResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create commit failed: ' + newCommitResp.getContentText());
+  }
+  var newCommitSha = JSON.parse(newCommitResp.getContentText()).sha;
+
+  // Step 6: Update the branch ref to point to the new commit
+  var updateRefResp = UrlFetchApp.fetch(baseUrl + '/git/refs/heads/' + PIPELINE_CONFIG.GITHUB_BRANCH, {
+    method: 'patch',
+    headers: headers,
+    contentType: 'application/json',
+    payload: JSON.stringify({ sha: newCommitSha }),
+    muteHttpExceptions: true
+  });
+  if (updateRefResp.getResponseCode() !== 200) {
+    throw new Error('GitHub update ref failed: ' + updateRefResp.getContentText());
   }
 
-  Logger.log('Successfully committed ' + filePath + ' to GitHub (' + code + ').');
+  Logger.log('Successfully committed ' + filePath + ' to GitHub (commit: ' + newCommitSha.substring(0, 7) + ').');
 }
 
 // ============================================================================
