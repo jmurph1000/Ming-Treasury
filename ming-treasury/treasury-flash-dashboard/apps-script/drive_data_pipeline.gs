@@ -149,7 +149,12 @@ var JPM_ACCOUNT_MAP = {
   '3982958192': { dashboardName: 'JPM Collateral **8192',                              category: 'corporate' },
   '4011741602': { dashboardName: 'Chase Gusto Canada ULC -(CAD) 1602',                category: 'corporate' },
   '4011815665': { dashboardName: 'Gusto Holding Company Inc. (JPM) (CAD) 5665',       category: 'corporate' },
-  '77646837':   { dashboardName: 'Chase Mexico (MXN) 6837',                           category: 'corporate' }
+  '77646837':   { dashboardName: 'Chase Mexico (MXN) 6837',                           category: 'corporate' },
+  '2907105725': { dashboardName: 'Chase Guideline Holdings, LLC 5725',               category: 'corporate' },
+  '2908798278': { dashboardName: 'Gusto PEO I Benefits 8278',                        category: 'corporate' },
+  '2908798291': { dashboardName: 'Gusto PEO I Workers Comp 8291',                    category: 'corporate' },
+  '2908798299': { dashboardName: 'Gusto PEO II Benefits 8299',                       category: 'corporate' },
+  '2908798306': { dashboardName: 'Gusto PEO II Workers Comp 8306',                   category: 'corporate' }
 };
 
 // ============================================================================
