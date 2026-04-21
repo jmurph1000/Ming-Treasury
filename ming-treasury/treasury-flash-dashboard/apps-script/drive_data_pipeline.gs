@@ -395,6 +395,13 @@ function processDailyData() {
       return;
     }
 
+    // Sort files by name (ascending) so later reports are processed last
+    // and win in the deduplication step (filenames contain timestamps)
+    jpmFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+    pncFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+
+    Logger.log('Processing ' + jpmFileIds.length + ' JPM files and ' + pncFileIds.length + ' PNC files (sorted by time).');
+
     // Step 3: Parse all files and collect records
     var corporateRecords = [];
     var gustomerRecords = [];
