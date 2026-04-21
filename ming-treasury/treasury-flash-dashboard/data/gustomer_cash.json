@@ -36538,5 +36538,30 @@
     "account_description": "Chase Wire In (Gusto) -9829",
     "reporting_date": "2026-04-21",
     "value": 25416.16
+  },
+  {
+    "account_description": "PNC Customer (Gusto) - 6975",
+    "reporting_date": "2026-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "PNC Customer 3rd Party Debits -0454",
+    "reporting_date": "2026-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
+    "reporting_date": "2026-04-21",
+    "value": 255462200.84
+  },
+  {
+    "account_description": "PNC Customer Drawdowns -0462",
+    "reporting_date": "2026-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "PNC Customer Wire Ins (Gusto) -0489",
+    "reporting_date": "2026-04-21",
+    "value": 326766.3
   }
 ]
