@@ -317,7 +317,6 @@
             data: ds.forecastValues,
             borderColor: forecastColor,
             borderWidth: 2.5,
-            borderDash: [6, 4],
             pointRadius: 0,
             fill: false,
             tension: 0.1,
