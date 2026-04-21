@@ -264,38 +264,47 @@
     return forecastPoints;
   }
 
-  function createForecastChart(canvasId, label, historicalSeries, forecastPoints, histColor, forecastColor) {
-    var ctx = document.getElementById(canvasId).getContext('2d');
-
-    var trailDays = 63;
+  function buildForecastDatasets(historicalSeries, forecastDays, histColor, forecastColor) {
+    var forecast = generateForecast(historicalSeries, forecastDays);
+    var trailDays = Math.min(63, historicalSeries.length);
     var histTail = historicalSeries.slice(-trailDays);
 
     var allLabels = histTail.map(function (d) { return d.date; })
-      .concat(forecastPoints.map(function (d) { return d.date; }));
+      .concat(forecast.map(function (d) { return d.date; }));
 
     var histValues = histTail.map(function (d) { return d.total; });
-    var forecastValues = new Array(histTail.length).fill(null);
-    forecastValues[forecastValues.length - 1] = histTail[histTail.length - 1].total;
-    forecastValues = forecastValues.concat(forecastPoints.map(function (d) { return d.predicted; }));
+    var nHist = histTail.length;
+    var nFore = forecast.length;
 
-    var upperBand = new Array(histTail.length).fill(null);
-    upperBand[upperBand.length - 1] = histTail[histTail.length - 1].total;
-    upperBand = upperBand.concat(forecastPoints.map(function (d) { return d.upper; }));
+    var forecastValues = new Array(nHist).fill(null);
+    forecastValues[nHist - 1] = histTail[nHist - 1].total;
+    forecastValues = forecastValues.concat(forecast.map(function (d) { return d.predicted; }));
 
-    var lowerBand = new Array(histTail.length).fill(null);
-    lowerBand[lowerBand.length - 1] = histTail[histTail.length - 1].total;
-    lowerBand = lowerBand.concat(forecastPoints.map(function (d) { return d.lower; }));
+    var upperBand = new Array(nHist).fill(null);
+    upperBand[nHist - 1] = histTail[nHist - 1].total;
+    upperBand = upperBand.concat(forecast.map(function (d) { return d.upper; }));
 
-    var histData = histValues.concat(new Array(forecastPoints.length).fill(null));
+    var lowerBand = new Array(nHist).fill(null);
+    lowerBand[nHist - 1] = histTail[nHist - 1].total;
+    lowerBand = lowerBand.concat(forecast.map(function (d) { return d.lower; }));
+
+    var histData = histValues.concat(new Array(nFore).fill(null));
+
+    return { labels: allLabels, histData: histData, forecastValues: forecastValues, upperBand: upperBand, lowerBand: lowerBand };
+  }
+
+  function createForecastChart(canvasId, label, historicalSeries, forecastDays, histColor, forecastColor) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+    var ds = buildForecastDatasets(historicalSeries, forecastDays, histColor, forecastColor);
 
     return new Chart(ctx, {
       type: 'line',
       data: {
-        labels: allLabels,
+        labels: ds.labels,
         datasets: [
           {
             label: label + ' (Historical)',
-            data: histData,
+            data: ds.histData,
             borderColor: histColor,
             borderWidth: 2,
             pointRadius: 0,
@@ -305,7 +314,7 @@
           },
           {
             label: label + ' (Forecast)',
-            data: forecastValues,
+            data: ds.forecastValues,
             borderColor: forecastColor,
             borderWidth: 2.5,
             borderDash: [6, 4],
@@ -316,7 +325,7 @@
           },
           {
             label: '95% Upper',
-            data: upperBand,
+            data: ds.upperBand,
             borderColor: 'transparent',
             backgroundColor: 'transparent',
             pointRadius: 0,
@@ -326,7 +335,7 @@
           },
           {
             label: '95% Lower',
-            data: lowerBand,
+            data: ds.lowerBand,
             borderColor: 'transparent',
             backgroundColor: forecastColor.replace('1)', '0.08)'),
             pointRadius: 0,
@@ -403,6 +412,35 @@
         },
       },
     });
+  }
+
+  function updateForecastChart(chart, historicalSeries, forecastDays, histColor, forecastColor) {
+    var ds = buildForecastDatasets(historicalSeries, forecastDays, histColor, forecastColor);
+    chart.data.labels = ds.labels;
+    chart.data.datasets[0].data = ds.histData;
+    chart.data.datasets[1].data = ds.forecastValues;
+    chart.data.datasets[2].data = ds.upperBand;
+    chart.data.datasets[3].data = ds.lowerBand;
+    chart.update();
+  }
+
+  function setupForecastButtons(containerId, chart, series, histColor, forecastColor) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    var buttons = Array.prototype.slice.call(container.querySelectorAll('button'));
+    for (var i = 0; i < buttons.length; i++) {
+      (function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          for (var j = 0; j < buttons.length; j++) {
+            buttons[j].classList.remove('active');
+          }
+          btn.classList.add('active');
+          var days = parseInt(btn.getAttribute('data-days'));
+          updateForecastChart(chart, series, days, histColor, forecastColor);
+        });
+      })(buttons[i]);
+    }
   }
 
   // ===== Chart Rendering =====
@@ -743,26 +781,21 @@
         setupRangeButtons('range-buttons-corporate', corpChart, corpSeries);
         setupRangeButtons('range-buttons-gustomer', gustChart, gustSeries);
 
-        // Render Forecast Charts (252 business days = ~1 year)
-        var corpForecast = generateForecast(corpSeries, 252);
-        createForecastChart(
-          'chart-corporate-forecast',
-          'Corporate Cash',
-          corpSeries,
-          corpForecast,
-          '#22d3ee',
-          'rgba(245, 158, 11, 1)'
-        );
+        // Render Forecast Charts (default 252 business days = ~1 year)
+        var corpFcColor = 'rgba(245, 158, 11, 1)';
+        var gustFcColor = 'rgba(167, 139, 250, 1)';
 
-        var gustForecast = generateForecast(gustSeries, 252);
-        createForecastChart(
-          'chart-gustomer-forecast',
-          'Gustomer Cash',
-          gustSeries,
-          gustForecast,
-          '#10b981',
-          'rgba(167, 139, 250, 1)'
+        var corpFcChart = createForecastChart(
+          'chart-corporate-forecast', 'Corporate Cash',
+          corpSeries, 252, '#22d3ee', corpFcColor
         );
+        setupForecastButtons('range-buttons-corp-forecast', corpFcChart, corpSeries, '#22d3ee', corpFcColor);
+
+        var gustFcChart = createForecastChart(
+          'chart-gustomer-forecast', 'Gustomer Cash',
+          gustSeries, 252, '#10b981', gustFcColor
+        );
+        setupForecastButtons('range-buttons-gust-forecast', gustFcChart, gustSeries, '#10b981', gustFcColor);
 
         // Render Tables (show all accounts including Gusto Capital section)
         renderTable('tbody-corporate', corpLatestAll.records);
