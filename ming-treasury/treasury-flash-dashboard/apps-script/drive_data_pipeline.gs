@@ -1008,10 +1008,11 @@ function detectJpmColumnMapping_(headerRow) {
     } else if (val === 'bank id' || val === 'bank code' || val === 'bankid') {
       mapping.bankId = c;
     } else if (val === 'current available' || val === 'available balance' ||
-               val === 'curr available' || val === 'avail bal') {
+               val === 'curr available' || val === 'avail bal' ||
+               val === 'closing balance same day' || val === 'current balance same day') {
       mapping.currentAvailable = c;
     } else if (val === 'opening balance' || val === 'open balance' ||
-               val === 'opening bal' || val === 'open bal') {
+               val === 'opening bal' || val === 'open bal' || val === 'opening ledger') {
       mapping.openingBalance = c;
     } else if (val === 'current balance' || val === 'current ledger' ||
                val === 'curr balance' || val === 'closing balance') {
