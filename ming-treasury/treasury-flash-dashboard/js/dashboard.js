@@ -216,88 +216,105 @@
   }
 
   /**
-   * Holt-Winters additive method with 5-day (business week) seasonality.
-   * Returns { level, trend, seasonal[], residualStdDev }.
+   * Holt-Winters additive method with 21-day (monthly) seasonality.
+   * Captures payroll-cycle driven swings and long-term growth trend.
    */
-  function holtWinters(series, seasonLen) {
-    var n = series.length;
-    var y = series.map(function (d) { return d.total; });
+  function holtWinters(y, seasonLen, alpha, beta, gamma) {
+    var n = y.length;
 
     if (n < seasonLen * 2) {
-      var avg = y.reduce(function (a, b) { return a + b; }, 0) / n;
+      var slope = n > 21 ? (y[n - 1] - y[0]) / (n - 1) : 0;
       return {
-        level: y[n - 1],
-        trend: n > 1 ? (y[n - 1] - y[0]) / (n - 1) : 0,
+        level: y[n - 1], trend: slope,
         seasonal: new Array(seasonLen).fill(0),
-        residualStdDev: 0
+        residualStdDev: 0, lastSeasonIndex: (n - 1) % seasonLen
       };
     }
 
-    var alpha = 0.3, beta = 0.05, gamma = 0.3;
-
-    var nSeasons = Math.floor(n / seasonLen);
-    var firstSeasonAvg = 0;
-    for (var i = 0; i < seasonLen; i++) firstSeasonAvg += y[i];
-    firstSeasonAvg /= seasonLen;
-
-    var seasonal = new Array(n);
+    var seasonal = new Array(seasonLen).fill(0);
+    var nFullSeasons = Math.floor(n / seasonLen);
+    var initSeasons = Math.min(nFullSeasons, 4);
     for (var j = 0; j < seasonLen; j++) {
-      var sum = 0;
-      for (var k = 0; k < Math.min(nSeasons, 3); k++) {
+      var sum = 0, cnt = 0;
+      for (var k = 0; k < initSeasons; k++) {
         var idx = k * seasonLen + j;
         if (idx < n) {
-          var blockAvg = 0;
+          var blockSum = 0;
           for (var b = 0; b < seasonLen; b++) {
             var bi = k * seasonLen + b;
-            blockAvg += bi < n ? y[bi] : y[n - 1];
+            blockSum += bi < n ? y[bi] : y[n - 1];
           }
-          blockAvg /= seasonLen;
-          sum += y[idx] - blockAvg;
+          sum += y[idx] - blockSum / seasonLen;
+          cnt++;
         }
       }
-      seasonal[j] = sum / Math.min(nSeasons, 3);
+      seasonal[j] = cnt > 0 ? sum / cnt : 0;
     }
 
-    var level = firstSeasonAvg;
+    var level = 0;
+    for (var i = 0; i < seasonLen; i++) level += y[i];
+    level /= seasonLen;
+
     var trend = 0;
-    for (var t = 0; t < seasonLen && t + seasonLen < n; t++) {
-      trend += (y[t + seasonLen] - y[t]);
+    for (var t = 0; t < seasonLen; t++) {
+      if (t + seasonLen < n) trend += (y[t + seasonLen] - y[t]);
     }
     trend /= (seasonLen * seasonLen);
 
     var residuals = [];
     for (var t = seasonLen; t < n; t++) {
       var si = t % seasonLen;
+      var forecast = level + trend + seasonal[si];
+      residuals.push(y[t] - forecast);
       var prevLevel = level;
       level = alpha * (y[t] - seasonal[si]) + (1 - alpha) * (level + trend);
       trend = beta * (level - prevLevel) + (1 - beta) * trend;
       seasonal[si] = gamma * (y[t] - level) + (1 - gamma) * seasonal[si];
-      var fitted = level + seasonal[si];
-      residuals.push(y[t] - fitted);
     }
 
     var sumSq = 0;
     for (var r = 0; r < residuals.length; r++) sumSq += residuals[r] * residuals[r];
     var stdDev = residuals.length > 2 ? Math.sqrt(sumSq / residuals.length) : 0;
 
-    var finalSeasonal = new Array(seasonLen);
-    for (var s = 0; s < seasonLen; s++) {
-      finalSeasonal[s] = seasonal[s];
-    }
-
     return {
-      level: level,
-      trend: trend,
-      seasonal: finalSeasonal,
+      level: level, trend: trend,
+      seasonal: seasonal.slice(),
       residualStdDev: stdDev,
       lastSeasonIndex: (n - 1) % seasonLen
     };
   }
 
+  /**
+   * Grid-search smoothing parameters to minimize in-sample RMSE.
+   */
+  function optimizeHoltWinters(y, seasonLen) {
+    var bestRmse = Infinity, bestParams = { alpha: 0.3, beta: 0.02, gamma: 0.3 };
+    var alphas = [0.1, 0.2, 0.3, 0.4, 0.5];
+    var betas = [0.005, 0.01, 0.02, 0.05];
+    var gammas = [0.1, 0.2, 0.3, 0.4, 0.5];
+
+    for (var ai = 0; ai < alphas.length; ai++) {
+      for (var bi = 0; bi < betas.length; bi++) {
+        for (var gi = 0; gi < gammas.length; gi++) {
+          var hw = holtWinters(y, seasonLen, alphas[ai], betas[bi], gammas[gi]);
+          if (hw.residualStdDev < bestRmse) {
+            bestRmse = hw.residualStdDev;
+            bestParams = { alpha: alphas[ai], beta: betas[bi], gamma: gammas[gi] };
+          }
+        }
+      }
+    }
+    return bestParams;
+  }
+
   function generateForecast(historicalSeries, forecastDays) {
-    var seasonLen = 5;
-    var hw = holtWinters(historicalSeries, seasonLen);
-    var n = historicalSeries.length;
+    var seasonLen = 21;
+    var y = historicalSeries.map(function (d) { return d.total; });
+    var n = y.length;
+
+    var params = optimizeHoltWinters(y, seasonLen);
+    var hw = holtWinters(y, seasonLen, params.alpha, params.beta, params.gamma);
+
     var lastDate = new Date(historicalSeries[n - 1].date + 'T00:00:00');
 
     var forecastPoints = [];
@@ -305,7 +322,7 @@
       var futureDate = addBusinessDays(lastDate, i);
       var si = (hw.lastSeasonIndex + i) % seasonLen;
       var predicted = hw.level + hw.trend * i + hw.seasonal[si];
-      var band = 1.96 * hw.residualStdDev * Math.sqrt(i);
+      var band = 1.96 * hw.residualStdDev * Math.sqrt(i / seasonLen);
       forecastPoints.push({
         date: toDateStr(futureDate),
         predicted: predicted,
