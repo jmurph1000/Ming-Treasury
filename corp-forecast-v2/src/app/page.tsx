@@ -50,7 +50,7 @@ export default function CorpForecastV2Page() {
     setError(null);
     try {
       const [fcRes, cfRes] = await Promise.all([
-        fetch(`/api/forecast?weeks_back=${weeksBack}`),
+        fetch('/api/forecast?weeks_back=104'),
         fetch(`/api/cashflow?weeks_back=${weeksBack}&weeks_forward=${Math.max(8, weeksBack)}`),
       ]);
       setData(await fcRes.json());
