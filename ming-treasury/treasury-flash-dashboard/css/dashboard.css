@@ -275,6 +275,51 @@ body {
   color: #fff;
 }
 
+.bank-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 0.6rem;
+}
+
+.bank-filter-bar button {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+}
+
+.bank-filter-bar button:hover {
+  color: var(--text-primary);
+  border-color: var(--accent-blue);
+}
+
+.bank-filter-bar button.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.bank-filter-bar .bank-all-btn {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.bank-filter-bar .bank-all-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+
 .chart-wrapper {
   position: relative;
   height: 280px;

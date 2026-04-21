@@ -167,6 +167,88 @@
     return 'Other';
   }
 
+  var BANK_ABBREV = {
+    'JPM': 'JPM', 'PNC': 'PNC', 'NBKC': 'NBK', 'BRB': 'BRB', 'BTC': 'BTC',
+    'BNY': 'BNY', 'SVB': 'SVB', 'BBVA': 'BBV', 'BofA': 'BoA', 'MidFirst': 'MDF',
+    'Morgan Stanley': 'MST', 'Grasshopper': 'GRS', 'Scotiabank': 'SCO',
+    'Stripe': 'STR', 'Bank Leumi': 'LMI', 'Pathward': 'PTH', 'Other': 'OTH'
+  };
+
+  function getAbbrev(bankName) {
+    return BANK_ABBREV[bankName] || bankName.substring(0, 3).toUpperCase();
+  }
+
+  function discoverBanks(rawData) {
+    var bankSet = {};
+    rawData.forEach(function (r) {
+      var b = getBankName(r.account_description);
+      bankSet[b] = true;
+    });
+    return Object.keys(bankSet).sort();
+  }
+
+  function filterByBanks(rawData, selectedBanks) {
+    if (!selectedBanks || selectedBanks.length === 0) return rawData;
+    var set = {};
+    selectedBanks.forEach(function (b) { set[b] = true; });
+    return rawData.filter(function (r) {
+      return set[getBankName(r.account_description)];
+    });
+  }
+
+  function setupBankFilter(containerId, banks, onChange) {
+    var container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    var allBtn = document.createElement('button');
+    allBtn.className = 'bank-all-btn active';
+    allBtn.textContent = 'ALL';
+    container.appendChild(allBtn);
+
+    var bankBtns = [];
+    banks.forEach(function (bank) {
+      var btn = document.createElement('button');
+      btn.textContent = getAbbrev(bank);
+      btn.setAttribute('data-bank', bank);
+      btn.title = bank;
+      container.appendChild(btn);
+      bankBtns.push(btn);
+    });
+
+    var allMode = true;
+
+    function getSelected() {
+      if (allMode) return null;
+      var sel = [];
+      bankBtns.forEach(function (b) {
+        if (b.classList.contains('active')) sel.push(b.getAttribute('data-bank'));
+      });
+      return sel.length > 0 ? sel : null;
+    }
+
+    allBtn.addEventListener('click', function () {
+      allMode = true;
+      allBtn.classList.add('active');
+      bankBtns.forEach(function (b) { b.classList.remove('active'); });
+      onChange(null);
+    });
+
+    bankBtns.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        allMode = false;
+        allBtn.classList.remove('active');
+        btn.classList.toggle('active');
+        var sel = getSelected();
+        if (!sel) {
+          allMode = true;
+          allBtn.classList.add('active');
+        }
+        onChange(sel);
+      });
+    });
+  }
+
   // ===== Data Loading =====
 
   function fetchJSON(url) {
@@ -785,50 +867,119 @@
           chart.update();
         }
 
-        function setupRangeButtons(containerId, chart, series) {
+        // State for each trend chart: current range days + selected banks
+        var corpTrendState = { days: 5, banks: null };
+        var gustTrendState = { days: 5, banks: null };
+
+        function refreshTrendChart(chart, rawData, gcFilter, state) {
+          var filtered = state.banks ? filterByBanks(rawData, state.banks) : rawData;
+          if (gcFilter) {
+            filtered = filtered.filter(function (r) { return !gcFilter[r.account_description]; });
+          }
+          var series = aggregateByDate(filtered);
+          updateChartData(chart, series, state.days);
+        }
+
+        function setupRangeButtons(containerId, chart, rawData, gcFilter, state) {
           var container = document.getElementById(containerId);
-          if (!container) { console.error('Range buttons container not found:', containerId); return; }
+          if (!container) return;
           var buttons = Array.prototype.slice.call(container.querySelectorAll('button'));
-          console.log('Setting up', buttons.length, 'range buttons for', containerId, 'with', series.length, 'data points');
           for (var i = 0; i < buttons.length; i++) {
             (function (btn) {
               btn.addEventListener('click', function (e) {
                 e.preventDefault();
-                for (var j = 0; j < buttons.length; j++) {
-                  buttons[j].classList.remove('active');
-                }
+                for (var j = 0; j < buttons.length; j++) buttons[j].classList.remove('active');
                 btn.classList.add('active');
-                var days = parseInt(btn.getAttribute('data-days'));
-                console.log('Range button clicked:', btn.textContent, 'days:', days);
-                updateChartData(chart, series, days);
+                state.days = parseInt(btn.getAttribute('data-days'));
+                refreshTrendChart(chart, rawData, gcFilter, state);
               });
             })(buttons[i]);
           }
         }
 
-        setupRangeButtons('range-buttons-corporate', corpChart, corpSeries);
-        setupRangeButtons('range-buttons-gustomer', gustChart, gustSeries);
+        setupRangeButtons('range-buttons-corporate', corpChart, corpDataAll, gustoCapitalAccounts, corpTrendState);
+        setupRangeButtons('range-buttons-gustomer', gustChart, gustData, null, gustTrendState);
 
-        // Apply default 1W view on initial load
         updateChartData(corpChart, corpSeries, 5);
         updateChartData(gustChart, gustSeries, 5);
 
-        // Render Forecast Charts after a short delay so trend charts stay responsive
+        // Bank filters for trend charts
+        var corpBanks = discoverBanks(corpData);
+        var gustBanks = discoverBanks(gustData);
+
+        setupBankFilter('bank-filter-corporate', corpBanks, function (sel) {
+          corpTrendState.banks = sel;
+          refreshTrendChart(corpChart, corpDataAll, gustoCapitalAccounts, corpTrendState);
+        });
+        setupBankFilter('bank-filter-gustomer', gustBanks, function (sel) {
+          gustTrendState.banks = sel;
+          refreshTrendChart(gustChart, gustData, null, gustTrendState);
+        });
+
+        // Forecast charts state
+        var corpFcState = { days: 252, banks: null };
+        var gustFcState = { days: 252, banks: null };
         var corpFcColor = 'rgba(245, 158, 11, 1)';
         var gustFcColor = 'rgba(167, 139, 250, 1)';
+
+        function rebuildForecast(chart, rawData, gcFilter, state, histColor, fcColor) {
+          var filtered = state.banks ? filterByBanks(rawData, state.banks) : rawData;
+          if (gcFilter) {
+            filtered = filtered.filter(function (r) { return !gcFilter[r.account_description]; });
+          }
+          var series = aggregateByDate(filtered);
+          updateForecastChart(chart, series, state.days, histColor, fcColor);
+        }
 
         setTimeout(function () {
           var corpFcChart = createForecastChart(
             'chart-corporate-forecast', 'Corporate Cash',
             corpSeries, 252, '#22d3ee', corpFcColor
           );
-          setupForecastButtons('range-buttons-corp-forecast', corpFcChart, corpSeries, '#22d3ee', corpFcColor);
+
+          // Range buttons for corp forecast
+          var corpFcContainer = document.getElementById('range-buttons-corp-forecast');
+          if (corpFcContainer) {
+            var btns = Array.prototype.slice.call(corpFcContainer.querySelectorAll('button'));
+            btns.forEach(function (btn) {
+              btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                btns.forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                corpFcState.days = parseInt(btn.getAttribute('data-days'));
+                rebuildForecast(corpFcChart, corpDataAll, gustoCapitalAccounts, corpFcState, '#22d3ee', corpFcColor);
+              });
+            });
+          }
+
+          setupBankFilter('bank-filter-corp-forecast', corpBanks, function (sel) {
+            corpFcState.banks = sel;
+            rebuildForecast(corpFcChart, corpDataAll, gustoCapitalAccounts, corpFcState, '#22d3ee', corpFcColor);
+          });
 
           var gustFcChart = createForecastChart(
             'chart-gustomer-forecast', 'Gustomer Cash',
             gustSeries, 252, '#10b981', gustFcColor
           );
-          setupForecastButtons('range-buttons-gust-forecast', gustFcChart, gustSeries, '#10b981', gustFcColor);
+
+          var gustFcContainer = document.getElementById('range-buttons-gust-forecast');
+          if (gustFcContainer) {
+            var gBtns = Array.prototype.slice.call(gustFcContainer.querySelectorAll('button'));
+            gBtns.forEach(function (btn) {
+              btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                gBtns.forEach(function (b) { b.classList.remove('active'); });
+                btn.classList.add('active');
+                gustFcState.days = parseInt(btn.getAttribute('data-days'));
+                rebuildForecast(gustFcChart, gustData, null, gustFcState, '#10b981', gustFcColor);
+              });
+            });
+          }
+
+          setupBankFilter('bank-filter-gust-forecast', gustBanks, function (sel) {
+            gustFcState.banks = sel;
+            rebuildForecast(gustFcChart, gustData, null, gustFcState, '#10b981', gustFcColor);
+          });
         }, 50);
 
         // Render Tables (show all accounts including Gusto Capital section)
