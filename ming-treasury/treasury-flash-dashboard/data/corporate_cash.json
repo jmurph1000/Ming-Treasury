@@ -97527,7 +97527,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-04-20",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -97567,7 +97567,7 @@
   {
     "account_description": "Fee Account (Grasshopper) 3871",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Guideline BNY",
@@ -97577,7 +97577,7 @@
   {
     "account_description": "Guideline Money Market JP Morgan",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Guideline Stripe Sales Receipts",
@@ -97597,27 +97597,27 @@
   {
     "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "MidFirst Bank Customer Wires - 2876 (Symmetry)",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Midfirst Symmetry Customer Wires ZBA 5812",
     "reporting_date": "2026-04-20",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-04-20",
-    "value": 200000.0
+    "value": 200000
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
@@ -97637,7 +97637,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-04-20",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -97672,7 +97672,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-04-20",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -97687,12 +97687,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-04-20",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-04-20",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
@@ -97732,7 +97732,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-04-21",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -97852,7 +97852,7 @@
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
     "reporting_date": "2026-04-21",
-    "value": 99177.78
+    "value": 135015.11
   },
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
@@ -97872,7 +97872,7 @@
   {
     "account_description": "Chase Mexico (MXN) 6837",
     "reporting_date": "2026-04-21",
-    "value": 69520.35
+    "value": 1190188.39
   },
   {
     "account_description": "Chase Remote 8151",
@@ -97917,7 +97917,7 @@
   {
     "account_description": "Fee Account (Grasshopper) 3871",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Guideline BNY",
@@ -97927,7 +97927,7 @@
   {
     "account_description": "Guideline Money Market JP Morgan",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Guideline Stripe Sales Receipts",
@@ -97942,7 +97942,7 @@
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
     "reporting_date": "2026-04-21",
-    "value": 6187.34
+    "value": 8414.78
   },
   {
     "account_description": "Gusto PEO I Benefits 8278",
@@ -98002,32 +98002,32 @@
   {
     "account_description": "JPM Collateral **8192",
     "reporting_date": "2026-04-21",
-    "value": 7866664.21
+    "value": 87701.41
   },
   {
     "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "MidFirst Bank Customer Wires - 2876 (Symmetry)",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Midfirst Symmetry Customer Wires ZBA 5812",
     "reporting_date": "2026-04-21",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-04-21",
-    "value": 200000.0
+    "value": 200000
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
@@ -98047,7 +98047,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-04-21",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -98082,7 +98082,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-04-21",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -98097,12 +98097,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-04-21",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-04-21",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
