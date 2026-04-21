@@ -98,10 +98,14 @@ router.get('/corp-forecast', (req: AuthenticatedRequest, res: Response) => {
   const weeksBack = parseInt(req.query.weeks_back as string) || 4;
   const daysBack = weeksBack * 7;
 
+  // Use the latest available data date as anchor instead of 'now',
+  // so weekends/holidays don't produce empty results
   const { rows } = query<any>(
     `SELECT account_name, forecast_date, forecast_amount, actual_amount, min_balance, responsible_person
      FROM corp_forecast_snapshots
-     WHERE forecast_date >= date('now', '-' || $1 || ' days')
+     WHERE forecast_date >= date((SELECT MAX(forecast_date) FROM corp_forecast_snapshots), '-' || $1 || ' days')
+       AND account_name NOT LIKE '%Morgan Stanley%'
+       AND account_name NOT LIKE '%(MS)%'
      ORDER BY account_name, forecast_date`,
     [daysBack.toString()]
   );
@@ -151,6 +155,155 @@ router.get('/corp-forecast', (req: AuthenticatedRequest, res: Response) => {
       accounts,
       dates,
       summary: { belowMinimum, nearMinimum, totalForecast },
+    },
+  });
+});
+
+// GET /api/treasury/corp-cashflow
+router.get('/corp-cashflow', (req: AuthenticatedRequest, res: Response) => {
+  const user = req.user!;
+  if (!isTreasurySupervisor(user.id)) {
+    res.status(403).json({ success: false, message: 'Treasury access required' });
+    return;
+  }
+
+  const weeksBack = parseInt(req.query.weeks_back as string) || 4;
+  const weeksForward = parseInt(req.query.weeks_forward as string) || 8;
+  const daysBack = weeksBack * 7;
+  const daysForward = weeksForward * 7;
+
+  const { rows } = query<any>(
+    `SELECT line_item, category, line_type, flow_date, amount, frequency, responsible_person
+     FROM corp_cashflow_items
+     WHERE flow_date >= date((SELECT MAX(flow_date) FROM corp_cashflow_items), '-' || $1 || ' days')
+       AND flow_date <= date((SELECT MAX(flow_date) FROM corp_cashflow_items), '+' || $2 || ' days')
+     ORDER BY category, line_item, flow_date`,
+    [daysBack.toString(), daysForward.toString()]
+  );
+
+  // Group by line item
+  const itemMap = new Map<string, any>();
+  const dates = new Set<string>();
+
+  for (const row of rows) {
+    dates.add(row.flow_date);
+    const key = `${row.category}::${row.line_item}::${row.line_type}`;
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        lineItem: row.line_item,
+        category: row.category,
+        lineType: row.line_type,
+        frequency: row.frequency,
+        responsiblePerson: row.responsible_person,
+        values: {} as Record<string, number>,
+      });
+    }
+    itemMap.get(key)!.values[row.flow_date] = row.amount;
+  }
+
+  const allItems = Array.from(itemMap.values());
+
+  // Build structured response
+  const additions = allItems.filter(i => i.category === 'addition');
+  const subtractions = allItems.filter(i => i.category === 'subtraction');
+  const additionTotals = allItems.filter(i => i.category === 'addition_total');
+  const subtractionTotals = allItems.filter(i => i.category === 'subtraction_total');
+  const ending = allItems.filter(i => i.category === 'ending');
+
+  // Build waterfall data: additions total vs subtractions total per date
+  const sortedDates = Array.from(dates).sort();
+
+  const waterfall = sortedDates.map(d => {
+    const addFcst = additionTotals.find(i => i.lineType === 'forecast')?.values[d] ?? 0;
+    const subFcst = subtractionTotals.find(i => i.lineType === 'forecast')?.values[d] ?? 0;
+    const addActual = additionTotals.find(i => i.lineType === 'actual')?.values[d] ?? 0;
+    const subActual = subtractionTotals.find(i => i.lineType === 'actual')?.values[d] ?? 0;
+    return {
+      date: d,
+      additionsForecast: addFcst,
+      subtractionsForecast: Math.abs(subFcst),
+      netForecast: addFcst + subFcst,
+      additionsActual: addActual,
+      subtractionsActual: Math.abs(subActual),
+      netActual: addActual + subActual,
+    };
+  });
+
+  // Build ending cash trend
+  const endingTrend = sortedDates.map(d => {
+    const forecast = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'forecast')?.values[d] ?? null;
+    const actual = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'actual')?.values[d] ?? null;
+    const variance = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'variance')?.values[d] ?? null;
+    const target = ending.find(i => i.lineItem === 'TARGET' && i.lineType === 'forecast')?.values[d] ?? null;
+    return { date: d, forecast, actual, variance, target };
+  });
+
+  // Build variance data per line item (for variance tracking)
+  const varianceItems: any[] = [];
+  const lineItemSet = new Set<string>();
+  for (const item of [...additions, ...subtractions]) {
+    lineItemSet.add(`${item.category}::${item.lineItem}`);
+  }
+  for (const key of lineItemSet) {
+    const [cat, name] = key.split('::');
+    const fcstItem = allItems.find(i => i.category === cat && i.lineItem === name && i.lineType === 'forecast');
+    const actItem = allItems.find(i => i.category === cat && i.lineItem === name && i.lineType === 'actual');
+    const varItem = allItems.find(i => i.category === cat && i.lineItem === name && i.lineType === 'variance');
+    if (fcstItem || actItem) {
+      varianceItems.push({
+        lineItem: name,
+        category: cat,
+        forecast: fcstItem?.values || {},
+        actual: actItem?.values || {},
+        variance: varItem?.values || {},
+      });
+    }
+  }
+
+  // Monthly roll-up: aggregate by month
+  const monthlyMap = new Map<string, { additions: number; subtractions: number; net: number; endingCash: number | null; additionsActual: number; subtractionsActual: number }>();
+  for (const d of sortedDates) {
+    const month = d.substring(0, 7); // YYYY-MM
+    if (!monthlyMap.has(month)) {
+      monthlyMap.set(month, { additions: 0, subtractions: 0, net: 0, endingCash: null, additionsActual: 0, subtractionsActual: 0 });
+    }
+    const m = monthlyMap.get(month)!;
+    const w = waterfall.find(ww => ww.date === d);
+    if (w) {
+      m.additions += w.additionsForecast;
+      m.subtractions += w.subtractionsForecast;
+      m.net += w.netForecast;
+      m.additionsActual += w.additionsActual;
+      m.subtractionsActual += w.subtractionsActual;
+    }
+    // Use the last week's ending cash as the month-end figure
+    const ec = endingTrend.find(e => e.date === d);
+    if (ec && ec.forecast != null) {
+      m.endingCash = ec.forecast;
+    }
+  }
+  const monthly = Array.from(monthlyMap.entries()).map(([month, data]) => ({
+    month,
+    ...data,
+  }));
+
+  // Find today's date for the frontend to mark historical vs projected
+  const today = new Date().toISOString().split('T')[0];
+
+  res.json({
+    success: true,
+    data: {
+      dates: sortedDates,
+      today,
+      waterfall,
+      endingTrend,
+      varianceItems,
+      additions,
+      subtractions,
+      additionTotals,
+      subtractionTotals,
+      ending,
+      monthly,
     },
   });
 });

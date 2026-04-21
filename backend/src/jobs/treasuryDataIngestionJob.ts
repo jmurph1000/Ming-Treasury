@@ -105,6 +105,7 @@ async function mcpCall(token: string, method: string, params: Record<string, any
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(body),
@@ -129,7 +130,7 @@ async function discoverSheetsTool(token: string): Promise<string> {
 
   // Match common GSheets tool names
   const candidates = [
-    'get_spreadsheet_values', 'read_spreadsheet', 'sheets_get_values',
+    'fetch', 'get_spreadsheet_values', 'read_spreadsheet', 'sheets_get_values',
     'google_sheets_read', 'get_values', 'read_sheet', 'get_sheet_data',
   ];
   for (const name of candidates) {
@@ -289,7 +290,17 @@ function parseDateValue(val: any): string | null {
 function isSkipRow(name: string): boolean {
   if (!name || typeof name !== 'string') return true;
   const lower = name.trim().toLowerCase();
-  return lower === '' || lower.includes('total') || lower.includes('subtotal') || lower.startsWith('corporate cash') || lower.startsWith('gustomer cash') || lower.startsWith('previous');
+  if (lower === '') return true;
+  if (lower.includes('total') || lower.includes('subtotal')) return true;
+  if (lower.startsWith('corporate cash') || lower.startsWith('gustomer cash') || lower.startsWith('previous')) return true;
+  // Skip cashflow section rows that shouldn't be treated as accounts
+  if (lower.startsWith('additions') || lower.startsWith('subtractions') || lower.startsWith('beginning')) return true;
+  if (lower.startsWith('ending cash') || lower.startsWith('material adjustment')) return true;
+  if (lower.startsWith('target') || lower === 'miss' || lower === 'actual') return true;
+  if (lower.includes('(fcst)') || lower.includes('(actual)') || lower.includes('(variance)')) return true;
+  if (lower.startsWith('revenue inflow') || lower.startsWith('payroll') || lower.startsWith('sublease')) return true;
+  if (lower.startsWith('m/e fbos') || lower.startsWith('morgan stanley') || lower.startsWith('restricted cash')) return true;
+  return false;
 }
 
 function findHeaderRow(rows: any[][]): { rowIdx: number; dateStartCol: number } {
@@ -403,7 +414,7 @@ function extractBankName(accountName: string): string | null {
   return null;
 }
 
-async function ingestCorpForecast(fetchSheet: SheetFetcher, maxWeeks: number = 8): Promise<number> {
+async function ingestCorpForecast(fetchSheet: SheetFetcher, maxWeeks: number = 104): Promise<number> {
   const rows = await fetchSheet(FORECAST_SPREADSHEET_ID, 'Forecast');
   if (!rows || rows.length < 3) {
     logger.warn('No data found in Forecast sheet');
@@ -473,6 +484,185 @@ async function ingestCorpForecast(fetchSheet: SheetFetcher, maxWeeks: number = 8
   return count;
 }
 
+// ── Cash flow ingestion (additions, subtractions, ending cash) ───────────────
+
+function findRowText(row: any[]): string {
+  // Find the deepest non-empty text among the first 6 columns
+  for (let i = 5; i >= 0; i--) {
+    const val = row[i];
+    if (val != null && String(val).trim() !== '') {
+      const s = String(val).trim();
+      // Skip pure numbers in these columns
+      if (typeof val === 'number' && i >= 4) continue;
+      if (/^[\d,.$()-]+$/.test(s)) continue;
+      return s;
+    }
+  }
+  return '';
+}
+
+function classifyLineItem(name: string): { baseName: string; lineType: 'forecast' | 'actual' | 'variance' } {
+  const trimmed = name.trim();
+  if (trimmed.endsWith('(actual)') || trimmed.endsWith('(actuals)')) {
+    return { baseName: trimmed.replace(/\s*\(actuals?\)\s*$/, '').trim(), lineType: 'actual' };
+  }
+  if (trimmed.endsWith('(variance)')) {
+    return { baseName: trimmed.replace(/\s*\(variance\)\s*$/, '').trim(), lineType: 'variance' };
+  }
+  if (trimmed.endsWith('(fcst)')) {
+    return { baseName: trimmed.replace(/\s*\(fcst\)\s*$/, '').trim(), lineType: 'forecast' };
+  }
+  return { baseName: trimmed, lineType: 'forecast' };
+}
+
+async function ingestCorpCashflow(fetchSheet: SheetFetcher, maxWeeks: number = 104): Promise<number> {
+  const rows = await fetchSheet(FORECAST_SPREADSHEET_ID, 'Forecast');
+  if (!rows || rows.length < 10) {
+    logger.warn('No data found in Forecast sheet for cashflow ingestion');
+    return 0;
+  }
+
+  // Detect header row with dates (same logic as ingestCorpForecast)
+  let dateStartCol = 7;
+  let headerRowIdx = 0;
+
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const row = rows[i];
+    if (!row) continue;
+    for (let j = 5; j < row.length; j++) {
+      if (isDateValue(row[j])) {
+        headerRowIdx = i;
+        dateStartCol = j;
+        break;
+      }
+    }
+    if (headerRowIdx > 0 || dateStartCol !== 7) break;
+  }
+
+  const headerRow = rows[headerRowIdx];
+  const dateColumns: { col: number; date: string }[] = [];
+  if (headerRow) {
+    for (let j = dateStartCol; j < headerRow.length; j++) {
+      const dateStr = parseDateValue(headerRow[j]);
+      if (dateStr) dateColumns.push({ col: j, date: dateStr });
+    }
+  }
+
+  const recentDates = dateColumns.slice(-maxWeeks);
+  logger.info(`Cashflow: ${dateColumns.length} total date cols, taking last ${recentDates.length}`);
+
+  if (recentDates.length === 0) {
+    logger.warn('Cashflow: no date columns found');
+    return 0;
+  }
+
+  // Walk rows and detect sections
+  type Section = 'beginning' | 'additions' | 'subtractions' | 'ending' | 'adjustments' | 'other';
+  let currentSection: Section = 'beginning';
+
+  const upsert = db.prepare(`
+    INSERT INTO corp_cashflow_items (line_item, category, line_type, flow_date, amount, frequency, responsible_person, source, ingested_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'corp_forecast_gsheet', datetime('now'))
+    ON CONFLICT(line_item, category, line_type, flow_date) DO UPDATE SET
+      amount = excluded.amount,
+      frequency = excluded.frequency,
+      responsible_person = excluded.responsible_person,
+      ingested_at = datetime('now')
+  `);
+
+  let count = 0;
+
+  for (let i = headerRowIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+
+    const text = findRowText(row);
+    if (!text) continue;
+    const textLower = text.toLowerCase();
+
+    // Detect section transitions
+    if (textLower === 'additions') { currentSection = 'additions'; continue; }
+    if (textLower === 'subtractions') { currentSection = 'subtractions'; continue; }
+    if (textLower.startsWith('ending cash')) { currentSection = 'ending'; }
+    if (textLower === 'actual' && currentSection === 'ending') { /* stay in ending */ }
+    if (textLower.startsWith('material adjustments')) { currentSection = 'adjustments'; continue; }
+    if (textLower.startsWith('m/e fbos')) { currentSection = 'other'; continue; }
+
+    // Skip beginning section (handled by existing ingestCorpForecast)
+    if (currentSection === 'beginning') continue;
+    // Skip adjustments and other sections
+    if (currentSection === 'adjustments' || currentSection === 'other') continue;
+
+    // Determine category and line type
+    let category: string;
+    let lineType: 'forecast' | 'actual' | 'variance';
+    let baseName: string;
+
+    if (currentSection === 'ending') {
+      category = 'ending';
+      if (textLower.startsWith('ending cash')) {
+        baseName = 'Ending Cash';
+        lineType = 'forecast';
+      } else if (textLower === 'actual') {
+        baseName = 'Ending Cash';
+        lineType = 'actual';
+      } else if (textLower.startsWith('variance') && textLower.includes('$')) {
+        baseName = 'Ending Cash';
+        lineType = 'variance';
+      } else if (textLower.startsWith('target')) {
+        baseName = 'TARGET';
+        lineType = 'forecast';
+      } else if (textLower === 'miss' || textLower.startsWith('variance') && textLower.includes('%')) {
+        continue; // Skip percentage variance and miss rows
+      } else {
+        continue;
+      }
+    } else {
+      // Additions or Subtractions
+      const isSubtotal = textLower.startsWith('subtotal');
+      const classified = classifyLineItem(text);
+      baseName = classified.baseName;
+      lineType = classified.lineType;
+
+      if (isSubtotal) {
+        category = currentSection === 'additions' ? 'addition_total' : 'subtraction_total';
+        baseName = 'Subtotal';
+      } else {
+        category = currentSection === 'additions' ? 'addition' : 'subtraction';
+      }
+    }
+
+    // Extract frequency and responsible person
+    const frequency = (typeof row[5] === 'string' && row[5].trim()) ? row[5].trim() : null;
+    const responsible = (row[6] && typeof row[6] === 'string' && row[6].trim()) ? row[6].trim() : null;
+
+    // Extract values for each date column
+    for (const { col, date } of recentDates) {
+      const val = row[col];
+      if (val == null || val === '' || val === '-') continue;
+
+      let amount: number;
+      if (typeof val === 'number') {
+        amount = val;
+      } else {
+        // Handle parenthesized negatives like (19,170,000.00)
+        const str = String(val).trim();
+        const isNeg = str.startsWith('(') && str.endsWith(')');
+        const cleaned = str.replace(/[(),$]/g, '');
+        amount = parseFloat(cleaned);
+        if (isNaN(amount)) continue;
+        if (isNeg) amount = -amount;
+      }
+
+      upsert.run(baseName, category, lineType, date, amount, frequency, responsible);
+      count++;
+    }
+  }
+
+  logger.info(`Cashflow: upserted ${count} records`);
+  return count;
+}
+
 function logIngestion(module: string, source: string, recordsIngested: number, status: string, errorMessage?: string) {
   db.prepare(`
     INSERT INTO treasury_ingestion_log (module, source, records_ingested, status, error_message, ingested_at)
@@ -480,9 +670,9 @@ function logIngestion(module: string, source: string, recordsIngested: number, s
   `).run(module, source, recordsIngested, status, errorMessage || null);
 }
 
-export async function runTreasuryDataIngestion(): Promise<{ corporate: number; customer: number; forecast: number }> {
+export async function runTreasuryDataIngestion(): Promise<{ corporate: number; customer: number; forecast: number; cashflow: number }> {
   logger.info('Treasury data ingestion job started');
-  const results = { corporate: 0, customer: 0, forecast: 0 };
+  const results = { corporate: 0, customer: 0, forecast: 0, cashflow: 0 };
 
   let fetchSheet: SheetFetcher;
   try {
@@ -529,7 +719,18 @@ export async function runTreasuryDataIngestion(): Promise<{ corporate: number; c
     logger.error('Corporate forecast ingestion failed', { error: msg });
   }
 
-  const total = results.corporate + results.customer + results.forecast;
-  logger.info(`Treasury data ingestion completed: ${total} total records (corp=${results.corporate}, cust=${results.customer}, forecast=${results.forecast})`);
+  // Corporate Cash Flow (additions, subtractions, ending cash)
+  try {
+    results.cashflow = await ingestCorpCashflow(fetchSheet);
+    logIngestion('corp_cashflow', 'corp_forecast_gsheet', results.cashflow, results.cashflow > 0 ? 'success' : 'no_data');
+    logger.info(`Ingested ${results.cashflow} corporate cashflow records`);
+  } catch (error) {
+    const msg = (error as Error).message;
+    logIngestion('corp_cashflow', 'corp_forecast_gsheet', 0, 'error', msg);
+    logger.error('Corporate cashflow ingestion failed', { error: msg });
+  }
+
+  const total = results.corporate + results.customer + results.forecast + results.cashflow;
+  logger.info(`Treasury data ingestion completed: ${total} total records (corp=${results.corporate}, cust=${results.customer}, forecast=${results.forecast}, cashflow=${results.cashflow})`);
   return results;
 }

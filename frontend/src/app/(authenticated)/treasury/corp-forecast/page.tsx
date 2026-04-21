@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Loader2, AlertTriangle, AlertCircle, CheckCircle } from 'lucide-react';
+import { RefreshCw, Loader2, AlertTriangle, AlertCircle, CheckCircle, BarChart3, Table2, TrendingDown, TrendingUp, Calendar, DollarSign } from 'lucide-react';
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer, ReferenceLine, Cell, Area, ComposedChart,
+} from 'recharts';
 
 function formatCurrency(amount: number): string {
   if (Math.abs(amount) >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`;
@@ -16,14 +20,34 @@ function formatDateHeader(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+const COLORS = {
+  green: '#107848',
+  yellow: '#d97706',
+  red: '#dc2626',
+  blue: '#2563eb',
+  gray: '#6b7280',
+  lightGreen: '#bbf7d0',
+  lightYellow: '#fef3c7',
+  lightRed: '#fecaca',
+};
+
 export default function CorpForecastPage() {
   const queryClient = useQueryClient();
   const [weeksBack, setWeeksBack] = useState(4);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'monthly'>('dashboard');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['corp-forecast', weeksBack],
     queryFn: async () => {
       const res = await fetch(`/api/treasury/corp-forecast?weeks_back=${weeksBack}`, { credentials: 'include' });
+      return res.json();
+    },
+  });
+
+  const { data: cashflowData } = useQuery({
+    queryKey: ['corp-cashflow', weeksBack],
+    queryFn: async () => {
+      const res = await fetch(`/api/treasury/corp-cashflow?weeks_back=${weeksBack}&weeks_forward=${Math.max(8, weeksBack)}`, { credentials: 'include' });
       return res.json();
     },
   });
@@ -35,12 +59,162 @@ export default function CorpForecastPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['corp-forecast'] });
+      queryClient.invalidateQueries({ queryKey: ['corp-cashflow'] });
     },
   });
 
-  const accounts = data?.data?.accounts || [];
-  const dates = data?.data?.dates || [];
+  const accounts: any[] = data?.data?.accounts || [];
+  const dates: string[] = data?.data?.dates || [];
   const summary = data?.data?.summary || { belowMinimum: 0, nearMinimum: 0, totalForecast: 0 };
+
+  // --- Derived chart data ---
+
+  // Total forecast over time (line chart)
+  const totalByDate = useMemo(() => {
+    return dates.map(d => {
+      let total = 0;
+      let totalMin = 0;
+      accounts.forEach((acc: any) => {
+        const val = acc.forecasts[d]?.forecast;
+        if (val != null) total += val;
+        if (acc.minBalance != null) totalMin += acc.minBalance;
+      });
+      return { date: formatDateHeader(d), fullDate: d, total, totalMin };
+    });
+  }, [accounts, dates]);
+
+  // Per-account latest forecast vs min (bar chart)
+  const accountComparison = useMemo(() => {
+    if (dates.length === 0) return [];
+    const latestDate = dates[dates.length - 1];
+    return accounts
+      .filter((acc: any) => acc.minBalance != null)
+      .map((acc: any) => {
+        const forecast = acc.forecasts[latestDate]?.forecast ?? 0;
+        const min = acc.minBalance ?? 0;
+        const shortName = acc.accountName.length > 25
+          ? acc.accountName.slice(0, 22) + '...'
+          : acc.accountName;
+        return {
+          name: shortName,
+          fullName: acc.accountName,
+          forecast,
+          minBalance: min,
+          status: forecast < min ? 'below' : forecast < min * 1.2 ? 'near' : 'healthy',
+        };
+      })
+      .sort((a: any, b: any) => (a.forecast / a.minBalance) - (b.forecast / b.minBalance));
+  }, [accounts, dates]);
+
+  // Health breakdown (donut-like summary)
+  const healthCounts = useMemo(() => {
+    let below = 0, near = 0, healthy = 0;
+    accountComparison.forEach((a: any) => {
+      if (a.status === 'below') below++;
+      else if (a.status === 'near') near++;
+      else healthy++;
+    });
+    return { below, near, healthy, total: below + near + healthy };
+  }, [accountComparison]);
+
+  // By responsible person
+  const byResponsible = useMemo(() => {
+    if (dates.length === 0) return [];
+    const latestDate = dates[dates.length - 1];
+    const map: Record<string, { total: number; count: number; belowCount: number }> = {};
+    accounts.forEach((acc: any) => {
+      const person = acc.responsiblePerson || 'Unassigned';
+      if (!map[person]) map[person] = { total: 0, count: 0, belowCount: 0 };
+      const val = acc.forecasts[latestDate]?.forecast ?? 0;
+      map[person].total += val;
+      map[person].count++;
+      if (acc.minBalance != null && val < acc.minBalance) map[person].belowCount++;
+    });
+    return Object.entries(map).map(([name, d]) => ({ name, ...d }));
+  }, [accounts, dates]);
+
+  // --- Cashflow chart data ---
+
+  const waterfall: any[] = cashflowData?.data?.waterfall || [];
+  const endingTrend: any[] = cashflowData?.data?.endingTrend || [];
+  const today: string = cashflowData?.data?.today || '';
+
+  const waterfallChartData = useMemo(() => {
+    return waterfall.map((w: any) => {
+      const d = new Date(w.date + 'T12:00:00');
+      const isPast = w.date <= today;
+      return {
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        fullDate: w.date,
+        additions: w.additionsForecast,
+        subtractions: -w.subtractionsForecast,
+        net: w.netForecast,
+        additionsActual: w.additionsActual,
+        subtractionsActual: -w.subtractionsActual,
+        isPast,
+      };
+    });
+  }, [waterfall, today]);
+
+  const endingCashData = useMemo(() => {
+    return endingTrend
+      .filter((e: any) => e.forecast != null || e.actual != null)
+      .map((e: any) => {
+        const d = new Date(e.date + 'T12:00:00');
+        return {
+          date: `${d.getMonth() + 1}/${d.getDate()}`,
+          fullDate: e.date,
+          forecast: e.forecast,
+          actual: e.actual && e.actual !== 0 ? e.actual : null,
+          target: e.target,
+        };
+      });
+  }, [endingTrend]);
+
+  const varianceChartData = useMemo(() => {
+    return endingTrend
+      .filter((e: any) => e.variance != null && e.variance !== 0)
+      .map((e: any) => {
+        const d = new Date(e.date + 'T12:00:00');
+        return {
+          date: `${d.getMonth() + 1}/${d.getDate()}`,
+          fullDate: e.date,
+          variance: e.variance,
+          isPositive: e.variance >= 0,
+        };
+      });
+  }, [endingTrend]);
+
+  const hasCashflowData = waterfallChartData.length > 0 || endingCashData.length > 0;
+
+  // Monthly roll-up data
+  const monthlyData: any[] = cashflowData?.data?.monthly || [];
+
+  // Ending cash summary for cards
+  const endingCashSummary = useMemo(() => {
+    if (endingCashData.length === 0) return null;
+    // Find latest actual (non-null)
+    const withActual = endingCashData.filter((d: any) => d.actual != null);
+    const latestActual = withActual.length > 0 ? withActual[withActual.length - 1] : null;
+    // Find the last projected value
+    const lastProjected = endingCashData[endingCashData.length - 1];
+    // Find the projected value closest to month-end for current month
+    const currentMonth = today.substring(0, 7);
+    const currentMonthEntries = endingCashData.filter((d: any) => d.fullDate?.startsWith(currentMonth));
+    const monthEndProjection = currentMonthEntries.length > 0 ? currentMonthEntries[currentMonthEntries.length - 1] : null;
+    // Week-over-week change
+    const prevWeek = endingCashData.length >= 2 ? endingCashData[endingCashData.length - 2] : null;
+    const wowChange = lastProjected && prevWeek && lastProjected.forecast != null && prevWeek.forecast != null
+      ? lastProjected.forecast - prevWeek.forecast : null;
+    return { latestActual, lastProjected, monthEndProjection, wowChange };
+  }, [endingCashData, today]);
+
+  // Format month label
+  function formatMonth(monthStr: string): string {
+    const [y, m] = monthStr.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[parseInt(m) - 1]} ${y}`;
+  }
 
   function getCellColor(forecast: number | null, minBalance: number | null): string {
     if (forecast == null || minBalance == null) return '';
@@ -49,8 +223,88 @@ export default function CorpForecastPage() {
     return 'bg-green-50 text-green-800';
   }
 
+  function getBarColor(status: string): string {
+    if (status === 'below') return COLORS.red;
+    if (status === 'near') return COLORS.yellow;
+    return COLORS.green;
+  }
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium text-gray-900 mb-1">{label}</p>
+        {payload.map((p: any, i: number) => (
+          <p key={i} style={{ color: p.color }}>
+            {p.name}: {formatCurrency(p.value)}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  const BarTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0]?.payload;
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-3 text-sm max-w-xs">
+        <p className="font-medium text-gray-900 mb-1">{d?.fullName || d?.name}</p>
+        <p style={{ color: COLORS.blue }}>Forecast: {formatCurrency(d?.forecast)}</p>
+        <p style={{ color: COLORS.gray }}>Min Balance: {formatCurrency(d?.minBalance)}</p>
+      </div>
+    );
+  };
+
+  const WaterfallTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0]?.payload;
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium text-gray-900 mb-1">{label}</p>
+        <p className="text-green-600">Additions: {formatCurrency(d?.additions || 0)}</p>
+        <p className="text-red-600">Subtractions: {formatCurrency(Math.abs(d?.subtractions || 0))}</p>
+        <p className="font-medium" style={{ color: (d?.net || 0) >= 0 ? COLORS.green : COLORS.red }}>
+          Net: {formatCurrency(d?.net || 0)}
+        </p>
+      </div>
+    );
+  };
+
+  const EndingCashTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium text-gray-900 mb-1">{label}</p>
+        {payload.map((p: any, i: number) => (
+          p.value != null && (
+            <p key={i} style={{ color: p.color }}>
+              {p.name}: {formatCurrency(p.value)}
+            </p>
+          )
+        ))}
+      </div>
+    );
+  };
+
+  const VarianceTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    const val = payload[0]?.value;
+    return (
+      <div className="bg-white border rounded-lg shadow-lg p-3 text-sm">
+        <p className="font-medium text-gray-900 mb-1">{label}</p>
+        <p style={{ color: val >= 0 ? COLORS.green : COLORS.red }}>
+          Variance: {formatCurrency(val)}
+        </p>
+        <p className="text-xs text-gray-500 mt-1">{val >= 0 ? 'Over forecast' : 'Under forecast'}</p>
+      </div>
+    );
+  };
+
+  const hasData = accounts.length > 0;
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Corporate Cash Forecast</h1>
@@ -93,8 +347,46 @@ export default function CorpForecastPage() {
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex gap-4 items-center bg-white p-4 rounded-lg shadow-sm border">
+      {/* Controls + Tabs */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-white p-4 rounded-lg shadow-sm border">
+        {/* Tabs */}
+        <div className="flex border-b sm:border-b-0 sm:border-r border-gray-200 pr-0 sm:pr-4 pb-2 sm:pb-0">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'dashboard'
+                ? 'bg-[#1E6B3C] text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Dashboard
+          </button>
+          <button
+            onClick={() => setActiveTab('table')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ml-1 ${
+              activeTab === 'table'
+                ? 'bg-[#1E6B3C] text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Table2 className="h-4 w-4" />
+            Table
+          </button>
+          <button
+            onClick={() => setActiveTab('monthly')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ml-1 ${
+              activeTab === 'monthly'
+                ? 'bg-[#1E6B3C] text-white'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            Monthly
+          </button>
+        </div>
+
+        {/* Forecast Range */}
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-600">Forecast Range:</label>
           <select value={weeksBack} onChange={e => setWeeksBack(Number(e.target.value))} className="border rounded px-2 py-1 text-sm">
@@ -102,8 +394,13 @@ export default function CorpForecastPage() {
             <option value={4}>4 Weeks</option>
             <option value={8}>8 Weeks</option>
             <option value={12}>12 Weeks</option>
+            <option value={26}>6 Months</option>
+            <option value={52}>1 Year</option>
+            <option value={104}>2 Years</option>
           </select>
         </div>
+
+        {/* Legend */}
         <div className="flex items-center gap-4 ml-auto text-xs">
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-100 border border-red-200"></span> Below Min</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200"></span> Near Min (&lt;20%)</span>
@@ -111,16 +408,417 @@ export default function CorpForecastPage() {
         </div>
       </div>
 
+      {/* Content */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1E6B3C]"></div></div>
       ) : error ? (
         <div className="text-center py-12 text-red-600">Failed to load forecast data.</div>
-      ) : accounts.length === 0 ? (
+      ) : !hasData ? (
         <div className="bg-white rounded-lg shadow-sm border p-12 text-center">
           <h3 className="text-lg font-medium text-gray-900">No forecast data available</h3>
           <p className="text-gray-500 mt-2">Data ingests daily at 9:30 AM ET. Click Refresh Now to load current data.</p>
         </div>
+      ) : activeTab === 'dashboard' ? (
+        /* ===================== DASHBOARD TAB ===================== */
+        <div className="space-y-6">
+          {/* Row 1: Trend line + Health breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Total Forecast Trend */}
+            <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Total Forecast vs Minimum Requirement</h3>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={totalByDate}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis
+                    tickFormatter={(v: number) => formatCurrency(v)}
+                    tick={{ fontSize: 11 }}
+                    width={80}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    name="Total Forecast"
+                    stroke={COLORS.blue}
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="totalMin"
+                    name="Total Min Required"
+                    stroke={COLORS.red}
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Health Breakdown */}
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Account Health</h3>
+              <div className="space-y-4">
+                {/* Visual bars */}
+                {healthCounts.total > 0 && (
+                  <div className="flex rounded-full overflow-hidden h-6">
+                    {healthCounts.healthy > 0 && (
+                      <div
+                        className="bg-green-500 flex items-center justify-center text-white text-xs font-medium"
+                        style={{ width: `${(healthCounts.healthy / healthCounts.total) * 100}%` }}
+                      >
+                        {healthCounts.healthy}
+                      </div>
+                    )}
+                    {healthCounts.near > 0 && (
+                      <div
+                        className="bg-yellow-400 flex items-center justify-center text-white text-xs font-medium"
+                        style={{ width: `${(healthCounts.near / healthCounts.total) * 100}%` }}
+                      >
+                        {healthCounts.near}
+                      </div>
+                    )}
+                    {healthCounts.below > 0 && (
+                      <div
+                        className="bg-red-500 flex items-center justify-center text-white text-xs font-medium"
+                        style={{ width: `${(healthCounts.below / healthCounts.total) * 100}%` }}
+                      >
+                        {healthCounts.below}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <div className="space-y-3 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                      <span className="text-sm text-gray-700">Healthy</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{healthCounts.healthy}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                      <span className="text-sm text-gray-700">Near Minimum</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{healthCounts.near}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-500"></span>
+                      <span className="text-sm text-gray-700">Below Minimum</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">{healthCounts.below}</span>
+                  </div>
+                </div>
+
+                {/* Responsible person breakdown */}
+                <div className="border-t pt-4 mt-4">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">By Responsible Person</h4>
+                  <div className="space-y-2">
+                    {byResponsible.map((r: any) => (
+                      <div key={r.name} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-700">{r.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 font-medium">{r.count} acct{r.count !== 1 ? 's' : ''}</span>
+                          {r.belowCount > 0 && (
+                            <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{r.belowCount} below</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Account Forecast vs Minimum bar chart */}
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">
+              Latest Forecast vs Minimum Balance by Account
+            </h3>
+            <ResponsiveContainer width="100%" height={Math.max(300, accountComparison.length * 40)}>
+              <BarChart data={accountComparison} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" horizontal={false} />
+                <XAxis
+                  type="number"
+                  tickFormatter={(v: number) => formatCurrency(v)}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={180}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip content={<BarTooltip />} />
+                <Legend />
+                <Bar dataKey="forecast" name="Forecast" radius={[0, 4, 4, 0]}>
+                  {accountComparison.map((entry: any, idx: number) => (
+                    <Cell key={idx} fill={getBarColor(entry.status)} />
+                  ))}
+                </Bar>
+                <Bar dataKey="minBalance" name="Min Balance" fill={COLORS.gray} radius={[0, 4, 4, 0]} fillOpacity={0.3} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* ═══════ CASH FLOW SECTION ═══════ */}
+          {hasCashflowData && (
+            <>
+              <div className="border-t pt-6 mt-2">
+                <h2 className="text-lg font-bold text-gray-900 mb-1">Cash Flow Analysis</h2>
+                <p className="text-sm text-gray-500 mb-4">Weekly additions, subtractions, and ending cash position from the corporate cash forecast</p>
+              </div>
+
+              {/* Ending Cash Summary Cards */}
+              {endingCashSummary && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {endingCashSummary.latestActual && (
+                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                      <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
+                        <DollarSign className="h-4 w-4 text-green-500" />
+                        Latest Actual
+                      </div>
+                      <div className="text-xl font-bold text-gray-900">{formatCurrency(endingCashSummary.latestActual.actual)}</div>
+                      <div className="text-xs text-gray-500">Week of {endingCashSummary.latestActual.date}</div>
+                    </div>
+                  )}
+                  {endingCashSummary.monthEndProjection && (
+                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                      <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
+                        <Calendar className="h-4 w-4 text-blue-500" />
+                        Month-End Projection
+                      </div>
+                      <div className="text-xl font-bold text-gray-900">{formatCurrency(endingCashSummary.monthEndProjection.forecast)}</div>
+                      <div className="text-xs text-gray-500">Week of {endingCashSummary.monthEndProjection.date}</div>
+                    </div>
+                  )}
+                  {endingCashSummary.lastProjected && endingCashSummary.lastProjected.forecast != null && (
+                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                      <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
+                        <TrendingDown className="h-4 w-4 text-purple-500" />
+                        Furthest Projection
+                      </div>
+                      <div className="text-xl font-bold text-gray-900">{formatCurrency(endingCashSummary.lastProjected.forecast)}</div>
+                      <div className="text-xs text-gray-500">Week of {endingCashSummary.lastProjected.date}</div>
+                    </div>
+                  )}
+                  {endingCashSummary.wowChange != null && (
+                    <div className="bg-white rounded-lg shadow-sm border p-4">
+                      <div className="flex items-center gap-2 text-gray-600 text-sm mb-1">
+                        {endingCashSummary.wowChange >= 0
+                          ? <TrendingUp className="h-4 w-4 text-green-500" />
+                          : <TrendingDown className="h-4 w-4 text-red-500" />}
+                        Week-over-Week
+                      </div>
+                      <div className={`text-xl font-bold ${endingCashSummary.wowChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {endingCashSummary.wowChange >= 0 ? '+' : ''}{formatCurrency(endingCashSummary.wowChange)}
+                      </div>
+                      <div className="text-xs text-gray-500">Projected change</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Row 3: Cash Flow Waterfall */}
+              {waterfallChartData.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border p-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Cash Flow Waterfall — Additions vs Subtractions</h3>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <ComposedChart data={waterfallChartData} margin={{ left: 10, right: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                      <YAxis
+                        tickFormatter={(v: number) => formatCurrency(v)}
+                        tick={{ fontSize: 11 }}
+                        width={80}
+                      />
+                      <Tooltip content={<WaterfallTooltip />} />
+                      <Legend />
+                      <Bar dataKey="additions" name="Additions (Forecast)" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="subtractions" name="Subtractions (Forecast)" fill="#dc2626" radius={[0, 0, 4, 4]} />
+                      <Line
+                        type="monotone"
+                        dataKey="net"
+                        name="Net Cash Flow"
+                        stroke={COLORS.blue}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                      <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {/* Row 4: Ending Cash Position Trend + Variance */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Ending Cash Position Trend */}
+                {endingCashData.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Ending Cash Position — Forecast vs Actual</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={endingCashData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis
+                          tickFormatter={(v: number) => formatCurrency(v)}
+                          tick={{ fontSize: 11 }}
+                          width={80}
+                        />
+                        <Tooltip content={<EndingCashTooltip />} />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="forecast"
+                          name="Ending Cash (Forecast)"
+                          stroke={COLORS.blue}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          connectNulls
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="actual"
+                          name="Ending Cash (Actual)"
+                          stroke={COLORS.green}
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          connectNulls
+                        />
+                        {endingCashData.some((d: any) => d.target != null) && (
+                          <Line
+                            type="monotone"
+                            dataKey="target"
+                            name="Target"
+                            stroke={COLORS.red}
+                            strokeWidth={2}
+                            strokeDasharray="6 3"
+                            dot={false}
+                            connectNulls
+                          />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+
+                {/* Forecast vs Actual Variance */}
+                {varianceChartData.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-sm border p-6">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Forecast vs Actual Variance</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={varianceChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis
+                          tickFormatter={(v: number) => formatCurrency(v)}
+                          tick={{ fontSize: 11 }}
+                          width={80}
+                        />
+                        <Tooltip content={<VarianceTooltip />} />
+                        <ReferenceLine y={0} stroke="#9ca3af" strokeWidth={1} />
+                        <Bar dataKey="variance" name="Variance ($)" radius={[4, 4, 0, 0]}>
+                          {varianceChartData.map((entry: any, idx: number) => (
+                            <Cell key={idx} fill={entry.isPositive ? '#16a34a' : '#dc2626'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="text-xs text-gray-400 mt-2 text-center">
+                      Green = actual exceeded forecast &middot; Red = actual fell short
+                    </p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      ) : activeTab === 'monthly' ? (
+        /* ===================== MONTHLY TAB ===================== */
+        <div className="space-y-6">
+          {/* Monthly Summary Table */}
+          <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b">
+                  <th className="px-6 py-3 text-left font-medium text-gray-600">Month</th>
+                  <th className="px-6 py-3 text-right font-medium text-gray-600">Additions (Fcst)</th>
+                  <th className="px-6 py-3 text-right font-medium text-gray-600">Subtractions (Fcst)</th>
+                  <th className="px-6 py-3 text-right font-medium text-gray-600">Net Cash Flow</th>
+                  <th className="px-6 py-3 text-right font-medium text-gray-600">Month-End Cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyData.map((m: any) => {
+                  const isCurrent = today.startsWith(m.month);
+                  return (
+                    <tr key={m.month} className={`border-b ${isCurrent ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                      <td className="px-6 py-4 font-medium text-gray-900">
+                        {formatMonth(m.month)}
+                        {isCurrent && <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">Current</span>}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono text-green-700">{formatCurrency(m.additions)}</td>
+                      <td className="px-6 py-4 text-right font-mono text-red-700">{formatCurrency(Math.abs(m.subtractions))}</td>
+                      <td className={`px-6 py-4 text-right font-mono font-semibold ${m.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {m.net >= 0 ? '+' : ''}{formatCurrency(m.net)}
+                      </td>
+                      <td className="px-6 py-4 text-right font-mono font-bold text-gray-900">
+                        {m.endingCash != null ? formatCurrency(m.endingCash) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Monthly Bar Chart */}
+          {monthlyData.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4">Monthly Cash Flow Summary</h3>
+              <ResponsiveContainer width="100%" height={350}>
+                <ComposedChart data={monthlyData.map((m: any) => ({
+                  month: formatMonth(m.month),
+                  additions: m.additions,
+                  subtractions: -Math.abs(m.subtractions),
+                  net: m.net,
+                  endingCash: m.endingCash,
+                }))} margin={{ left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis
+                    yAxisId="flow"
+                    tickFormatter={(v: number) => formatCurrency(v)}
+                    tick={{ fontSize: 11 }}
+                    width={80}
+                  />
+                  <YAxis
+                    yAxisId="balance"
+                    orientation="right"
+                    tickFormatter={(v: number) => formatCurrency(v)}
+                    tick={{ fontSize: 11 }}
+                    width={80}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend />
+                  <Bar yAxisId="flow" dataKey="additions" name="Additions" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                  <Bar yAxisId="flow" dataKey="subtractions" name="Subtractions" fill="#dc2626" radius={[0, 0, 4, 4]} />
+                  <Line yAxisId="balance" type="monotone" dataKey="endingCash" name="Month-End Cash" stroke={COLORS.blue} strokeWidth={2} dot={{ r: 5 }} connectNulls />
+                  <ReferenceLine yAxisId="flow" y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
       ) : (
+        /* ===================== TABLE TAB ===================== */
         <div className="bg-white rounded-lg shadow-sm border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
