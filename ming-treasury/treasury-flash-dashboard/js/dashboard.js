@@ -195,6 +195,216 @@
     });
   }
 
+  // ===== Forecasting =====
+
+  function addBusinessDays(startDate, n) {
+    var d = new Date(startDate);
+    var added = 0;
+    while (added < n) {
+      d.setDate(d.getDate() + 1);
+      var dow = d.getDay();
+      if (dow !== 0 && dow !== 6) added++;
+    }
+    return d;
+  }
+
+  function toDateStr(d) {
+    var y = d.getFullYear();
+    var m = ('0' + (d.getMonth() + 1)).slice(-2);
+    var day = ('0' + d.getDate()).slice(-2);
+    return y + '-' + m + '-' + day;
+  }
+
+  function linearRegression(series) {
+    var n = series.length;
+    if (n < 2) return { slope: 0, intercept: series.length ? series[0].total : 0 };
+    var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    for (var i = 0; i < n; i++) {
+      sumX += i;
+      sumY += series[i].total;
+      sumXY += i * series[i].total;
+      sumX2 += i * i;
+    }
+    var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    var intercept = (sumY - slope * sumX) / n;
+    return { slope: slope, intercept: intercept };
+  }
+
+  function computeResidualStdDev(series, reg) {
+    var n = series.length;
+    if (n < 3) return 0;
+    var sumSq = 0;
+    for (var i = 0; i < n; i++) {
+      var predicted = reg.intercept + reg.slope * i;
+      var diff = series[i].total - predicted;
+      sumSq += diff * diff;
+    }
+    return Math.sqrt(sumSq / (n - 2));
+  }
+
+  function generateForecast(historicalSeries, forecastDays) {
+    var reg = linearRegression(historicalSeries);
+    var stdDev = computeResidualStdDev(historicalSeries, reg);
+    var n = historicalSeries.length;
+    var lastDate = new Date(historicalSeries[n - 1].date + 'T00:00:00');
+
+    var forecastPoints = [];
+    for (var i = 1; i <= forecastDays; i++) {
+      var futureDate = addBusinessDays(lastDate, i);
+      var idx = n + i - 1;
+      var predicted = reg.intercept + reg.slope * idx;
+      var band = 1.96 * stdDev * Math.sqrt(1 + 1 / n + Math.pow(idx - (n - 1) / 2, 2) / (n * n / 12));
+      forecastPoints.push({
+        date: toDateStr(futureDate),
+        predicted: predicted,
+        upper: predicted + band,
+        lower: predicted - band,
+      });
+    }
+    return forecastPoints;
+  }
+
+  function createForecastChart(canvasId, label, historicalSeries, forecastPoints, histColor, forecastColor) {
+    var ctx = document.getElementById(canvasId).getContext('2d');
+
+    var trailDays = 63;
+    var histTail = historicalSeries.slice(-trailDays);
+
+    var allLabels = histTail.map(function (d) { return d.date; })
+      .concat(forecastPoints.map(function (d) { return d.date; }));
+
+    var histValues = histTail.map(function (d) { return d.total; });
+    var forecastValues = new Array(histTail.length).fill(null);
+    forecastValues[forecastValues.length - 1] = histTail[histTail.length - 1].total;
+    forecastValues = forecastValues.concat(forecastPoints.map(function (d) { return d.predicted; }));
+
+    var upperBand = new Array(histTail.length).fill(null);
+    upperBand[upperBand.length - 1] = histTail[histTail.length - 1].total;
+    upperBand = upperBand.concat(forecastPoints.map(function (d) { return d.upper; }));
+
+    var lowerBand = new Array(histTail.length).fill(null);
+    lowerBand[lowerBand.length - 1] = histTail[histTail.length - 1].total;
+    lowerBand = lowerBand.concat(forecastPoints.map(function (d) { return d.lower; }));
+
+    var histData = histValues.concat(new Array(forecastPoints.length).fill(null));
+
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: allLabels,
+        datasets: [
+          {
+            label: label + ' (Historical)',
+            data: histData,
+            borderColor: histColor,
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            tension: 0.3,
+            order: 2,
+          },
+          {
+            label: label + ' (Forecast)',
+            data: forecastValues,
+            borderColor: forecastColor,
+            borderWidth: 2.5,
+            borderDash: [6, 4],
+            pointRadius: 0,
+            fill: false,
+            tension: 0.1,
+            order: 1,
+          },
+          {
+            label: '95% Upper',
+            data: upperBand,
+            borderColor: 'transparent',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            fill: false,
+            tension: 0.1,
+            order: 3,
+          },
+          {
+            label: '95% Lower',
+            data: lowerBand,
+            borderColor: 'transparent',
+            backgroundColor: forecastColor.replace('1)', '0.08)'),
+            pointRadius: 0,
+            fill: '-1',
+            tension: 0.1,
+            order: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              color: '#8a9bb8',
+              font: { size: 11 },
+              usePointStyle: true,
+              pointStyle: 'line',
+              filter: function (item) {
+                return item.text.indexOf('95%') === -1;
+              },
+            },
+          },
+          tooltip: {
+            backgroundColor: '#1a2744',
+            titleColor: '#e8ecf4',
+            bodyColor: '#8a9bb8',
+            borderColor: '#1e3054',
+            borderWidth: 1,
+            padding: 12,
+            displayColors: false,
+            callbacks: {
+              title: function (items) { return formatDate(items[0].label); },
+              label: function (item) {
+                if (item.raw == null) return null;
+                var prefix = item.datasetIndex === 0 ? 'Actual' : 'Forecast';
+                if (item.datasetIndex === 2) prefix = 'Upper 95%';
+                if (item.datasetIndex === 3) prefix = 'Lower 95%';
+                return prefix + ': ' + formatCurrency(item.raw);
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(30,48,84,0.3)', drawBorder: false },
+            ticks: {
+              color: '#5a6f8f',
+              font: { size: 11, weight: 'bold' },
+              maxTicksLimit: 12,
+              callback: function (val) {
+                var d = this.getLabelForValue(val);
+                var p = d.split('-');
+                return p[1] + '/' + p[2] + '/' + p[0];
+              },
+            },
+          },
+          y: {
+            beginAtZero: false,
+            grid: { color: 'rgba(30,48,84,0.3)', drawBorder: false },
+            ticks: {
+              color: '#5a6f8f',
+              font: { size: 13, weight: 'bold' },
+              callback: function (value) {
+                if (Math.abs(value) >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
+                return '$' + (value / 1e6).toFixed(0) + 'M';
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   // ===== Chart Rendering =====
 
   function createLineChart(canvasId, label, seriesData, color, bgColor) {
@@ -511,6 +721,27 @@
 
         setupRangeButtons('range-buttons-corporate', corpChart, corpSeries);
         setupRangeButtons('range-buttons-gustomer', gustChart, gustSeries);
+
+        // Render Forecast Charts (252 business days = ~1 year)
+        var corpForecast = generateForecast(corpSeries, 252);
+        createForecastChart(
+          'chart-corporate-forecast',
+          'Corporate Cash',
+          corpSeries,
+          corpForecast,
+          '#22d3ee',
+          'rgba(245, 158, 11, 1)'
+        );
+
+        var gustForecast = generateForecast(gustSeries, 252);
+        createForecastChart(
+          'chart-gustomer-forecast',
+          'Gustomer Cash',
+          gustSeries,
+          gustForecast,
+          '#10b981',
+          'rgba(167, 139, 250, 1)'
+        );
 
         // Render Tables
         renderTable('tbody-corporate', corpLatest.records);

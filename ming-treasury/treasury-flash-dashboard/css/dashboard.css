@@ -244,6 +244,8 @@ body {
 
 .chart-card h3 .dot.blue { background: var(--accent-cyan); }
 .chart-card h3 .dot.green { background: var(--accent-green); }
+.chart-card h3 .dot.orange { background: var(--accent-amber); }
+.chart-card h3 .dot.purple { background: var(--accent-purple); }
 
 .chart-range-buttons {
   display: flex;
@@ -276,6 +278,22 @@ body {
 .chart-wrapper {
   position: relative;
   height: 280px;
+}
+
+.forecast-wrapper {
+  height: 320px;
+}
+
+.forecast-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
 /* ===== Tables Section ===== */
