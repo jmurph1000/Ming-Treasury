@@ -544,16 +544,16 @@ export default function CorpForecastV2Page() {
                   {selectedCategories.size > 1 && ' — showing net result'}
                 </div>
                 <ResponsiveContainer width="100%" height={380}>
-                  <ComposedChart data={netTimeSeriesData} margin={{ left: 10, right: 10 }}>
+                  <LineChart data={netTimeSeriesData} margin={{ left: 10, right: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
                     <XAxis dataKey="date" tick={axisTickSm} stroke={COLORS.grid} />
                     <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
                     <Tooltip content={<DarkTooltip />} />
                     <Legend />
-                    <Bar dataKey="forecast" name="Net Forecast" fill={COLORS.cyan} fillOpacity={0.35} radius={[4, 4, 0, 0]} />
-                    <Line type="monotone" dataKey="actual" name="Net Actual" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 3, fill: COLORS.green }} connectNulls />
+                    <Line type="monotone" dataKey="forecast" name="Forecast" stroke={COLORS.cyan} strokeWidth={2} dot={false} strokeDasharray="6 3" connectNulls />
+                    <Line type="monotone" dataKey="actual" name="Actual" stroke={COLORS.green} strokeWidth={2.5} dot={false} connectNulls />
                     <ReferenceLine y={0} stroke="#5a6f8f" strokeDasharray="3 3" />
-                  </ComposedChart>
+                  </LineChart>
                 </ResponsiveContainer>
               </>
             ) : (

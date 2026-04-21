@@ -112,31 +112,40 @@ export function GET(req: NextRequest) {
     .filter(Boolean)
     .filter((item: any) => item.forecast > 0 || item.actual > 0);
 
-  // Build per-category time series (forecast + actual over time)
+  // Build per-category time series using FULL date range (not limited by weeks_back)
   const keyItems = ['Revenue inflow', 'Payroll', 'Estimated A/P run', 'Fidelity/401k/Collective Health',
     'Canada Payroll/AP CAD', 'Mexico Payroll/Tax MXN', 'Turkiye Payroll/Tax TRY',
     'Employee HI / benefits', 'Business tax', 'Partner Rev Share (ACH)',
     'Loan interest', 'Cashout funding', 'Wires (eg. GiftBJt funding)'];
 
+  const fullRows = db.prepare(
+    `SELECT line_item, category, line_type, flow_date, amount
+     FROM corp_cashflow_items
+     WHERE category IN ('addition', 'subtraction')
+       AND line_type IN ('forecast', 'actual')
+       AND line_item IN (${keyItems.map(() => '?').join(',')})
+     ORDER BY line_item, flow_date`
+  ).all(...keyItems) as any[];
+
+  const tsMap = new Map<string, { category: string; forecast: Record<string, number>; actual: Record<string, number> }>();
+  for (const row of fullRows) {
+    if (!tsMap.has(row.line_item)) tsMap.set(row.line_item, { category: row.category, forecast: {}, actual: {} });
+    const entry = tsMap.get(row.line_item)!;
+    if (row.line_type === 'forecast') entry.forecast[row.flow_date] = row.amount;
+    else entry.actual[row.flow_date] = row.amount;
+  }
+
   const categoryTimeSeries = keyItems
     .map(name => {
-      const fcst = allItems.find(i => (i.category === 'addition' || i.category === 'subtraction') && i.lineItem === name && i.lineType === 'forecast');
-      const act = allItems.find(i => (i.category === 'addition' || i.category === 'subtraction') && i.lineItem === name && i.lineType === 'actual');
-      if (!fcst && !act) return null;
-      const allDates = new Set([
-        ...Object.keys(fcst?.values || {}),
-        ...Object.keys(act?.values || {}),
-      ]);
+      const entry = tsMap.get(name);
+      if (!entry) return null;
+      const allDates = new Set([...Object.keys(entry.forecast), ...Object.keys(entry.actual)]);
       const series = Array.from(allDates).sort().map(d => ({
         date: d,
-        forecast: fcst?.values[d] != null ? Math.abs(fcst.values[d]) : null,
-        actual: act?.values[d] != null ? Math.abs(act.values[d]) : null,
+        forecast: entry.forecast[d] != null ? Math.abs(entry.forecast[d]) : null,
+        actual: entry.actual[d] != null ? Math.abs(entry.actual[d]) : null,
       }));
-      return {
-        lineItem: name,
-        category: fcst?.category || act?.category,
-        series,
-      };
+      return { lineItem: name, category: entry.category, series };
     })
     .filter(Boolean);
 
