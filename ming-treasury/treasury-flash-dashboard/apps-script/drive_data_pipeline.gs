@@ -458,9 +458,10 @@ function processDailyData() {
 // ============================================================================
 
 /**
- * Reads the current JSON from GitHub, appends new records (replacing any
- * records that share the same date), trims to MAX_BUSINESS_DAYS unique
- * dates, and commits the result back to GitHub.
+ * Reads the current JSON from GitHub, upserts new records (replacing only
+ * the specific accounts being updated, preserving other accounts on the
+ * same date), trims to MAX_BUSINESS_DAYS unique dates, and commits the
+ * result back to GitHub.
  *
  * @param {string}   filePath    GitHub repo path to the JSON file
  * @param {Object[]} newRecords  Array of { date, account_name, value }
@@ -476,17 +477,20 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
 
   Logger.log('Existing records from GitHub: ' + existingData.length);
 
-  // Step 2: Determine which dates are being updated
-  var newDates = {};
+  // Step 2: Build a set of (date, account_name) keys being updated
+  var newKeys = {};
   for (var i = 0; i < newRecords.length; i++) {
-    newDates[newRecords[i].date] = true;
+    var nk = newRecords[i].date + '|' + newRecords[i].account_name;
+    newKeys[nk] = true;
   }
 
-  // Step 3: Filter out existing records for dates being replaced
+  // Step 3: Keep existing records unless the pipeline has a new value for
+  //         the same (date, account).  Records from other sources (e.g. the
+  //         sheet backfill) on the same date are preserved.
   var keptRecords = [];
   for (var j = 0; j < existingData.length; j++) {
-    var existingDate = existingData[j].reporting_date;
-    if (!newDates[existingDate]) {
+    var ek = existingData[j].reporting_date + '|' + existingData[j].account_description;
+    if (!newKeys[ek]) {
       keptRecords.push(existingData[j]);
     }
   }
