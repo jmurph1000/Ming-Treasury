@@ -625,15 +625,36 @@
   function init() {
     loadDashboardData()
       .then(function (data) {
-        var corpData = data.corporate;
+        var corpDataAll = data.corporate;
         var gustData = data.gustomer;
+
+        // The sheet's grand total excludes the Gusto Capital LLC section
+        // (rows 2-11). Filter them from aggregation/KPIs so totals match
+        // the sheet, but keep them in the detail table for visibility.
+        var gustoCapitalAccounts = {
+          'Chase Flex Pay Revenue Gusto Capital LLC 0393': true,
+          'Chase DDA 0195': true,
+          'Chase Gusto Capital, LLC 3962': true,
+          'NBKC ACH Risk Reserve -7431': true,
+          'NBKC Rev Share (Inbound) -7432': true,
+          'NBKC Tabapay Reserve -2280 (Gusto Capital LLC)': true,
+          'NBKC Corepro Reserve -6131 (Gusto Capital LLC)': true,
+          'NBKC Corepro Incentives -6666 (Gusto Capital LLC)': true,
+          'NBKC Corepro Tabapay -5431 (Gusto Capital LLC)': true,
+          'Chase Gusto Canada ULC -(CAD) 1602': true,
+          'NBKC Sunrise Reserve Account 4319': true,
+        };
+        var corpData = corpDataAll.filter(function (r) {
+          return !gustoCapitalAccounts[r.account_description];
+        });
 
         // Aggregated time series
         var corpSeries = aggregateByDate(corpData);
         var gustSeries = aggregateByDate(gustData);
 
-        // Latest date data
+        // Latest date data (use filtered for totals, all for table)
         var corpLatest = getLatestDateRecords(corpData);
+        var corpLatestAll = getLatestDateRecords(corpDataAll);
         var gustLatest = getLatestDateRecords(gustData);
 
         var corpTotal = corpLatest.records.reduce(function (s, r) { return s + r.value; }, 0);
@@ -663,13 +684,13 @@
 
         // Sub labels with account counts
         var corpSub = document.getElementById('kpi-corp-sub');
-        if (corpSub) corpSub.textContent = corpLatest.records.length + ' accounts as of ' + formatDate(corpLatest.date);
+        if (corpSub) corpSub.textContent = corpLatestAll.records.length + ' accounts as of ' + formatDate(corpLatest.date);
         var gustSub = document.getElementById('kpi-gust-sub');
         if (gustSub) gustSub.textContent = gustLatest.records.length + ' accounts as of ' + formatDate(gustLatest.date);
 
         // Update table date headers
         var corpDateEl = document.getElementById('corp-table-date');
-        if (corpDateEl && corpLatest.date) corpDateEl.textContent = formatDate(corpLatest.date);
+        if (corpDateEl && corpLatestAll.date) corpDateEl.textContent = formatDate(corpLatestAll.date);
         var gustDateEl = document.getElementById('gust-table-date');
         if (gustDateEl && gustLatest.date) gustDateEl.textContent = formatDate(gustLatest.date);
 
@@ -743,8 +764,8 @@
           'rgba(167, 139, 250, 1)'
         );
 
-        // Render Tables
-        renderTable('tbody-corporate', corpLatest.records);
+        // Render Tables (show all accounts including Gusto Capital section)
+        renderTable('tbody-corporate', corpLatestAll.records);
         renderTable('tbody-gustomer', gustLatest.records);
       })
       .catch(function (err) {
