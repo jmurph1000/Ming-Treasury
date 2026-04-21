@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg-primary: #0b1121;
+  --bg-secondary: #111b2e;
+  --bg-card: #162038;
+  --border: #1e3054;
+  --text-primary: #e8ecf4;
+  --text-secondary: #8a9bb8;
+  --text-muted: #5a6f8f;
+}
+
+html { -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-secondary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.recharts-legend-item-text { color: var(--text-secondary) !important; font-size: 0.75rem !important; }
