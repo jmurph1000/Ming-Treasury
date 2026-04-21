@@ -215,45 +215,97 @@
     return y + '-' + m + '-' + day;
   }
 
-  function linearRegression(series) {
+  /**
+   * Holt-Winters additive method with 5-day (business week) seasonality.
+   * Returns { level, trend, seasonal[], residualStdDev }.
+   */
+  function holtWinters(series, seasonLen) {
     var n = series.length;
-    if (n < 2) return { slope: 0, intercept: series.length ? series[0].total : 0 };
-    var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-    for (var i = 0; i < n; i++) {
-      sumX += i;
-      sumY += series[i].total;
-      sumXY += i * series[i].total;
-      sumX2 += i * i;
-    }
-    var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    var intercept = (sumY - slope * sumX) / n;
-    return { slope: slope, intercept: intercept };
-  }
+    var y = series.map(function (d) { return d.total; });
 
-  function computeResidualStdDev(series, reg) {
-    var n = series.length;
-    if (n < 3) return 0;
-    var sumSq = 0;
-    for (var i = 0; i < n; i++) {
-      var predicted = reg.intercept + reg.slope * i;
-      var diff = series[i].total - predicted;
-      sumSq += diff * diff;
+    if (n < seasonLen * 2) {
+      var avg = y.reduce(function (a, b) { return a + b; }, 0) / n;
+      return {
+        level: y[n - 1],
+        trend: n > 1 ? (y[n - 1] - y[0]) / (n - 1) : 0,
+        seasonal: new Array(seasonLen).fill(0),
+        residualStdDev: 0
+      };
     }
-    return Math.sqrt(sumSq / (n - 2));
+
+    var alpha = 0.3, beta = 0.05, gamma = 0.3;
+
+    var nSeasons = Math.floor(n / seasonLen);
+    var firstSeasonAvg = 0;
+    for (var i = 0; i < seasonLen; i++) firstSeasonAvg += y[i];
+    firstSeasonAvg /= seasonLen;
+
+    var seasonal = new Array(n);
+    for (var j = 0; j < seasonLen; j++) {
+      var sum = 0;
+      for (var k = 0; k < Math.min(nSeasons, 3); k++) {
+        var idx = k * seasonLen + j;
+        if (idx < n) {
+          var blockAvg = 0;
+          for (var b = 0; b < seasonLen; b++) {
+            var bi = k * seasonLen + b;
+            blockAvg += bi < n ? y[bi] : y[n - 1];
+          }
+          blockAvg /= seasonLen;
+          sum += y[idx] - blockAvg;
+        }
+      }
+      seasonal[j] = sum / Math.min(nSeasons, 3);
+    }
+
+    var level = firstSeasonAvg;
+    var trend = 0;
+    for (var t = 0; t < seasonLen && t + seasonLen < n; t++) {
+      trend += (y[t + seasonLen] - y[t]);
+    }
+    trend /= (seasonLen * seasonLen);
+
+    var residuals = [];
+    for (var t = seasonLen; t < n; t++) {
+      var si = t % seasonLen;
+      var prevLevel = level;
+      level = alpha * (y[t] - seasonal[si]) + (1 - alpha) * (level + trend);
+      trend = beta * (level - prevLevel) + (1 - beta) * trend;
+      seasonal[si] = gamma * (y[t] - level) + (1 - gamma) * seasonal[si];
+      var fitted = level + seasonal[si];
+      residuals.push(y[t] - fitted);
+    }
+
+    var sumSq = 0;
+    for (var r = 0; r < residuals.length; r++) sumSq += residuals[r] * residuals[r];
+    var stdDev = residuals.length > 2 ? Math.sqrt(sumSq / residuals.length) : 0;
+
+    var finalSeasonal = new Array(seasonLen);
+    for (var s = 0; s < seasonLen; s++) {
+      finalSeasonal[s] = seasonal[s];
+    }
+
+    return {
+      level: level,
+      trend: trend,
+      seasonal: finalSeasonal,
+      residualStdDev: stdDev,
+      lastSeasonIndex: (n - 1) % seasonLen
+    };
   }
 
   function generateForecast(historicalSeries, forecastDays) {
-    var reg = linearRegression(historicalSeries);
-    var stdDev = computeResidualStdDev(historicalSeries, reg);
+    var seasonLen = 5;
+    var hw = holtWinters(historicalSeries, seasonLen);
     var n = historicalSeries.length;
     var lastDate = new Date(historicalSeries[n - 1].date + 'T00:00:00');
 
     var forecastPoints = [];
     for (var i = 1; i <= forecastDays; i++) {
       var futureDate = addBusinessDays(lastDate, i);
-      var idx = n + i - 1;
-      var predicted = reg.intercept + reg.slope * idx;
-      var band = 1.96 * stdDev * Math.sqrt(1 + 1 / n + Math.pow(idx - (n - 1) / 2, 2) / (n * n / 12));
+      var si = (hw.lastSeasonIndex + i) % seasonLen;
+      var predicted = hw.level + hw.trend * i + hw.seasonal[si];
+      var band = 1.96 * hw.residualStdDev * Math.sqrt(i);
       forecastPoints.push({
         date: toDateStr(futureDate),
         predicted: predicted,
