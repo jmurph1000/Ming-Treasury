@@ -216,10 +216,14 @@
   }
 
   /**
-   * Monte Carlo forecast using block bootstrap of daily percentage changes.
-   * Resamples actual 21-day blocks from history to build simulated paths,
-   * preserving intra-month correlations and the natural rhythm of the data.
-   * Adds a small daily drift based on the historical growth trend.
+   * Monte Carlo forecast with deterministic replay center line.
+   *
+   * Center line: replays the most recent historical daily % changes
+   * in a loop (cycles the last year of moves forward), plus a growth
+   * drift. This preserves the exact day-to-day volatility pattern.
+   *
+   * Bands: 200 block-bootstrap simulations provide the 10th/90th
+   * percentile envelope for uncertainty.
    */
   function generateForecast(historicalSeries, forecastDays) {
     var y = historicalSeries.map(function (d) { return d.total; });
@@ -231,12 +235,24 @@
     for (var i = 1; i < n; i++) {
       pctChanges.push(y[i - 1] !== 0 ? (y[i] - y[i - 1]) / Math.abs(y[i - 1]) : 0);
     }
+    var nChanges = pctChanges.length;
 
     var dailyDrift = n > 21 ? (y[n - 1] / y[0] - 1) / (n - 1) : 0;
 
+    // Center line: cycle the actual daily changes forward from where
+    // history left off, adding growth drift each day
+    var centerPath = new Array(forecastDays);
+    var current = lastVal;
+    for (var i = 0; i < forecastDays; i++) {
+      var histChange = pctChanges[i % nChanges];
+      current = current * (1 + histChange + dailyDrift);
+      centerPath[i] = current;
+    }
+
+    // Monte Carlo bands: block bootstrap for uncertainty envelope
     var blockLen = 21;
-    var nSims = 500;
-    var maxStartIdx = pctChanges.length - blockLen;
+    var nSims = 200;
+    var maxStartIdx = nChanges - blockLen;
     if (maxStartIdx < 1) maxStartIdx = 1;
 
     var allPaths = [];
@@ -248,14 +264,13 @@
 
     for (var s = 0; s < nSims; s++) {
       var path = new Array(forecastDays);
-      var current = lastVal;
+      var cur = lastVal;
       var pos = 0;
       while (pos < forecastDays) {
         var blockStart = Math.floor(lcgRand() * maxStartIdx);
         for (var b = 0; b < blockLen && pos < forecastDays; b++) {
-          var change = pctChanges[blockStart + b] + dailyDrift;
-          current = current * (1 + change);
-          path[pos] = current;
+          cur = cur * (1 + pctChanges[blockStart + b] + dailyDrift);
+          path[pos] = cur;
           pos++;
         }
       }
@@ -268,15 +283,11 @@
       for (var si = 0; si < nSims; si++) vals[si] = allPaths[si][d];
       vals.sort(function (a, b) { return a - b; });
 
-      var median = vals[Math.floor(nSims * 0.5)];
-      var lower = vals[Math.floor(nSims * 0.1)];
-      var upper = vals[Math.floor(nSims * 0.9)];
-
       forecastPoints.push({
         date: toDateStr(addBusinessDays(lastDate, d + 1)),
-        predicted: median,
-        upper: upper,
-        lower: lower,
+        predicted: centerPath[d],
+        upper: vals[Math.floor(nSims * 0.9)],
+        lower: vals[Math.floor(nSims * 0.1)],
       });
     }
     return forecastPoints;
