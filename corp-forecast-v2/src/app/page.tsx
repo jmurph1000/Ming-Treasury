@@ -473,7 +473,7 @@ export default function CorpForecastV2Page() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-[#e8ecf4] flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#22d3ee]"></span>
-                Revenue & Expense — Historical & Projections
+                Revenue & Expense â€” Historical & Projections
               </h3>
               <select
                 value={selectedCategory || ''}
