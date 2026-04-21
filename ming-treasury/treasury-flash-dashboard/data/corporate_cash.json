@@ -97512,17 +97512,17 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-20",
-    "value": 4422603.19
+    "value": 2885507.39
   },
   {
     "account_description": "Chase Ardius 0727",
     "reporting_date": "2026-04-20",
-    "value": 381082.19
+    "value": 381224.45
   },
   {
     "account_description": "Chase Ardius 9012",
     "reporting_date": "2026-04-20",
-    "value": 142.26
+    "value": 0
   },
   {
     "account_description": "Chase Ardius 9178",
@@ -97537,12 +97537,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-20",
-    "value": 299781.07
+    "value": 282419.93
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-20",
-    "value": 41.26
+    "value": 29.83
   },
   {
     "account_description": "Chase DDA 0195",
@@ -97552,7 +97552,7 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-20",
-    "value": 574831.41
+    "value": 635769.78
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -97597,17 +97597,17 @@
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
     "reporting_date": "2026-04-20",
-    "value": 23943.91
+    "value": 573943.91
   },
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-20",
-    "value": 1427889.92
+    "value": 1422432.13
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-20",
-    "value": 48325500.48
+    "value": 38511541.15
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
@@ -97622,7 +97622,7 @@
   {
     "account_description": "Chase Tax 0269",
     "reporting_date": "2026-04-20",
-    "value": 489349.56
+    "value": 496349.56
   },
   {
     "account_description": "Chase Test Account 2378",
@@ -97642,12 +97642,12 @@
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-20",
-    "value": 1223980.88
+    "value": 526732.22
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-20",
-    "value": 1302751.34
+    "value": 127700.49
   },
   {
     "account_description": "Chase ZP Insurance 9962",
