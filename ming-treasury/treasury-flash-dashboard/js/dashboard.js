@@ -284,14 +284,11 @@
     };
   }
 
-  /**
-   * Grid-search smoothing parameters to minimize in-sample RMSE.
-   */
   function optimizeHoltWinters(y, seasonLen) {
     var bestRmse = Infinity, bestParams = { alpha: 0.3, beta: 0.02, gamma: 0.3 };
-    var alphas = [0.1, 0.2, 0.3, 0.4, 0.5];
-    var betas = [0.005, 0.01, 0.02, 0.05];
-    var gammas = [0.1, 0.2, 0.3, 0.4, 0.5];
+    var alphas = [0.15, 0.3, 0.5];
+    var betas = [0.01, 0.03];
+    var gammas = [0.15, 0.3, 0.5];
 
     for (var ai = 0; ai < alphas.length; ai++) {
       for (var bi = 0; bi < betas.length; bi++) {
@@ -849,21 +846,27 @@
         setupRangeButtons('range-buttons-corporate', corpChart, corpSeries);
         setupRangeButtons('range-buttons-gustomer', gustChart, gustSeries);
 
-        // Render Forecast Charts (default 252 business days = ~1 year)
+        // Apply default 1W view on initial load
+        updateChartData(corpChart, corpSeries, 5);
+        updateChartData(gustChart, gustSeries, 5);
+
+        // Render Forecast Charts after a short delay so trend charts stay responsive
         var corpFcColor = 'rgba(245, 158, 11, 1)';
         var gustFcColor = 'rgba(167, 139, 250, 1)';
 
-        var corpFcChart = createForecastChart(
-          'chart-corporate-forecast', 'Corporate Cash',
-          corpSeries, 252, '#22d3ee', corpFcColor
-        );
-        setupForecastButtons('range-buttons-corp-forecast', corpFcChart, corpSeries, '#22d3ee', corpFcColor);
+        setTimeout(function () {
+          var corpFcChart = createForecastChart(
+            'chart-corporate-forecast', 'Corporate Cash',
+            corpSeries, 252, '#22d3ee', corpFcColor
+          );
+          setupForecastButtons('range-buttons-corp-forecast', corpFcChart, corpSeries, '#22d3ee', corpFcColor);
 
-        var gustFcChart = createForecastChart(
-          'chart-gustomer-forecast', 'Gustomer Cash',
-          gustSeries, 252, '#10b981', gustFcColor
-        );
-        setupForecastButtons('range-buttons-gust-forecast', gustFcChart, gustSeries, '#10b981', gustFcColor);
+          var gustFcChart = createForecastChart(
+            'chart-gustomer-forecast', 'Gustomer Cash',
+            gustSeries, 252, '#10b981', gustFcColor
+          );
+          setupForecastButtons('range-buttons-gust-forecast', gustFcChart, gustSeries, '#10b981', gustFcColor);
+        }, 50);
 
         // Render Tables (show all accounts including Gusto Capital section)
         renderTable('tbody-corporate', corpLatestAll.records);
