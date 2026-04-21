@@ -89,6 +89,8 @@ export default function CorpForecastV2Page() {
     return totalByDate.filter(d => d.fullDate >= cutoffStr);
   }, [totalByDate, chartHorizon]);
 
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+
   const categoryComparison: any[] = useMemo(() => {
     const raw = cashflowData?.data?.categoryComparison || [];
     return raw
@@ -101,6 +103,20 @@ export default function CorpForecastV2Page() {
       }))
       .sort((a: any, b: any) => b.forecast - a.forecast);
   }, [cashflowData]);
+
+  const categoryTimeSeries: any[] = cashflowData?.data?.categoryTimeSeries || [];
+  const selectedSeries = useMemo(() => {
+    if (!selectedCategory) return null;
+    return categoryTimeSeries.find((c: any) => c.lineItem === selectedCategory) || null;
+  }, [categoryTimeSeries, selectedCategory]);
+
+  const timeSeriesChartData = useMemo(() => {
+    if (!selectedSeries) return [];
+    return selectedSeries.series.map((s: any) => {
+      const d = new Date(s.date + 'T12:00:00');
+      return { date: `${d.getMonth() + 1}/${d.getDate()}`, fullDate: s.date, forecast: s.forecast, actual: s.actual };
+    });
+  }, [selectedSeries]);
 
   const healthCounts = useMemo(() => {
     let below = 0, near = 0, healthy = 0;
@@ -451,6 +467,45 @@ export default function CorpForecastV2Page() {
               </ResponsiveContainer>
             </div>
           )}
+
+          {/* Row 3: Revenue & Expense Time Series */}
+          <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-[#e8ecf4] flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#22d3ee]"></span>
+                Revenue & Expense — Historical & Projections
+              </h3>
+              <select
+                value={selectedCategory || ''}
+                onChange={e => setSelectedCategory(e.target.value || null)}
+                className="bg-[#111b2e] border border-[#1e3054] text-[#e8ecf4] rounded-lg px-3 py-1.5 text-sm focus:border-[#3b82f6] focus:outline-none min-w-[220px]"
+              >
+                <option value="">Select a category...</option>
+                {categoryTimeSeries.map((c: any) => (
+                  <option key={c.lineItem} value={c.lineItem}>
+                    {c.category === 'addition' ? '+ ' : '- '}{c.lineItem}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedSeries ? (
+              <ResponsiveContainer width="100%" height={350}>
+                <ComposedChart data={timeSeriesChartData} margin={{ left: 10, right: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                  <XAxis dataKey="date" tick={axisTickSm} stroke={COLORS.grid} />
+                  <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                  <Tooltip content={<DarkTooltip />} />
+                  <Legend />
+                  <Bar dataKey="forecast" name="Forecast" fill={COLORS.cyan} fillOpacity={0.4} radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="actual" name="Actual" stroke={COLORS.green} strokeWidth={2} dot={{ r: 3, fill: COLORS.green }} connectNulls />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[350px] text-[#5a6f8f] text-sm">
+                Select a revenue or expense category above to view its historical trend and future projections
+              </div>
+            )}
+          </div>
 
           {/* Cash Flow Section */}
           {hasCashflowData && (

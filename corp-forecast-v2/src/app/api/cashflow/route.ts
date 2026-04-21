@@ -112,8 +112,36 @@ export function GET(req: NextRequest) {
     .filter(Boolean)
     .filter((item: any) => item.forecast > 0 || item.actual > 0);
 
+  // Build per-category time series (forecast + actual over time)
+  const keyItems = ['Revenue inflow', 'Payroll', 'Estimated A/P run', 'Fidelity/401k/Collective Health',
+    'Canada Payroll/AP CAD', 'Mexico Payroll/Tax MXN', 'Turkiye Payroll/Tax TRY',
+    'Employee HI / benefits', 'Business tax', 'Partner Rev Share (ACH)',
+    'Loan interest', 'Cashout funding', 'Wires (eg. GiftBJt funding)'];
+
+  const categoryTimeSeries = keyItems
+    .map(name => {
+      const fcst = allItems.find(i => (i.category === 'addition' || i.category === 'subtraction') && i.lineItem === name && i.lineType === 'forecast');
+      const act = allItems.find(i => (i.category === 'addition' || i.category === 'subtraction') && i.lineItem === name && i.lineType === 'actual');
+      if (!fcst && !act) return null;
+      const allDates = new Set([
+        ...Object.keys(fcst?.values || {}),
+        ...Object.keys(act?.values || {}),
+      ]);
+      const series = Array.from(allDates).sort().map(d => ({
+        date: d,
+        forecast: fcst?.values[d] != null ? Math.abs(fcst.values[d]) : null,
+        actual: act?.values[d] != null ? Math.abs(act.values[d]) : null,
+      }));
+      return {
+        lineItem: name,
+        category: fcst?.category || act?.category,
+        series,
+      };
+    })
+    .filter(Boolean);
+
   return NextResponse.json({
     success: true,
-    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison },
+    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison, categoryTimeSeries },
   });
 }
