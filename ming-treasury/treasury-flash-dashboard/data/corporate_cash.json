@@ -97132,7 +97132,7 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-21",
-    "value": 2875721.89
+    "value": 2800569.39
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -97157,12 +97157,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-21",
-    "value": 282419.93
+    "value": 285033.54
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-21",
-    "value": 29.83
+    "value": 92.32
   },
   {
     "account_description": "Chase DDA 0195",
@@ -97172,7 +97172,7 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-21",
-    "value": 50579.49
+    "value": 51803.49
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -97202,17 +97202,17 @@
   {
     "account_description": "Chase Guideline Securities LLC 2018",
     "reporting_date": "2026-04-21",
-    "value": 2701122.88
+    "value": 2693387.38
   },
   {
     "account_description": "Chase Guideline, Inc. 9176",
     "reporting_date": "2026-04-21",
-    "value": 1089171.7
+    "value": 1089625.95
   },
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
     "reporting_date": "2026-04-21",
-    "value": 135775.26
+    "value": 135015.11
   },
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
@@ -97222,17 +97222,17 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-21",
-    "value": 1422432.13
+    "value": 1412182.08
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-21",
-    "value": 40310541.15
+    "value": 40293665.31
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
     "reporting_date": "2026-04-21",
-    "value": 1549446.11
+    "value": 1190188.39
   },
   {
     "account_description": "Chase Remote 8151",
@@ -97247,7 +97247,7 @@
   {
     "account_description": "Chase Test Account 2378",
     "reporting_date": "2026-04-21",
-    "value": 93.66
+    "value": 85.66
   },
   {
     "account_description": "Chase ZP Insurance 0101",
@@ -97257,17 +97257,17 @@
   {
     "account_description": "Chase ZP Insurance 5202",
     "reporting_date": "2026-04-21",
-    "value": -48386.04
+    "value": 0
   },
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-21",
-    "value": 526732.22
+    "value": 606046.67
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-21",
-    "value": 127700.49
+    "value": 12956.19
   },
   {
     "account_description": "Chase ZP Insurance 9962",
@@ -97277,7 +97277,7 @@
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
     "reporting_date": "2026-04-21",
-    "value": 9264.78
+    "value": 8414.78
   },
   {
     "account_description": "Gusto PEO I Benefits 8278",
