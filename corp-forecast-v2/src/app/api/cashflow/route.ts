@@ -1,0 +1,99 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getDb } from '@/lib/db';
+
+export function GET(req: NextRequest) {
+  const weeksBack = parseInt(req.nextUrl.searchParams.get('weeks_back') || '4');
+  const weeksForward = parseInt(req.nextUrl.searchParams.get('weeks_forward') || '8');
+  const daysBack = weeksBack * 7;
+  const daysForward = weeksForward * 7;
+
+  const db = getDb();
+  const rows = db.prepare(
+    `SELECT line_item, category, line_type, flow_date, amount, frequency, responsible_person
+     FROM corp_cashflow_items
+     WHERE flow_date >= date((SELECT MAX(flow_date) FROM corp_cashflow_items), '-' || ? || ' days')
+       AND flow_date <= date((SELECT MAX(flow_date) FROM corp_cashflow_items), '+' || ? || ' days')
+     ORDER BY category, line_item, flow_date`
+  ).all(daysBack.toString(), daysForward.toString()) as any[];
+
+  const itemMap = new Map<string, any>();
+  const dates = new Set<string>();
+
+  for (const row of rows) {
+    dates.add(row.flow_date);
+    const key = `${row.category}::${row.line_item}::${row.line_type}`;
+    if (!itemMap.has(key)) {
+      itemMap.set(key, {
+        lineItem: row.line_item,
+        category: row.category,
+        lineType: row.line_type,
+        frequency: row.frequency,
+        responsiblePerson: row.responsible_person,
+        values: {} as Record<string, number>,
+      });
+    }
+    itemMap.get(key)!.values[row.flow_date] = row.amount;
+  }
+
+  const allItems = Array.from(itemMap.values());
+  const additions = allItems.filter(i => i.category === 'addition');
+  const subtractions = allItems.filter(i => i.category === 'subtraction');
+  const additionTotals = allItems.filter(i => i.category === 'addition_total');
+  const subtractionTotals = allItems.filter(i => i.category === 'subtraction_total');
+  const ending = allItems.filter(i => i.category === 'ending');
+
+  const sortedDates = Array.from(dates).sort();
+
+  const waterfall = sortedDates.map(d => {
+    const addFcst = additionTotals.find(i => i.lineType === 'forecast')?.values[d] ?? 0;
+    const subFcst = subtractionTotals.find(i => i.lineType === 'forecast')?.values[d] ?? 0;
+    const addActual = additionTotals.find(i => i.lineType === 'actual')?.values[d] ?? 0;
+    const subActual = subtractionTotals.find(i => i.lineType === 'actual')?.values[d] ?? 0;
+    return {
+      date: d,
+      additionsForecast: addFcst,
+      subtractionsForecast: Math.abs(subFcst),
+      netForecast: addFcst + subFcst,
+      additionsActual: addActual,
+      subtractionsActual: Math.abs(subActual),
+      netActual: addActual + subActual,
+    };
+  });
+
+  const endingTrend = sortedDates.map(d => {
+    const forecast = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'forecast')?.values[d] ?? null;
+    const actual = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'actual')?.values[d] ?? null;
+    const variance = ending.find(i => i.lineItem === 'Ending Cash' && i.lineType === 'variance')?.values[d] ?? null;
+    const target = ending.find(i => i.lineItem === 'TARGET' && i.lineType === 'forecast')?.values[d] ?? null;
+    return { date: d, forecast, actual, variance, target };
+  });
+
+  const monthlyMap = new Map<string, { additions: number; subtractions: number; net: number; endingCash: number | null; additionsActual: number; subtractionsActual: number }>();
+  for (const d of sortedDates) {
+    const month = d.substring(0, 7);
+    if (!monthlyMap.has(month)) {
+      monthlyMap.set(month, { additions: 0, subtractions: 0, net: 0, endingCash: null, additionsActual: 0, subtractionsActual: 0 });
+    }
+    const m = monthlyMap.get(month)!;
+    const w = waterfall.find(ww => ww.date === d);
+    if (w) {
+      m.additions += w.additionsForecast;
+      m.subtractions += w.subtractionsForecast;
+      m.net += w.netForecast;
+      m.additionsActual += w.additionsActual;
+      m.subtractionsActual += w.subtractionsActual;
+    }
+    const ec = endingTrend.find(e => e.date === d);
+    if (ec && ec.forecast != null) {
+      m.endingCash = ec.forecast;
+    }
+  }
+  const monthly = Array.from(monthlyMap.entries()).map(([month, data]) => ({ month, ...data }));
+
+  const today = new Date().toISOString().split('T')[0];
+
+  return NextResponse.json({
+    success: true,
+    data: { dates: sortedDates, today, waterfall, endingTrend, monthly },
+  });
+}
