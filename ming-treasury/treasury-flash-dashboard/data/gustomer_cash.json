@@ -36552,7 +36552,7 @@
   {
     "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
     "reporting_date": "2026-04-21",
-    "value": 255462200.84
+    "value": 248509547.76
   },
   {
     "account_description": "PNC Customer Drawdowns -0462",
@@ -36562,6 +36562,6 @@
   {
     "account_description": "PNC Customer Wire Ins (Gusto) -0489",
     "reporting_date": "2026-04-21",
-    "value": 326766.3
+    "value": 512308.1
   }
 ]
