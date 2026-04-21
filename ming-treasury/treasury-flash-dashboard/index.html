@@ -113,6 +113,11 @@
           </div>
         </div>
         <div class="bank-filter-bar" id="bank-filter-corp-forecast"></div>
+        <div class="y-axis-slider">
+          <label>Y-Axis Max</label>
+          <input type="range" id="yslider-corp-forecast" min="100" max="1500" value="1500" step="50" />
+          <span class="slider-value" id="yslider-corp-val">$1.5B</span>
+        </div>
         <div class="chart-wrapper forecast-wrapper">
           <canvas id="chart-corporate-forecast"></canvas>
         </div>
@@ -130,6 +135,11 @@
           </div>
         </div>
         <div class="bank-filter-bar" id="bank-filter-gust-forecast"></div>
+        <div class="y-axis-slider">
+          <label>Y-Axis Max</label>
+          <input type="range" id="yslider-gust-forecast" min="500" max="25000" value="25000" step="500" />
+          <span class="slider-value" id="yslider-gust-val">$25.0B</span>
+        </div>
         <div class="chart-wrapper forecast-wrapper">
           <canvas id="chart-gustomer-forecast"></canvas>
         </div>

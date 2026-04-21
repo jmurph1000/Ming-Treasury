@@ -931,13 +931,31 @@
           updateForecastChart(chart, series, state.days, histColor, fcColor);
         }
 
+        function formatSliderLabel(valM) {
+          return valM >= 1000 ? '$' + (valM / 1000).toFixed(1) + 'B' : '$' + valM + 'M';
+        }
+
+        function setupYSlider(sliderId, labelId, chart) {
+          var slider = document.getElementById(sliderId);
+          var label = document.getElementById(labelId);
+          if (!slider || !chart) return;
+          slider.addEventListener('input', function () {
+            var maxVal = parseInt(slider.value) * 1e6;
+            label.textContent = formatSliderLabel(parseInt(slider.value));
+            chart.options.scales.y.max = maxVal;
+            chart.options.scales.y.min = 0;
+            chart.update();
+          });
+        }
+
         setTimeout(function () {
           var corpFcChart = createForecastChart(
             'chart-corporate-forecast', 'Corporate Cash',
             corpSeries, 252, '#22d3ee', corpFcColor
           );
 
-          // Range buttons for corp forecast
+          setupYSlider('yslider-corp-forecast', 'yslider-corp-val', corpFcChart);
+
           var corpFcContainer = document.getElementById('range-buttons-corp-forecast');
           if (corpFcContainer) {
             var btns = Array.prototype.slice.call(corpFcContainer.querySelectorAll('button'));
@@ -961,6 +979,8 @@
             'chart-gustomer-forecast', 'Gustomer Cash',
             gustSeries, 252, '#10b981', gustFcColor
           );
+
+          setupYSlider('yslider-gust-forecast', 'yslider-gust-val', gustFcChart);
 
           var gustFcContainer = document.getElementById('range-buttons-gust-forecast');
           if (gustFcContainer) {
