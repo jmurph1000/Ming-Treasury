@@ -89,7 +89,23 @@ export default function CorpForecastV2Page() {
     return totalByDate.filter(d => d.fullDate >= cutoffStr);
   }, [totalByDate, chartHorizon]);
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+
+  const toggleCategory = (name: string) => {
+    setSelectedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const all = (cashflowData?.data?.categoryTimeSeries || []).map((c: any) => c.lineItem);
+    setSelectedCategories(new Set(all));
+  };
+
+  const clearAll = () => setSelectedCategories(new Set());
 
   const categoryComparison: any[] = useMemo(() => {
     const raw = cashflowData?.data?.categoryComparison || [];
@@ -105,18 +121,32 @@ export default function CorpForecastV2Page() {
   }, [cashflowData]);
 
   const categoryTimeSeries: any[] = cashflowData?.data?.categoryTimeSeries || [];
-  const selectedSeries = useMemo(() => {
-    if (!selectedCategory) return null;
-    return categoryTimeSeries.find((c: any) => c.lineItem === selectedCategory) || null;
-  }, [categoryTimeSeries, selectedCategory]);
 
-  const timeSeriesChartData = useMemo(() => {
-    if (!selectedSeries) return [];
-    return selectedSeries.series.map((s: any) => {
-      const d = new Date(s.date + 'T12:00:00');
-      return { date: `${d.getMonth() + 1}/${d.getDate()}`, fullDate: s.date, forecast: s.forecast, actual: s.actual };
-    });
-  }, [selectedSeries]);
+  const netTimeSeriesData = useMemo(() => {
+    if (selectedCategories.size === 0) return [];
+    const selected = categoryTimeSeries.filter((c: any) => selectedCategories.has(c.lineItem));
+    const dateMap = new Map<string, { forecast: number; actual: number; hasActual: boolean }>();
+    for (const cat of selected) {
+      const sign = cat.category === 'subtraction' ? -1 : 1;
+      for (const pt of cat.series) {
+        if (!dateMap.has(pt.date)) dateMap.set(pt.date, { forecast: 0, actual: 0, hasActual: false });
+        const entry = dateMap.get(pt.date)!;
+        if (pt.forecast != null) entry.forecast += pt.forecast * sign;
+        if (pt.actual != null) { entry.actual += pt.actual * sign; entry.hasActual = true; }
+      }
+    }
+    return Array.from(dateMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => {
+        const d = new Date(date + 'T12:00:00');
+        return {
+          date: `${d.getMonth() + 1}/${d.getDate()}`,
+          fullDate: date,
+          forecast: v.forecast,
+          actual: v.hasActual ? v.actual : null,
+        };
+      });
+  }, [categoryTimeSeries, selectedCategories]);
 
   const healthCounts = useMemo(() => {
     let below = 0, near = 0, healthy = 0;
@@ -470,39 +500,65 @@ export default function CorpForecastV2Page() {
 
           {/* Row 3: Revenue & Expense Time Series */}
           <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-[#e8ecf4] flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#22d3ee]"></span>
                 Revenue & Expense — Historical & Projections
               </h3>
-              <select
-                value={selectedCategory || ''}
-                onChange={e => setSelectedCategory(e.target.value || null)}
-                className="bg-[#111b2e] border border-[#1e3054] text-[#e8ecf4] rounded-lg px-3 py-1.5 text-sm focus:border-[#3b82f6] focus:outline-none min-w-[220px]"
-              >
-                <option value="">Select a category...</option>
-                {categoryTimeSeries.map((c: any) => (
-                  <option key={c.lineItem} value={c.lineItem}>
-                    {c.category === 'addition' ? '+ ' : '- '}{c.lineItem}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <button onClick={selectAll}
+                  className="px-2 py-0.5 text-[0.7rem] font-semibold rounded-lg bg-[#111b2e] text-[#5a6f8f] border border-[#1e3054] hover:text-[#e8ecf4] hover:border-[#3b82f6] transition-all">
+                  All
+                </button>
+                <button onClick={clearAll}
+                  className="px-2 py-0.5 text-[0.7rem] font-semibold rounded-lg bg-[#111b2e] text-[#5a6f8f] border border-[#1e3054] hover:text-[#e8ecf4] hover:border-[#ef4444] transition-all">
+                  Clear
+                </button>
+              </div>
             </div>
-            {selectedSeries ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <ComposedChart data={timeSeriesChartData} margin={{ left: 10, right: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
-                  <XAxis dataKey="date" tick={axisTickSm} stroke={COLORS.grid} />
-                  <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
-                  <Tooltip content={<DarkTooltip />} />
-                  <Legend />
-                  <Bar dataKey="forecast" name="Forecast" fill={COLORS.cyan} fillOpacity={0.4} radius={[4, 4, 0, 0]} />
-                  <Line type="monotone" dataKey="actual" name="Actual" stroke={COLORS.green} strokeWidth={2} dot={{ r: 3, fill: COLORS.green }} connectNulls />
-                </ComposedChart>
-              </ResponsiveContainer>
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {categoryTimeSeries.map((c: any) => {
+                const isSelected = selectedCategories.has(c.lineItem);
+                const isRevenue = c.category === 'addition';
+                return (
+                  <button
+                    key={c.lineItem}
+                    onClick={() => toggleCategory(c.lineItem)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-lg border transition-all ${
+                      isSelected
+                        ? isRevenue
+                          ? 'bg-[#10b981]/20 text-[#10b981] border-[#10b981]/40'
+                          : 'bg-[#ef4444]/20 text-[#ef4444] border-[#ef4444]/40'
+                        : 'bg-[#111b2e] text-[#5a6f8f] border-[#1e3054] hover:text-[#8a9bb8]'
+                    }`}
+                  >
+                    {isRevenue ? '+' : '\u2212'} {c.lineItem}
+                  </button>
+                );
+              })}
+            </div>
+            {netTimeSeriesData.length > 0 ? (
+              <>
+                <div className="text-xs text-[#5a6f8f] mb-2">
+                  {selectedCategories.size} categor{selectedCategories.size === 1 ? 'y' : 'ies'} selected
+                  {selectedCategories.size > 1 && ' — showing net result'}
+                </div>
+                <ResponsiveContainer width="100%" height={380}>
+                  <ComposedChart data={netTimeSeriesData} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                    <XAxis dataKey="date" tick={axisTickSm} stroke={COLORS.grid} />
+                    <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                    <Tooltip content={<DarkTooltip />} />
+                    <Legend />
+                    <Bar dataKey="forecast" name="Net Forecast" fill={COLORS.cyan} fillOpacity={0.35} radius={[4, 4, 0, 0]} />
+                    <Line type="monotone" dataKey="actual" name="Net Actual" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 3, fill: COLORS.green }} connectNulls />
+                    <ReferenceLine y={0} stroke="#5a6f8f" strokeDasharray="3 3" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </>
             ) : (
-              <div className="flex items-center justify-center h-[350px] text-[#5a6f8f] text-sm">
-                Select a revenue or expense category above to view its historical trend and future projections
+              <div className="flex items-center justify-center h-[380px] text-[#5a6f8f] text-sm">
+                Select one or more categories above to view the net historical trend and future projections
               </div>
             )}
           </div>
