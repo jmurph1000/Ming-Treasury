@@ -115,16 +115,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-21",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-04-22",
     "value": 15993092.17
@@ -238,16 +228,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-04-22",
     "value": 111360914.81
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-22",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -365,16 +345,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-23",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-04-24",
     "value": 15993092.17
@@ -488,16 +458,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-04-24",
     "value": 111360914.81
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-24",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -615,16 +575,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-25",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-04-28",
     "value": 15993092.17
@@ -740,16 +690,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-28",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-04-29",
     "value": 15993092.17
@@ -863,16 +803,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-04-29",
     "value": 111360914.81
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-29",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -990,16 +920,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-04-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-04-30",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-01",
     "value": 15993092.17
@@ -1113,16 +1033,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-01",
     "value": 111360914.81
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-01",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -1240,16 +1150,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-02",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-05",
     "value": 15993092.17
@@ -1363,16 +1263,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-05",
     "value": 111360914.81
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-05",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -1490,16 +1380,6 @@
     "value": 111360914.81
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-06",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-07",
     "value": 15993092.17
@@ -1613,16 +1493,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-07",
     "value": 111592427.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-07",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -1740,16 +1610,6 @@
     "value": 111592427.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-08",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-09",
     "value": 20437834.87
@@ -1863,16 +1723,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-09",
     "value": 111592427.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-09",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -1990,16 +1840,6 @@
     "value": 111592427.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-12",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-13",
     "value": 20437834.87
@@ -2113,16 +1953,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-13",
     "value": 111592427.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-13",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -2240,16 +2070,6 @@
     "value": 111592427.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-14",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-15",
     "value": 11249831.86
@@ -2363,16 +2183,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-15",
     "value": 111592427.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-15",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -2490,16 +2300,6 @@
     "value": 111592427.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-16",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-19",
     "value": 11249831.86
@@ -2613,16 +2413,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-19",
     "value": 111721557.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-19",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -2740,16 +2530,6 @@
     "value": 111721557.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-20",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-21",
     "value": 11249831.86
@@ -2863,16 +2643,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-21",
     "value": 111721557.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-21",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -2990,16 +2760,6 @@
     "value": 111721557.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-22",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-23",
     "value": 11249831.86
@@ -3113,16 +2873,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-23",
     "value": 111721557.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-23",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -3240,16 +2990,6 @@
     "value": 111721557.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-27",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-28",
     "value": 11249831.86
@@ -3363,16 +3103,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-28",
     "value": 111721557.2
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-28",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -3490,16 +3220,6 @@
     "value": 111721557.2
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-29",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-05-30",
     "value": 11249831.86
@@ -3613,16 +3333,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-05-30",
     "value": 111831508.28
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-05-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-05-30",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -3740,16 +3450,6 @@
     "value": 111831508.28
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-02",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-03",
     "value": 9708696.39
@@ -3863,16 +3563,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-03",
     "value": 111831508.28
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-03",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -3990,16 +3680,6 @@
     "value": 111831508.28
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-04",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-05",
     "value": 9708696.39
@@ -4113,16 +3793,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-05",
     "value": 111938323.01
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-05",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -4240,16 +3910,6 @@
     "value": 111938323.01
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-06",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-09",
     "value": 9708696.39
@@ -4363,16 +4023,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-09",
     "value": 111938323.01
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-09",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -4490,16 +4140,6 @@
     "value": 111938323.01
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-10",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-11",
     "value": 9708696.39
@@ -4613,16 +4253,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-11",
     "value": 111938323.01
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-11",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -4740,16 +4370,6 @@
     "value": 111938323.01
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-12",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-13",
     "value": 9708696.39
@@ -4863,16 +4483,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-13",
     "value": 111938323.01
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-13",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -4990,16 +4600,6 @@
     "value": 111938323.01
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-16",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-17",
     "value": 9708696.39
@@ -5115,16 +4715,6 @@
     "value": 111938323.01
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-17",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-18",
     "value": 9708696.39
@@ -5238,16 +4828,6 @@
     "account_description": "PNC Investments -8174",
     "reporting_date": "2025-06-18",
     "value": 111938323.01
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-18",
-    "value": 0
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
@@ -5371,16 +4951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-06-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-06-20",
     "value": 0
   },
@@ -5510,16 +5080,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-23",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-24",
     "value": 9708696.39
@@ -5641,16 +5201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-06-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-06-24",
     "value": 0
   },
@@ -5780,16 +5330,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-25",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-26",
     "value": 9708696.39
@@ -5911,16 +5451,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-06-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-06-26",
     "value": 0
   },
@@ -6050,16 +5580,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-06-27",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-06-30",
     "value": 11850054.8
@@ -6181,16 +5701,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-06-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-06-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-06-30",
     "value": 0
   },
@@ -6320,16 +5830,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-01",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-02",
     "value": 11850054.8
@@ -6451,16 +5951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-02",
     "value": 0
   },
@@ -6590,16 +6080,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-03",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-07",
     "value": 11850054.8
@@ -6721,16 +6201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-07",
     "value": 0
   },
@@ -6860,16 +6330,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-08",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-09",
     "value": 11850054.8
@@ -6991,16 +6451,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-09",
     "value": 0
   },
@@ -7130,16 +6580,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-10",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-11",
     "value": 11850054.8
@@ -7261,16 +6701,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-11",
     "value": 0
   },
@@ -7400,16 +6830,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-14",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-15",
     "value": 11850054.8
@@ -7531,16 +6951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-15",
     "value": 0
   },
@@ -7670,16 +7080,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-16",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-17",
     "value": 11850054.8
@@ -7801,16 +7201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-17",
     "value": 0
   },
@@ -7940,16 +7330,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-18",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-21",
     "value": 11850054.8
@@ -8071,16 +7451,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-21",
     "value": 0
   },
@@ -8210,16 +7580,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-22",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-23",
     "value": 11850054.8
@@ -8341,16 +7701,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-23",
     "value": 0
   },
@@ -8480,16 +7830,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-24",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-25",
     "value": 11850054.8
@@ -8611,16 +7951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-25",
     "value": 0
   },
@@ -8750,16 +8080,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-28",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-29",
     "value": 11850054.8
@@ -8881,16 +8201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-29",
     "value": 0
   },
@@ -9020,16 +8330,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-07-30",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-07-31",
     "value": 11850054.8
@@ -9151,16 +8451,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-07-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-07-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-07-31",
     "value": 0
   },
@@ -9290,16 +8580,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-01",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-04",
     "value": 11850054.8
@@ -9421,16 +8701,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-04",
     "value": 0
   },
@@ -9560,16 +8830,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-05",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-06",
     "value": 11850054.8
@@ -9691,16 +8951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-06",
     "value": 0
   },
@@ -9830,16 +9080,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-07",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-08",
     "value": 6625184.33
@@ -9961,16 +9201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-08",
     "value": 0
   },
@@ -10100,16 +9330,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-11",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-12",
     "value": 6625184.33
@@ -10231,16 +9451,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-12",
     "value": 0
   },
@@ -10370,16 +9580,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-13",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-14",
     "value": 6625184.33
@@ -10505,16 +9705,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-14",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-15",
     "value": 6625184.33
@@ -10636,16 +9826,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-15",
     "value": 0
   },
@@ -10771,16 +9951,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-18",
     "value": 0
   },
@@ -10915,16 +10085,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-19",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-20",
     "value": 6625184.33
@@ -11051,16 +10211,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-20",
     "value": 0
   },
@@ -11195,16 +10345,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-21",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-22",
     "value": 6625184.33
@@ -11331,16 +10471,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-22",
     "value": 0
   },
@@ -11475,16 +10605,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-25",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-26",
     "value": 6625184.33
@@ -11611,16 +10731,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-26",
     "value": 0
   },
@@ -11755,16 +10865,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-27",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-28",
     "value": 6625184.33
@@ -11895,16 +10995,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-08-28",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-08-29",
     "value": 6625184.33
@@ -12031,16 +11121,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-08-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-08-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-08-29",
     "value": 0
   },
@@ -12175,16 +11255,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-02",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-03",
     "value": 6625184.33
@@ -12311,16 +11381,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-03",
     "value": 0
   },
@@ -12455,16 +11515,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-04",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-05",
     "value": 6625184.33
@@ -12591,16 +11641,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-05",
     "value": 0
   },
@@ -12735,16 +11775,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-08",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-09",
     "value": 6625184.33
@@ -12871,16 +11901,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-09",
     "value": 0
   },
@@ -13015,16 +12035,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-10",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-11",
     "value": 6625184.33
@@ -13151,16 +12161,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-11",
     "value": 0
   },
@@ -13295,16 +12295,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-12",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-15",
     "value": 6625184.33
@@ -13431,16 +12421,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-15",
     "value": 0
   },
@@ -13575,16 +12555,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-16",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-17",
     "value": 6625184.33
@@ -13711,16 +12681,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-17",
     "value": 0
   },
@@ -13855,16 +12815,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-18",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-19",
     "value": 6625184.33
@@ -13991,16 +12941,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-19",
     "value": 0
   },
@@ -14135,16 +13075,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-22",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-23",
     "value": 6892869.79
@@ -14271,16 +13201,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-23",
     "value": 0
   },
@@ -14415,16 +13335,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-24",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-25",
     "value": 6892869.79
@@ -14551,16 +13461,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-25",
     "value": 0
   },
@@ -14695,16 +13595,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-26",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-09-29",
     "value": 6892869.79
@@ -14831,16 +13721,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-09-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-09-29",
     "value": 0
   },
@@ -14975,16 +13855,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-09-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-09-30",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-01",
     "value": 6892869.79
@@ -15111,16 +13981,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-01",
     "value": 0
   },
@@ -15255,16 +14115,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-02",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-03",
     "value": 6892869.79
@@ -15391,16 +14241,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-03",
     "value": 0
   },
@@ -15535,16 +14375,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-06",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-07",
     "value": 6892869.79
@@ -15671,16 +14501,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-07",
     "value": 0
   },
@@ -15815,16 +14635,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-08",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-09",
     "value": 6892869.79
@@ -15951,16 +14761,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-09",
     "value": 0
   },
@@ -16095,16 +14895,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-10",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-13",
     "value": 6892869.79
@@ -16231,16 +15021,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-13",
     "value": 0
   },
@@ -16375,16 +15155,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-14",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-15",
     "value": 6892869.79
@@ -16511,16 +15281,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-15",
     "value": 0
   },
@@ -16655,16 +15415,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-16",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-17",
     "value": 6892869.79
@@ -16791,16 +15541,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-17",
     "value": 0
   },
@@ -16935,16 +15675,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-20",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-21",
     "value": 8511971.96
@@ -17071,16 +15801,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-21",
     "value": 0
   },
@@ -17215,16 +15935,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-22",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-23",
     "value": 7720798.87
@@ -17351,16 +16061,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-23",
     "value": 0
   },
@@ -17495,16 +16195,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-24",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-27",
     "value": 7720798.87
@@ -17631,16 +16321,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-27",
     "value": 0
   },
@@ -17775,16 +16455,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-28",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-29",
     "value": 7720798.87
@@ -17911,16 +16581,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-29",
     "value": 0
   },
@@ -18055,16 +16715,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-10-30",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-10-31",
     "value": 7720798.87
@@ -18191,16 +16841,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-10-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-10-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-10-31",
     "value": 0
   },
@@ -18335,16 +16975,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-03",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-04",
     "value": 7720798.87
@@ -18471,16 +17101,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-04",
     "value": 0
   },
@@ -18615,16 +17235,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-05",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-06",
     "value": 7720798.87
@@ -18751,16 +17361,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-06",
     "value": 0
   },
@@ -18895,16 +17495,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-07",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-10",
     "value": 7720798.87
@@ -19031,16 +17621,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-10",
     "value": 0
   },
@@ -19175,16 +17755,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-12",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-13",
     "value": 7720798.87
@@ -19311,16 +17881,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-13",
     "value": 0
   },
@@ -19455,16 +18015,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-14",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-17",
     "value": 7720798.87
@@ -19591,16 +18141,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-17",
     "value": 0
   },
@@ -19735,16 +18275,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-18",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-19",
     "value": 7720798.87
@@ -19871,16 +18401,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-19",
     "value": 0
   },
@@ -20015,16 +18535,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-20",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-21",
     "value": 7720798.87
@@ -20155,16 +18665,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-21",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-24",
     "value": 7720798.87
@@ -20291,16 +18791,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-24",
     "value": 0
   },
@@ -20440,16 +18930,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-25",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-26",
     "value": 7078340.92
@@ -20585,16 +19065,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-11-26",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-11-28",
     "value": 14778449.86
@@ -20726,16 +19196,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-11-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-11-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-11-28",
     "value": 0
   },
@@ -20880,16 +19340,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-01",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-02",
     "value": 10659009.26
@@ -21026,16 +19476,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-02",
     "value": 0
   },
@@ -21180,16 +19620,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-03",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-04",
     "value": 6802365.75
@@ -21326,16 +19756,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-04",
     "value": 0
   },
@@ -21480,16 +19900,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-05",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-08",
     "value": 10154858.53
@@ -21626,16 +20036,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-08",
     "value": 0
   },
@@ -21780,16 +20180,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-09",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-10",
     "value": 7188807.64
@@ -21926,16 +20316,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-10",
     "value": 0
   },
@@ -22080,16 +20460,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-11",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-12",
     "value": 15478171.12
@@ -22226,16 +20596,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-12",
     "value": 0
   },
@@ -22380,16 +20740,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-15",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-16",
     "value": 11189086.1
@@ -22526,16 +20876,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-16",
     "value": 0
   },
@@ -22680,16 +21020,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-17",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-18",
     "value": 8136472.25
@@ -22826,16 +21156,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-18",
     "value": 0
   },
@@ -22980,16 +21300,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-19",
-    "value": 0
-  },
-  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2025-12-22",
     "value": 11200532.82
@@ -23126,16 +21436,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-22",
     "value": 0
   },
@@ -23285,16 +21585,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-23",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2025-12-23",
     "value": 0
@@ -23436,16 +21726,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-24",
     "value": 0
   },
@@ -23595,16 +21875,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-26",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2025-12-26",
     "value": 0
@@ -23746,16 +22016,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-29",
     "value": 0
   },
@@ -23905,16 +22165,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2025-12-30",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2025-12-30",
     "value": 0
@@ -24056,16 +22306,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2025-12-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2025-12-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2025-12-31",
     "value": 0
   },
@@ -24215,16 +22455,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-02",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-02",
     "value": 0
@@ -24366,16 +22596,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-05",
     "value": 0
   },
@@ -24525,16 +22745,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-06",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-06",
     "value": 0
@@ -24676,16 +22886,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-07",
     "value": 0
   },
@@ -24835,16 +23035,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-08",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-08",
     "value": 0
@@ -24986,16 +23176,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-09",
     "value": 0
   },
@@ -25145,16 +23325,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-12",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-12",
     "value": 0
@@ -25296,16 +23466,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-13",
     "value": 0
   },
@@ -25455,16 +23615,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-14",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-14",
     "value": 0
@@ -25606,16 +23756,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-15",
     "value": 0
   },
@@ -25765,16 +23905,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-16",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-16",
     "value": 0
@@ -25916,16 +24046,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-20",
     "value": 0
   },
@@ -26075,16 +24195,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-21",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-21",
     "value": 0
@@ -26226,16 +24336,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-22",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-22",
     "value": 0
   },
@@ -26385,16 +24485,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-23",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-23",
     "value": 0
@@ -26536,16 +24626,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-26",
     "value": 0
   },
@@ -26695,16 +24775,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-27",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-27",
     "value": 0
@@ -26846,16 +24916,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-28",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-28",
     "value": 0
   },
@@ -27005,16 +25065,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-29",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-01-29",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-01-29",
     "value": 0
@@ -27156,16 +25206,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-01-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-01-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-01-30",
     "value": 0
   },
@@ -27315,16 +25355,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-02",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-02",
     "value": 0
@@ -27466,16 +25496,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-03",
     "value": 0
   },
@@ -27625,16 +25645,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-04",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-04",
     "value": 0
@@ -27776,16 +25786,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-05",
     "value": 0
   },
@@ -27935,16 +25935,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-06",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-06",
     "value": 0
@@ -28086,16 +26076,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-09",
     "value": 0
   },
@@ -28245,16 +26225,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-10",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-10",
     "value": 0
@@ -28396,16 +26366,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-11",
     "value": 0
   },
@@ -28555,16 +26515,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-12",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-12",
     "value": 0
@@ -28706,16 +26656,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-13",
     "value": 0
   },
@@ -28865,16 +26805,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-17",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-17",
     "value": 0
@@ -29016,16 +26946,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-18",
     "value": 0
   },
@@ -29175,16 +27095,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-19",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-19",
     "value": 0
@@ -29326,16 +27236,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-20",
     "value": 0
   },
@@ -29485,16 +27385,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-23",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-23",
     "value": 0
@@ -29636,16 +27526,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-24",
     "value": 0
   },
@@ -29820,16 +27700,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-25",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-25",
     "value": 0
@@ -29996,16 +27866,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-02-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-02-26",
     "value": 0
   },
@@ -30180,16 +28040,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-02-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-02-27",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-02-27",
     "value": 0
@@ -30356,16 +28206,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-02",
     "value": 0
   },
@@ -30540,16 +28380,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-03",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-03",
     "value": 128.68
@@ -30716,16 +28546,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-04",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-04",
     "value": 0
   },
@@ -30900,16 +28720,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-05",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-05",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-05",
     "value": 100.85
@@ -31076,16 +28886,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-06",
     "value": 0
   },
@@ -31265,16 +29065,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-09",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-09",
     "value": 100.85
@@ -31446,16 +29236,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-10",
     "value": 0
   },
@@ -31635,16 +29415,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-11",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-11",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-11",
     "value": 100.85
@@ -31816,16 +29586,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-12",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-12",
     "value": 0
   },
@@ -32005,16 +29765,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-13",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-13",
     "value": 100.85
@@ -32186,16 +29936,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-16",
     "value": 0
   },
@@ -32375,16 +30115,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-17",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-17",
     "value": 100.85
@@ -32556,16 +30286,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-18",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-18",
     "value": 0
   },
@@ -32745,16 +30465,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-19",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-19",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-19",
     "value": 100.85
@@ -32926,16 +30636,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-20",
     "value": 0
   },
@@ -33115,16 +30815,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-23",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-23",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-23",
     "value": 100.85
@@ -33296,16 +30986,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-24",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-24",
     "value": 0
   },
@@ -33485,16 +31165,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-25",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-25",
     "value": 100.85
@@ -33666,16 +31336,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-26",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-26",
     "value": 0
   },
@@ -33855,16 +31515,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-27",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-27",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-27",
     "value": 100.85
@@ -34036,16 +31686,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-03-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-30",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-03-30",
     "value": 0
   },
@@ -34225,16 +31865,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-03-31",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-03-31",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-03-31",
     "value": 100.85
@@ -34406,16 +32036,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-01",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-01",
     "value": 0
   },
@@ -34595,16 +32215,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-02",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-02",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-02",
     "value": 76.24
@@ -34776,16 +32386,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-03",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-03",
     "value": 0
   },
@@ -34965,16 +32565,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-06",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-06",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-06",
     "value": 76.24
@@ -35146,16 +32736,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-07",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-07",
     "value": 0
   },
@@ -35335,16 +32915,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-08",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-08",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-08",
     "value": 76.24
@@ -35516,16 +33086,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-09",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-09",
     "value": 0
   },
@@ -35705,16 +33265,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-10",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-10",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-10",
     "value": 76.24
@@ -35886,16 +33436,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-13",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-13",
     "value": 0
   },
@@ -36075,16 +33615,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-14",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-14",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-14",
     "value": 76.24
@@ -36256,16 +33786,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-15",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-15",
     "value": 0
   },
@@ -36445,16 +33965,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-16",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-16",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-16",
     "value": 76.24
@@ -36620,16 +34130,6 @@
     "value": 0
   },
   {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-17",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
-    "reporting_date": "2026-04-17",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-17",
     "value": 76.24
@@ -36746,16 +34246,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-20",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-20",
     "value": 0
   },
@@ -36921,16 +34411,6 @@
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-04-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Deposits -3549 (Gusto)",
-    "reporting_date": "2026-04-21",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Wire In -8166 (Gusto)",
     "reporting_date": "2026-04-21",
     "value": 0
   },
