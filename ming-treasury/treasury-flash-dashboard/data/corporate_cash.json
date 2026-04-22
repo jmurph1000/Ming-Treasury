@@ -1,6 +1,406 @@
 [
   {
     "account_description": "BBVA Gusto Turkiye 4638 (TRY)",
+    "reporting_date": "2025-04-21",
+    "value": 204773.27
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 5947 USD",
+    "reporting_date": "2025-04-21",
+    "value": 67.43
+  },
+  {
+    "account_description": "BRB Operating 3313",
+    "reporting_date": "2025-04-21",
+    "value": 242796.04
+  },
+  {
+    "account_description": "BTC GDL 401K AUM FEE 102063000002",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL 401K FLEX RE 109963000506",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL ACNTS PASS 109963000501",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL Client Plans 109963000001",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL DISMISS FEE 109963000500",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL IRA AUM FEE 102063000003",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL PASS-THRU 101063000000",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "BTC IRA PASS-THRU 102063900000",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Bank Leumi 0065",
+    "reporting_date": "2025-04-21",
+    "value": 15130.13
+  },
+  {
+    "account_description": "BofA Operating Checking -8441 (RemoteTeam)",
+    "reporting_date": "2025-04-21",
+    "value": 92068.24
+  },
+  {
+    "account_description": "Chase Accounts Payable 9329",
+    "reporting_date": "2025-04-21",
+    "value": 1646895.81
+  },
+  {
+    "account_description": "Chase Ardius 0727",
+    "reporting_date": "2025-04-21",
+    "value": 185146.91
+  },
+  {
+    "account_description": "Chase Ardius 9012",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Ardius 9178",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Ardius 9392",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Billing/Collection 9378",
+    "reporting_date": "2025-04-21",
+    "value": 228621.51
+  },
+  {
+    "account_description": "Chase Billings Gusto 9837",
+    "reporting_date": "2025-04-21",
+    "value": 41.34
+  },
+  {
+    "account_description": "Chase DDA 0195",
+    "reporting_date": "2025-04-21",
+    "value": 433.43
+  },
+  {
+    "account_description": "Chase Deposit 0226",
+    "reporting_date": "2025-04-21",
+    "value": 948595.62
+  },
+  {
+    "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
+    "reporting_date": "2025-04-21",
+    "value": 740101.21
+  },
+  {
+    "account_description": "Chase Guideline Holdings, LLC 5725",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Guideline Investments, LLC 1820",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Guideline NBT LLC 1861",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Guideline RK, LLC 1937",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Guideline Securities LLC 2018",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Guideline, Inc. 9176",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
+    "reporting_date": "2025-04-21",
+    "value": 65368.44
+  },
+  {
+    "account_description": "Chase Gusto Capital, LLC 3962",
+    "reporting_date": "2025-04-21",
+    "value": 153157.33
+  },
+  {
+    "account_description": "Chase Internal Payroll 0566",
+    "reporting_date": "2025-04-21",
+    "value": 309077.78
+  },
+  {
+    "account_description": "Chase Master Gusto 9811",
+    "reporting_date": "2025-04-21",
+    "value": 35255269.77
+  },
+  {
+    "account_description": "Chase Mexico (MXN) 6837",
+    "reporting_date": "2025-04-21",
+    "value": 318082.06
+  },
+  {
+    "account_description": "Chase Remote 8151",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase Tax 0269",
+    "reporting_date": "2025-04-21",
+    "value": 109321.16
+  },
+  {
+    "account_description": "Chase Test Account 2378",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase ZP Insurance 0101",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase ZP Insurance 5202",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Chase ZP Insurance 8961",
+    "reporting_date": "2025-04-21",
+    "value": 1536709.99
+  },
+  {
+    "account_description": "Chase ZP Insurance 9657",
+    "reporting_date": "2025-04-21",
+    "value": 1746452.54
+  },
+  {
+    "account_description": "Chase ZP Insurance 9962",
+    "reporting_date": "2025-04-21",
+    "value": 30336.01
+  },
+  {
+    "account_description": "Fee Account (Grasshopper) 3871",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Guideline BNY",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Guideline Money Market JP Morgan",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Guideline Stripe Sales Receipts",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto Corporate (Grasshopper) 7000",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto PEO I, LLC 6385",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto PEO I, LLC 7853",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto PEO II, LLC 6502",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto PEO II, LLC 7872",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Gusto Stripe",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "GustoHR, Inc. 6375",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "GustoHR, Inc. 7838",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "JPM Collateral **8192",
+    "reporting_date": "2025-04-21",
+    "value": 8233051.84
+  },
+  {
+    "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "MidFirst Bank Customer Wires - 2876 (Symmetry)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Midfirst Symmetry Customer Wires ZBA 5812",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Midfirst Symmetry Operating 2841",
+    "reporting_date": "2025-04-21",
+    "value": 1184694
+  },
+  {
+    "account_description": "Midfirst Symmetry Operating 5804",
+    "reporting_date": "2025-04-21",
+    "value": 384910.02
+  },
+  {
+    "account_description": "Midfirst Symmetry Savings 4829",
+    "reporting_date": "2025-04-21",
+    "value": 5818679.63
+  },
+  {
+    "account_description": "Morgan Stanley Cash Citibank",
+    "reporting_date": "2025-04-21",
+    "value": 275709033.21
+  },
+  {
+    "account_description": "NBKC ACH Risk Reserve -7431",
+    "reporting_date": "2025-04-21",
+    "value": 45000
+  },
+  {
+    "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
+    "reporting_date": "2025-04-21",
+    "value": 263112.74
+  },
+  {
+    "account_description": "NBKC Card Settlement -4683 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 4359.94
+  },
+  {
+    "account_description": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 24415.55
+  },
+  {
+    "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 236902.3
+  },
+  {
+    "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "NBKC Rev Share (Inbound) -7432",
+    "reporting_date": "2025-04-21",
+    "value": 163681.76
+  },
+  {
+    "account_description": "NBKC Sunrise Reserve Account 4319",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
+    "reporting_date": "2025-04-21",
+    "value": 7500
+  },
+  {
+    "account_description": "PNC Corporate (Gusto) - 6428",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "PNC Corporate (Gusto) -0446",
+    "reporting_date": "2025-04-21",
+    "value": 1493797.76
+  },
+  {
+    "account_description": "Pathward Gusto Capital Operating 1720",
+    "reporting_date": "2025-04-21",
+    "value": 750000
+  },
+  {
+    "account_description": "Reserve Account - Gusto MRB Processing 4973",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Scotiabank 6812 (CAD)",
+    "reporting_date": "2025-04-21",
+    "value": 0
+  },
+  {
+    "account_description": "Symmetry Petty Cash",
+    "reporting_date": "2025-04-21",
+    "value": 3192.7
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 4638 (TRY)",
     "reporting_date": "2025-04-22",
     "value": 204773.27
   },

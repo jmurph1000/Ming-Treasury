@@ -24,7 +24,7 @@
  *     - ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json
  *   Each file is an array of:
  *     [{ account_description: "...", reporting_date: "YYYY-MM-DD", value: 123.45 }, ...]
- *   Keeps 252 business days of history (approx 1 year of trading days).
+ *   Keeps all historical data (never trimmed).
  *
  * DEPLOYMENT:
  *   1. Create a new standalone Apps Script project (or attach to any Sheet)
@@ -49,8 +49,8 @@
 // ============================================================================
 
 var PIPELINE_CONFIG = {
-  // Maximum business days of history to retain
-  MAX_BUSINESS_DAYS: 252,
+  // No limit on history — all historical data is preserved
+  MAX_BUSINESS_DAYS: Infinity,
 
   // Drive folder where the attachment downloader saves files.
   // Set to null to search the entire Drive (slower but works without config).
@@ -460,8 +460,8 @@ function processDailyData() {
 /**
  * Reads the current JSON from GitHub, upserts new records (replacing only
  * the specific accounts being updated, preserving other accounts on the
- * same date), trims to MAX_BUSINESS_DAYS unique dates, and commits the
- * result back to GitHub.
+ * same date), carries forward non-pipeline accounts to the latest date,
+ * and commits the result back to GitHub. Historical data is never trimmed.
  *
  * @param {string}   filePath    GitHub repo path to the JSON file
  * @param {Object[]} newRecords  Array of { date, account_name, value }
@@ -517,7 +517,48 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     keptRecords.push(deduped[keys[dk]]);
   }
 
-  // Step 6: Sort by date ascending, then by account_description
+  // Step 6: Carry forward accounts missing from the latest date.
+  //         Non-pipeline accounts (e.g. NBKC, Morgan Stanley, BTC) are only
+  //         updated via screenshots. When the pipeline adds a new date for
+  //         JPM/PNC, those other accounts would have no row for the new date
+  //         and disappear from the dashboard. Carry their last known balance
+  //         forward so they remain visible.
+  var allDates = {};
+  for (var cf = 0; cf < keptRecords.length; cf++) {
+    allDates[keptRecords[cf].reporting_date] = true;
+  }
+  var sortedDates = Object.keys(allDates).sort();
+  if (sortedDates.length >= 2) {
+    var latestDate = sortedDates[sortedDates.length - 1];
+    var prevDate = sortedDates[sortedDates.length - 2];
+    var latestAccts = {};
+    var prevAccts = {};
+    for (var cf2 = 0; cf2 < keptRecords.length; cf2++) {
+      if (keptRecords[cf2].reporting_date === latestDate) {
+        latestAccts[keptRecords[cf2].account_description] = true;
+      }
+      if (keptRecords[cf2].reporting_date === prevDate) {
+        prevAccts[keptRecords[cf2].account_description] = keptRecords[cf2].value;
+      }
+    }
+    var carried = 0;
+    var prevKeys = Object.keys(prevAccts);
+    for (var cf3 = 0; cf3 < prevKeys.length; cf3++) {
+      if (!latestAccts[prevKeys[cf3]]) {
+        keptRecords.push({
+          account_description: prevKeys[cf3],
+          reporting_date: latestDate,
+          value: prevAccts[prevKeys[cf3]]
+        });
+        carried++;
+      }
+    }
+    if (carried > 0) {
+      Logger.log('Carried forward ' + carried + ' accounts from ' + prevDate + ' to ' + latestDate);
+    }
+  }
+
+  // Step 7: Sort by date ascending, then by account_description
   keptRecords.sort(function(a, b) {
     if (a.reporting_date < b.reporting_date) return -1;
     if (a.reporting_date > b.reporting_date) return 1;
@@ -526,12 +567,12 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return 0;
   });
 
-  // Step 7: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
+  // Step 8: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
   keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
 
-  Logger.log('Total records after merge and trim: ' + keptRecords.length);
+  Logger.log('Total records after merge: ' + keptRecords.length);
 
-  // Step 8: Push the updated JSON back to GitHub
+  // Step 9: Push the updated JSON back to GitHub
   writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
 }
 
