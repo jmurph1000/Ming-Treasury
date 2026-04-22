@@ -211,6 +211,7 @@
     });
 
     var result = {};
+    var accountStale = {};
     Object.keys(bankAccounts).forEach(function (bank) {
       var accounts = bankAccounts[bank];
       var allIdentical = accounts.every(function (acct) {
@@ -218,14 +219,19 @@
       });
 
       if (allIdentical && accounts.length > 0) {
-        // Walk backwards through dates to find when values last actually changed
         var lastChanged = findLastChangedDate(fullData, bank, selectedDate, allDatesSorted);
         result[bank] = { stale: true, lastChangedDate: lastChanged };
+        accounts.forEach(function (acct) { accountStale[acct] = true; });
       } else {
         result[bank] = { stale: false, lastChangedDate: null };
+        accounts.forEach(function (acct) {
+          var unchanged = prevMap.hasOwnProperty(acct) && selectedMap[acct] === prevMap[acct];
+          accountStale[acct] = unchanged;
+        });
       }
     });
 
+    result._accountStale = accountStale;
     return result;
   }
 
@@ -915,11 +921,19 @@
 
       // Account rows (hidden by default unless expanded)
       var accountRows = [];
+      var acctStaleMap = staleMap._accountStale || {};
       bankAccounts.forEach(function (row) {
         var tr = document.createElement('tr');
         tr.className = 'account-row' + (isExpanded ? ' visible' : '');
         var tdName = document.createElement('td');
         tdName.textContent = row.account_description;
+        if (acctStaleMap[row.account_description]) {
+          var acctIcon = document.createElement('span');
+          acctIcon.className = 'stale-icon';
+          acctIcon.textContent = '⚠';
+          acctIcon.title = 'Balance unchanged from prior day';
+          tdName.appendChild(acctIcon);
+        }
         var tdVal = document.createElement('td');
         tdVal.textContent = formatCurrencyFull(row.value);
         tr.appendChild(tdName);
