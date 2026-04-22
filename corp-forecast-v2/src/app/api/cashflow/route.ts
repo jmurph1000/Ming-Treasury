@@ -154,14 +154,24 @@ export function GET(req: NextRequest) {
     })
     .filter(Boolean);
 
-  // Build latest-week breakdown for the table
-  const breakdownRows = db.prepare(
+  // Build latest-week breakdown: pick the most recent date with broadest item coverage
+  const bestDate = db.prepare(
+    `SELECT flow_date as d, COUNT(DISTINCT line_item) as items
+     FROM corp_cashflow_items
+     WHERE line_type = 'forecast' AND category IN ('addition', 'subtraction')
+     GROUP BY flow_date HAVING items >= 10
+     ORDER BY flow_date DESC LIMIT 1`
+  ).get() as any;
+  const breakdownDate = bestDate?.d || db.prepare(
+    `SELECT MAX(flow_date) as d FROM corp_cashflow_items WHERE line_type = 'forecast' AND category IN ('addition', 'subtraction')`
+  ).get()?.d;
+  const breakdownRows = breakdownDate ? db.prepare(
     `SELECT line_item, category, line_type, flow_date, amount
      FROM corp_cashflow_items
      WHERE category IN ('addition', 'subtraction', 'addition_total', 'subtraction_total', 'ending')
-       AND flow_date = (SELECT MAX(flow_date) FROM corp_cashflow_items WHERE line_type = 'forecast' AND category = 'addition_total')
+       AND flow_date = ?
      ORDER BY category, line_item`
-  ).all() as any[];
+  ).all(breakdownDate) as any[] : [];
 
   const breakdown: any[] = [];
   const bdMap = new Map<string, any>();
