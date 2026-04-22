@@ -563,6 +563,78 @@ export default function CorpForecastV2Page() {
             )}
           </div>
 
+          {/* Row 4: Cash Flow Breakdown Table */}
+          {(cashflowData?.data?.breakdown || []).length > 0 && (() => {
+            const breakdown: any[] = cashflowData.data.breakdown;
+            const addItems = breakdown.filter((r: any) => r.category === 'addition');
+            const addTotal = breakdown.find((r: any) => r.category === 'addition_total');
+            const subItems = breakdown.filter((r: any) => r.category === 'subtraction');
+            const subTotal = breakdown.find((r: any) => r.category === 'subtraction_total');
+            const ending = breakdown.find((r: any) => r.category === 'ending');
+            const fmtCell = (v: number | null) => v != null ? formatCurrency(Math.abs(v)) : '\u2014';
+            const varColor = (v: number | null) => {
+              if (v == null || v === 0) return 'text-[#5a6f8f]';
+              return v > 0 ? 'text-[#10b981]' : 'text-[#ef4444]';
+            };
+            const renderRow = (r: any, indent: boolean = true) => (
+              <tr key={`${r.category}-${r.lineItem}`} className="border-b border-[rgba(30,48,84,0.5)] hover:bg-[rgba(59,130,246,0.06)] transition-colors">
+                <td className={`px-4 py-2 text-[#e8ecf4] ${indent ? 'pl-8' : 'font-semibold'}`}>{r.lineItem}</td>
+                <td className="px-4 py-2 text-right font-mono text-[#22d3ee]">{fmtCell(r.forecast)}</td>
+                <td className="px-4 py-2 text-right font-mono text-[#8a9bb8]">{fmtCell(r.actual)}</td>
+                <td className={`px-4 py-2 text-right font-mono ${varColor(r.variance)}`}>{r.variance != null && r.variance !== 0 ? (r.variance > 0 ? '+' : '') + formatCurrency(r.variance) : '\u2014'}</td>
+              </tr>
+            );
+            const renderTotal = (r: any, label: string, accent: string) => (
+              <tr key={`${r.category}-total`} className="border-b border-[#1e3054]" style={{ background: 'rgba(26,39,68,0.6)' }}>
+                <td className={`px-4 py-2.5 font-bold ${accent}`}>{label}</td>
+                <td className={`px-4 py-2.5 text-right font-mono font-bold ${accent}`}>{fmtCell(r.forecast)}</td>
+                <td className={`px-4 py-2.5 text-right font-mono font-bold ${accent}`}>{fmtCell(r.actual)}</td>
+                <td className={`px-4 py-2.5 text-right font-mono font-bold ${varColor(r.variance)}`}>{r.variance != null && r.variance !== 0 ? (r.variance > 0 ? '+' : '') + formatCurrency(r.variance) : '\u2014'}</td>
+              </tr>
+            );
+            return (
+              <div className="bg-[#162038] border border-[#1e3054] rounded-xl overflow-hidden">
+                <div className="px-5 py-4 border-b border-[#1e3054] flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[#e8ecf4] flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+                    Cash Flow Breakdown
+                  </h3>
+                  <span className="text-xs text-[#5a6f8f]">Week of {breakdown[0]?.date || ''}</span>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#1e3054]" style={{ background: '#111b2e' }}>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#5a6f8f]">Line Item</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#22d3ee]">Forecast</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#8a9bb8]">Actual</th>
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#5a6f8f]">Variance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-[#1e3054]" style={{ background: 'rgba(16,185,129,0.06)' }}>
+                      <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#10b981]">Additions</td>
+                    </tr>
+                    {addItems.map((r: any) => renderRow(r))}
+                    {addTotal && renderTotal(addTotal, 'Total Additions', 'text-[#10b981]')}
+                    <tr className="border-b border-[#1e3054]" style={{ background: 'rgba(239,68,68,0.06)' }}>
+                      <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#ef4444]">Subtractions</td>
+                    </tr>
+                    {subItems.map((r: any) => renderRow(r))}
+                    {subTotal && renderTotal(subTotal, 'Total Subtractions', 'text-[#ef4444]')}
+                    {ending && (
+                      <tr style={{ background: 'rgba(59,130,246,0.08)' }}>
+                        <td className="px-4 py-3 font-bold text-[#e8ecf4]">{ending.lineItem}</td>
+                        <td className="px-4 py-3 text-right font-mono font-bold text-[#22d3ee]">{fmtCell(ending.forecast)}</td>
+                        <td className="px-4 py-3 text-right font-mono font-bold text-[#e8ecf4]">{fmtCell(ending.actual)}</td>
+                        <td className={`px-4 py-3 text-right font-mono font-bold ${varColor(ending.variance)}`}>{ending.variance != null && ending.variance !== 0 ? (ending.variance > 0 ? '+' : '') + formatCurrency(ending.variance) : '\u2014'}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
+
           {/* Cash Flow Section */}
           {hasCashflowData && (
             <>

@@ -112,20 +112,14 @@ export function GET(req: NextRequest) {
     .filter(Boolean)
     .filter((item: any) => item.forecast > 0 || item.actual > 0);
 
-  // Build per-category time series using FULL date range (not limited by weeks_back)
-  const keyItems = ['Revenue inflow', 'Payroll', 'Estimated A/P run', 'Fidelity/401k/Collective Health',
-    'Canada Payroll/AP CAD', 'Mexico Payroll/Tax MXN', 'Turkiye Payroll/Tax TRY',
-    'Employee HI / benefits', 'Business tax', 'Partner Rev Share (ACH)',
-    'Loan interest', 'Cashout funding', 'Wires (eg. GiftBJt funding)'];
-
+  // Build per-category time series using FULL date range
   const fullRows = db.prepare(
     `SELECT line_item, category, line_type, flow_date, amount
      FROM corp_cashflow_items
      WHERE category IN ('addition', 'subtraction')
        AND line_type IN ('forecast', 'actual')
-       AND line_item IN (${keyItems.map(() => '?').join(',')})
      ORDER BY line_item, flow_date`
-  ).all(...keyItems) as any[];
+  ).all() as any[];
 
   const tsMap = new Map<string, { category: string; forecast: Record<string, number>; actual: Record<string, number> }>();
   for (const row of fullRows) {
@@ -135,12 +129,23 @@ export function GET(req: NextRequest) {
     else entry.actual[row.flow_date] = row.amount;
   }
 
-  const categoryTimeSeries = keyItems
+  // Ordered: additions first, then subtractions (matching spreadsheet layout)
+  const additionOrder = ['Revenue inflow', 'Customer cash: interest deposits', 'Other (>$5k)',
+    'Symmetry (Excess cash)', 'Transfer from Morgan Stanley'];
+  const subtractionOrder = ['Payroll', 'Canada Payroll/AP CAD', 'Mexico Payroll/Tax MXN',
+    'Turkiye Payroll/Tax TRY', 'Fidelity/401k/Collective Health', 'Estimated A/P run',
+    'Airbase, Emburse, expense reports', 'AMEX payments', 'Checks',
+    'Wires (eg. GiftBJt funding)', 'Promotion payouts (ACH)', 'Partner Rev Share (ACH)',
+    'Employee HI / benefits', 'Business tax', 'Customer cash: loss transfers',
+    'Cashout funding', 'Loan interest', 'Other (>$5k)', 'Transfer TO Morgan Stanley'];
+  const allOrderedItems = [...additionOrder, ...subtractionOrder];
+
+  const categoryTimeSeries = allOrderedItems
     .map(name => {
       const entry = tsMap.get(name);
       if (!entry) return null;
-      const allDates = new Set([...Object.keys(entry.forecast), ...Object.keys(entry.actual)]);
-      const series = Array.from(allDates).sort().map(d => ({
+      const allDts = new Set([...Object.keys(entry.forecast), ...Object.keys(entry.actual)]);
+      const series = Array.from(allDts).sort().map(d => ({
         date: d,
         forecast: entry.forecast[d] != null ? Math.abs(entry.forecast[d]) : null,
         actual: entry.actual[d] != null ? Math.abs(entry.actual[d]) : null,
@@ -149,8 +154,43 @@ export function GET(req: NextRequest) {
     })
     .filter(Boolean);
 
+  // Build latest-week breakdown for the table
+  const breakdownRows = db.prepare(
+    `SELECT line_item, category, line_type, flow_date, amount
+     FROM corp_cashflow_items
+     WHERE category IN ('addition', 'subtraction', 'addition_total', 'subtraction_total', 'ending')
+       AND flow_date = (SELECT MAX(flow_date) FROM corp_cashflow_items WHERE line_type = 'forecast' AND category = 'addition_total')
+     ORDER BY category, line_item`
+  ).all() as any[];
+
+  const breakdown: any[] = [];
+  const bdMap = new Map<string, any>();
+  for (const row of breakdownRows) {
+    const key = `${row.category}::${row.line_item}`;
+    if (!bdMap.has(key)) {
+      bdMap.set(key, { lineItem: row.line_item, category: row.category, date: row.flow_date, forecast: null, actual: null, variance: null });
+    }
+    const e = bdMap.get(key)!;
+    if (row.line_type === 'forecast') e.forecast = row.amount;
+    else if (row.line_type === 'actual') e.actual = row.amount;
+    else if (row.line_type === 'variance') e.variance = row.amount;
+  }
+
+  // Order the breakdown to match the spreadsheet
+  const breakdownOrder = [
+    ...additionOrder.map(n => `addition::${n}`),
+    'addition_total::Subtotal',
+    ...subtractionOrder.map(n => `subtraction::${n}`),
+    'subtraction_total::Subtotal',
+    'ending::Ending Cash',
+  ];
+  for (const key of breakdownOrder) {
+    const entry = bdMap.get(key);
+    if (entry) breakdown.push(entry);
+  }
+
   return NextResponse.json({
     success: true,
-    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison, categoryTimeSeries },
+    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison, categoryTimeSeries, breakdown },
   });
 }
