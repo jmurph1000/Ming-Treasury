@@ -91,6 +91,53 @@
   }
 
   /**
+   * Generate CSV string from data filtered by date range and type.
+   */
+  function generateCSV(corpData, gustData, startDate, endDate, dataType) {
+    var tagged = [];
+    if (dataType === 'all' || dataType === 'corporate') {
+      corpData.forEach(function (r) {
+        if (r.reporting_date >= startDate && r.reporting_date <= endDate) {
+          tagged.push({ r: r, type: 'Corporate' });
+        }
+      });
+    }
+    if (dataType === 'all' || dataType === 'gustomer') {
+      gustData.forEach(function (r) {
+        if (r.reporting_date >= startDate && r.reporting_date <= endDate) {
+          tagged.push({ r: r, type: 'Customer' });
+        }
+      });
+    }
+    tagged.sort(function (a, b) {
+      if (a.r.reporting_date < b.r.reporting_date) return -1;
+      if (a.r.reporting_date > b.r.reporting_date) return 1;
+      if (a.r.account_description < b.r.account_description) return -1;
+      if (a.r.account_description > b.r.account_description) return 1;
+      return 0;
+    });
+
+    var csv = 'Date,Type,Bank,Account,Balance\n';
+    tagged.forEach(function (t) {
+      var r = t.r;
+      var bank = getBankName(r.account_description);
+      var acct = r.account_description.indexOf(',') !== -1 ?
+        '"' + r.account_description + '"' : r.account_description;
+      csv += r.reporting_date + ',' + t.type + ',' + bank + ',' + acct + ',' + r.value + '\n';
+    });
+    return csv;
+  }
+
+  function downloadCSV(csv, filename) {
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  /**
    * Get all unique dates from the dataset, sorted descending (most recent first).
    */
   function getUniqueDates(data) {
@@ -1166,6 +1213,36 @@
         // Render Tables (show all accounts including Gusto Capital section)
         renderCorpTableForDate(corpLatestAll.date);
         renderGustTableForDate(gustLatest.date);
+
+        // Export controls
+        var allDatesAsc = corpAllDates.slice().reverse();
+        var exportStart = document.getElementById('export-start');
+        var exportEnd = document.getElementById('export-end');
+        if (exportStart && exportEnd && allDatesAsc.length > 0) {
+          exportStart.value = allDatesAsc[0];
+          exportEnd.value = allDatesAsc[allDatesAsc.length - 1];
+          exportStart.min = allDatesAsc[0];
+          exportStart.max = allDatesAsc[allDatesAsc.length - 1];
+          exportEnd.min = allDatesAsc[0];
+          exportEnd.max = allDatesAsc[allDatesAsc.length - 1];
+        }
+        var exportBtn = document.getElementById('export-csv-btn');
+        if (exportBtn) {
+          exportBtn.addEventListener('click', function () {
+            var typeEl = document.getElementById('export-type');
+            var dataType = typeEl ? typeEl.value : 'all';
+            var startDate = exportStart ? exportStart.value : allDatesAsc[0];
+            var endDate = exportEnd ? exportEnd.value : allDatesAsc[allDatesAsc.length - 1];
+            if (startDate > endDate) {
+              var tmp = startDate;
+              startDate = endDate;
+              endDate = tmp;
+            }
+            var csv = generateCSV(corpDataAll, gustData, startDate, endDate, dataType);
+            var filename = 'treasury_balances_' + startDate + '_to_' + endDate + '.csv';
+            downloadCSV(csv, filename);
+          });
+        }
       })
       .catch(function (err) {
         console.error('Dashboard error:', err);

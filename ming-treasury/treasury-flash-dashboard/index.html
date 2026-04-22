@@ -188,6 +188,34 @@
       </div>
     </section>
 
+    <!-- Export Section -->
+    <section class="export-section">
+      <div class="export-card">
+        <div class="export-header">
+          <h3>Export Balance Data</h3>
+        </div>
+        <div class="export-controls">
+          <div class="export-field">
+            <label for="export-type">Data</label>
+            <select id="export-type" class="export-select">
+              <option value="all">All Accounts</option>
+              <option value="corporate">Corporate Only</option>
+              <option value="gustomer">Gustomer Only</option>
+            </select>
+          </div>
+          <div class="export-field">
+            <label for="export-start">From</label>
+            <input type="date" id="export-start" class="export-date-input" />
+          </div>
+          <div class="export-field">
+            <label for="export-end">To</label>
+            <input type="date" id="export-end" class="export-date-input" />
+          </div>
+          <button id="export-csv-btn" class="export-btn">Export CSV</button>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ===== Footer ===== -->
