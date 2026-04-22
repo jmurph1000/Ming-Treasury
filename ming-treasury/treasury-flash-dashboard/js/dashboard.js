@@ -90,6 +90,135 @@
     return { date: latest, records: records };
   }
 
+  /**
+   * Get all unique dates from the dataset, sorted descending (most recent first).
+   */
+  function getUniqueDates(data) {
+    var dateSet = {};
+    data.forEach(function (r) { dateSet[r.reporting_date] = true; });
+    return Object.keys(dateSet).sort().reverse();
+  }
+
+  /**
+   * Get records for a specific date in the dataset.
+   * Returns { date, records } similar to getLatestDateRecords.
+   */
+  function getRecordsForDate(data, dateStr) {
+    var records = data.filter(function (r) { return r.reporting_date === dateStr; });
+    records.sort(function (a, b) { return b.value - a.value; });
+    return { date: dateStr, records: records };
+  }
+
+  /**
+   * Populate a <select> date picker with available dates.
+   * @param {string} selectId - the ID of the <select> element
+   * @param {string[]} dates - array of date strings sorted descending
+   * @param {string} selectedDate - the currently selected date
+   * @param {function} onChange - callback when user selects a new date
+   */
+  function populateDatePicker(selectId, dates, selectedDate, onChange) {
+    var sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.innerHTML = '';
+    dates.forEach(function (d) {
+      var opt = document.createElement('option');
+      opt.value = d;
+      opt.textContent = formatDate(d);
+      if (d === selectedDate) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', function () {
+      onChange(sel.value);
+    });
+  }
+
+  /**
+   * Determine staleness for each bank group on a given date.
+   * Compares the selected date's values to the previous date's values.
+   * Returns a map: { bankName: { stale: true/false, lastChangedDate: string } }
+   */
+  function computeStaleness(fullData, selectedDate, allDatesSorted) {
+    // allDatesSorted is descending; find the previous date
+    var selectedIdx = allDatesSorted.indexOf(selectedDate);
+    if (selectedIdx < 0 || selectedIdx >= allDatesSorted.length - 1) {
+      // No previous date available; can't determine staleness
+      return {};
+    }
+
+    var prevDate = allDatesSorted[selectedIdx + 1];
+    var selectedRecords = fullData.filter(function (r) { return r.reporting_date === selectedDate; });
+    var prevRecords = fullData.filter(function (r) { return r.reporting_date === prevDate; });
+
+    // Build lookup: account -> value for each date
+    var selectedMap = {};
+    selectedRecords.forEach(function (r) { selectedMap[r.account_description] = r.value; });
+    var prevMap = {};
+    prevRecords.forEach(function (r) { prevMap[r.account_description] = r.value; });
+
+    // Group accounts by bank
+    var bankAccounts = {};
+    selectedRecords.forEach(function (r) {
+      var bank = getBankName(r.account_description);
+      if (!bankAccounts[bank]) bankAccounts[bank] = [];
+      bankAccounts[bank].push(r.account_description);
+    });
+
+    var result = {};
+    Object.keys(bankAccounts).forEach(function (bank) {
+      var accounts = bankAccounts[bank];
+      var allIdentical = accounts.every(function (acct) {
+        return prevMap.hasOwnProperty(acct) && selectedMap[acct] === prevMap[acct];
+      });
+
+      if (allIdentical && accounts.length > 0) {
+        // Walk backwards through dates to find when values last actually changed
+        var lastChanged = findLastChangedDate(fullData, bank, selectedDate, allDatesSorted);
+        result[bank] = { stale: true, lastChangedDate: lastChanged };
+      } else {
+        result[bank] = { stale: false, lastChangedDate: null };
+      }
+    });
+
+    return result;
+  }
+
+  /**
+   * Walk backwards through dates to find when a bank's values last changed.
+   */
+  function findLastChangedDate(fullData, bankName, selectedDate, allDatesSorted) {
+    var selectedIdx = allDatesSorted.indexOf(selectedDate);
+    if (selectedIdx < 0) return selectedDate;
+
+    // Build a map of date -> { account: value } for this bank
+    var dateAccountValues = {};
+    fullData.forEach(function (r) {
+      if (getBankName(r.account_description) === bankName) {
+        if (!dateAccountValues[r.reporting_date]) dateAccountValues[r.reporting_date] = {};
+        dateAccountValues[r.reporting_date][r.account_description] = r.value;
+      }
+    });
+
+    // Walk backwards comparing each date to its predecessor
+    for (var i = selectedIdx; i < allDatesSorted.length - 1; i++) {
+      var curDate = allDatesSorted[i];
+      var prevDate = allDatesSorted[i + 1];
+      var curVals = dateAccountValues[curDate] || {};
+      var prevVals = dateAccountValues[prevDate] || {};
+
+      var curAccounts = Object.keys(curVals);
+      var anyDifferent = curAccounts.some(function (acct) {
+        return !prevVals.hasOwnProperty(acct) || curVals[acct] !== prevVals[acct];
+      });
+
+      if (anyDifferent) {
+        return curDate;
+      }
+    }
+
+    // If we walked all the way back, return the earliest date
+    return allDatesSorted[allDatesSorted.length - 1];
+  }
+
   // ===== Bank Name Mapping =====
 
   /**
@@ -644,10 +773,13 @@
   // Track expanded state per table
   var expandedBanks = {};
 
-  function renderTable(tbodyId, records) {
+  function renderTable(tbodyId, records, stalenessInfo) {
     var tbody = document.getElementById(tbodyId);
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    // stalenessInfo is optional: { bankName: { stale, lastChangedDate } }
+    var staleMap = stalenessInfo || {};
 
     // Initialize expanded state tracker for this table if not present
     if (!expandedBanks[tbodyId]) {
@@ -717,6 +849,15 @@
       badge.className = 'account-count';
       badge.textContent = bankAccounts.length;
       tdBankName.appendChild(badge);
+
+      // Stale balance alert icon
+      if (staleMap[bank] && staleMap[bank].stale) {
+        var staleIcon = document.createElement('span');
+        staleIcon.className = 'stale-icon';
+        staleIcon.textContent = '⚠';
+        staleIcon.title = 'Balance unchanged since ' + formatDate(staleMap[bank].lastChangedDate);
+        tdBankName.appendChild(staleIcon);
+      }
 
       var tdBankVal = document.createElement('td');
       tdBankVal.textContent = formatCurrencyFull(bankTotal);
@@ -836,11 +977,31 @@
         var gustSub = document.getElementById('kpi-gust-sub');
         if (gustSub) gustSub.textContent = gustLatest.records.length + ' accounts as of ' + formatDate(gustLatest.date);
 
-        // Update table date headers
-        var corpDateEl = document.getElementById('corp-table-date');
-        if (corpDateEl && corpLatestAll.date) corpDateEl.textContent = formatDate(corpLatestAll.date);
-        var gustDateEl = document.getElementById('gust-table-date');
-        if (gustDateEl && gustLatest.date) gustDateEl.textContent = formatDate(gustLatest.date);
+        // Collect all unique dates for date pickers
+        var corpAllDates = getUniqueDates(corpDataAll);
+        var gustAllDates = getUniqueDates(gustData);
+
+        // Helper: render corporate table for a given date with staleness
+        function renderCorpTableForDate(dateStr) {
+          var dateRecords = getRecordsForDate(corpDataAll, dateStr);
+          var staleness = computeStaleness(corpDataAll, dateStr, corpAllDates);
+          renderTable('tbody-corporate', dateRecords.records, staleness);
+        }
+
+        // Helper: render gustomer table for a given date with staleness
+        function renderGustTableForDate(dateStr) {
+          var dateRecords = getRecordsForDate(gustData, dateStr);
+          var staleness = computeStaleness(gustData, dateStr, gustAllDates);
+          renderTable('tbody-gustomer', dateRecords.records, staleness);
+        }
+
+        // Populate date pickers
+        populateDatePicker('corp-table-date', corpAllDates, corpLatestAll.date, function (newDate) {
+          renderCorpTableForDate(newDate);
+        });
+        populateDatePicker('gust-table-date', gustAllDates, gustLatest.date, function (newDate) {
+          renderGustTableForDate(newDate);
+        });
 
         // Render Charts
         var corpChart = createLineChart(
@@ -1003,8 +1164,8 @@
         }, 50);
 
         // Render Tables (show all accounts including Gusto Capital section)
-        renderTable('tbody-corporate', corpLatestAll.records);
-        renderTable('tbody-gustomer', gustLatest.records);
+        renderCorpTableForDate(corpLatestAll.date);
+        renderGustTableForDate(gustLatest.date);
       })
       .catch(function (err) {
         console.error('Dashboard error:', err);
