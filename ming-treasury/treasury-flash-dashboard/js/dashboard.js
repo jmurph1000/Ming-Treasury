@@ -161,8 +161,8 @@
     // Pathward
     if (/^Pathward/i.test(desc)) return 'Pathward';
 
-    // GH Program -> Grasshopper
-    if (/^GH Program/i.test(desc)) return 'Grasshopper';
+    // GH Program / Recovery Wire In -> Grasshopper
+    if (/^GH Program/i.test(desc) || /^Recovery Wire In/i.test(desc)) return 'Grasshopper';
 
     return 'Other';
   }
