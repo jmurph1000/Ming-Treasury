@@ -1,0 +1,324 @@
+{
+  "_comment": "Maps each daily screenshot to the dashboard accounts it contains. 'source' is the expected filename prefix in the daily GDrive folder. Each account entry has: identifier (what to match in the screenshot), dashboardName (exact key in the JSON), file (which JSON file), and balanceField (which column/field to read from the screenshot).",
+
+  "screenshots": [
+    {
+      "source": "BNY Balance",
+      "bank": "BNY Mellon",
+      "accounts": [
+        {
+          "identifier": "USD Balance",
+          "dashboardName": "Guideline BNY",
+          "file": "corporate_cash.json",
+          "balanceField": "USD Balance (main number)"
+        }
+      ]
+    },
+    {
+      "source": "BRB Balances",
+      "bank": "BRB (Brex/Cross River)",
+      "accounts": [
+        {
+          "identifier": "xxxx2019 / Blueridge Recovery",
+          "dashboardName": "BRB Customer Wire-Ins -2019",
+          "file": "gustomer_cash.json",
+          "balanceField": "Current Balance"
+        },
+        {
+          "identifier": "xxxx2715 / Customer Master Acc",
+          "dashboardName": "BRB Customer Master -2715 (Gusto)",
+          "file": "gustomer_cash.json",
+          "balanceField": "Current Balance"
+        },
+        {
+          "identifier": "xxxx3251 / Customer ACH",
+          "dashboardName": "BRB Customer ACH -3251 (Gusto)",
+          "file": "gustomer_cash.json",
+          "balanceField": "Current Balance"
+        },
+        {
+          "identifier": "xxxx3313 / Corporate Operating",
+          "dashboardName": "BRB Operating 3313",
+          "file": "corporate_cash.json",
+          "balanceField": "Current Balance"
+        }
+      ]
+    },
+    {
+      "source": "BTC Balances",
+      "bank": "BNY Mellon (BTC / Guideline Trust)",
+      "accounts": [
+        {
+          "identifier": "101063000000 / GDL PASS-THRU",
+          "dashboardName": "BTC GDL PASS-THRU 101063000000",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "102063000000 / GDL IRA CORRECT",
+          "dashboardName": "BTC GDL IRA CORRECT 102063000000",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "102063000002 / GDL 401K AUM FEE",
+          "dashboardName": "BTC GDL 401K AUM FEE 102063000002",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "102063000003 / GDL IRA AUM FEE",
+          "dashboardName": "BTC GDL IRA AUM FEE 102063000003",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "102063900000 / IRA PASS-THRU",
+          "dashboardName": "BTC IRA PASS-THRU 102063900000",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000000 / GDL FBO CLIENTS",
+          "dashboardName": "BTC GDL FBO Clients 109963000000",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000001 / GDL CLIENT PLANS",
+          "dashboardName": "BTC GDL Client Plans 109963000001",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000500 / GDL DISMISS FEE",
+          "dashboardName": "BTC GDL DISMISS FEE 109963000500",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000501 / GDL ACNTS PASS",
+          "dashboardName": "BTC GDL ACNTS PASS 109963000501",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000502 / GDL RK TRADE SUP",
+          "dashboardName": "BTC GDL RK Trade Sup 109963000502",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000503 / GDL RK TRADE ERR",
+          "dashboardName": "BTC GDL RK Trade Err 109963000503",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000504 / GDL IRA TRADE ER",
+          "dashboardName": "BTC GDL IRA Trade Er 109963000504",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000505 / GDL IRA TRADE SU",
+          "dashboardName": "BTC GDL IRA Trade Su 109963000505",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000506 / GDL 401K FLEX RE",
+          "dashboardName": "BTC GDL 401K FLEX RE 109963000506",
+          "file": "corporate_cash.json",
+          "balanceField": "Cash Balance"
+        },
+        {
+          "identifier": "109963000507 / GDL CORRECTIONS",
+          "dashboardName": "BTC GDL CORRECTIONS 109963000507",
+          "file": "gustomer_cash.json",
+          "balanceField": "Cash Balance"
+        }
+      ]
+    },
+    {
+      "source": "Grasshopper Balances",
+      "bank": "Grasshopper",
+      "accounts": [
+        {
+          "identifier": "Program / Payroll Processing",
+          "dashboardName": "GH Program - 5843",
+          "file": "gustomer_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "Reserve / Commercial Banking",
+          "dashboardName": "Reserve Account - Gusto MRB Processing 4973",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "Gusto Corporate / Commercial Banking",
+          "dashboardName": "Gusto Corporate (Grasshopper) 7000",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        }
+      ]
+    },
+    {
+      "source": "Guideline Stripe Balance",
+      "bank": "Stripe (Guideline)",
+      "accounts": [
+        {
+          "identifier": "Guideline, Inc. / Balances",
+          "dashboardName": "Guideline Stripe Sales Receipts",
+          "file": "corporate_cash.json",
+          "balanceField": "Balances total"
+        }
+      ]
+    },
+    {
+      "source": "Gusto Stripe Balance",
+      "bank": "Stripe (Gusto)",
+      "accounts": [
+        {
+          "identifier": "Gusto / Balances",
+          "dashboardName": "Gusto Stripe",
+          "file": "corporate_cash.json",
+          "balanceField": "Balances total"
+        }
+      ]
+    },
+    {
+      "source": "Midfirst Balances",
+      "bank": "MidFirst",
+      "accounts": [
+        {
+          "identifier": "1040 - MidFirst Operating 5804",
+          "dashboardName": "Midfirst Symmetry Operating 5804",
+          "file": "corporate_cash.json",
+          "balanceField": "Amount"
+        },
+        {
+          "identifier": "1050 - MidFirst Operating",
+          "dashboardName": "Midfirst Symmetry Operating 2841",
+          "file": "corporate_cash.json",
+          "balanceField": "Amount"
+        },
+        {
+          "identifier": "1060 - MidFirst Savings",
+          "dashboardName": "Midfirst Symmetry Savings 4829",
+          "file": "corporate_cash.json",
+          "balanceField": "Amount"
+        },
+        {
+          "identifier": "1090 - Petty Cash",
+          "dashboardName": "Symmetry Petty Cash",
+          "file": "corporate_cash.json",
+          "balanceField": "Amount"
+        }
+      ]
+    },
+    {
+      "source": "Morgan Stanley Balance",
+      "bank": "Morgan Stanley",
+      "accounts": [
+        {
+          "identifier": "Book Value + Accrued",
+          "dashboardName": "Morgan Stanley Cash Citibank",
+          "file": "corporate_cash.json",
+          "balanceField": "Value (Book Value + Accrued)"
+        }
+      ]
+    },
+    {
+      "source": "NBKC 0673 Balance",
+      "bank": "NBKC (Instant Payroll)",
+      "accounts": [
+        {
+          "identifier": "Instant Payroll / 255850673",
+          "dashboardName": "NBKC Customer (Instant Payroll) - 0673",
+          "file": "gustomer_cash.json",
+          "balanceField": "Account Balance"
+        }
+      ]
+    },
+    {
+      "source": "NBKC Balances",
+      "bank": "NBKC",
+      "accounts": [
+        {
+          "identifier": "****6131 / Gusto Reserve Account",
+          "dashboardName": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****4319 / Sunrise Reserve Account",
+          "dashboardName": "NBKC Sunrise Reserve Account 4319",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****6666 / Gusto Incentives Account",
+          "dashboardName": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****0275 / ATM Program Reserve",
+          "dashboardName": "NBKC ATM Reserve (Collateral) Account **0275",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****4683 / Card Settlement",
+          "dashboardName": "NBKC Card Settlement -4683 (Gusto Capital LLC)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****9729 / Everyday Pay",
+          "dashboardName": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        },
+        {
+          "identifier": "****5431 / Tabapay",
+          "dashboardName": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance"
+        }
+      ]
+    },
+    {
+      "source": "PNC Investment Account",
+      "bank": "PNC Investments",
+      "accounts": [
+        {
+          "identifier": "GUSTO INC PCA / 20********8174",
+          "dashboardName": "PNC Investments -8174",
+          "file": "gustomer_cash.json",
+          "balanceField": "Market Value"
+        }
+      ]
+    },
+    {
+      "source": "Scotiabank Balances",
+      "bank": "Scotiabank",
+      "accounts": [
+        {
+          "identifier": "Business Account (47696 30368 12) - DDA",
+          "dashboardName": "Scotiabank 6812 (CAD)",
+          "file": "corporate_cash.json",
+          "balanceField": "Balance (CAD)"
+        },
+        {
+          "identifier": "GUSTO PAYROLL (47696 30553 10) - DDA",
+          "dashboardName": "Scotiabank 5310 (CAD)",
+          "file": "gustomer_cash.json",
+          "balanceField": "Balance (CAD)"
+        }
+      ]
+    }
+  ]
+}
