@@ -154,39 +154,17 @@ export function GET(req: NextRequest) {
     })
     .filter(Boolean);
 
-  // Build latest-week breakdown: pick the most recent date with broadest item coverage
-  const bestDate = db.prepare(
+  // Build breakdown for 5 most recent weeks with broad coverage
+  const topDates = db.prepare(
     `SELECT flow_date as d, COUNT(DISTINCT line_item) as items
      FROM corp_cashflow_items
      WHERE line_type = 'forecast' AND category IN ('addition', 'subtraction')
-     GROUP BY flow_date HAVING items >= 10
-     ORDER BY flow_date DESC LIMIT 1`
-  ).get() as any;
-  const breakdownDate = bestDate?.d || db.prepare(
-    `SELECT MAX(flow_date) as d FROM corp_cashflow_items WHERE line_type = 'forecast' AND category IN ('addition', 'subtraction')`
-  ).get()?.d;
-  const breakdownRows = breakdownDate ? db.prepare(
-    `SELECT line_item, category, line_type, flow_date, amount
-     FROM corp_cashflow_items
-     WHERE category IN ('addition', 'subtraction', 'addition_total', 'subtraction_total', 'ending')
-       AND flow_date = ?
-     ORDER BY category, line_item`
-  ).all(breakdownDate) as any[] : [];
+     GROUP BY flow_date HAVING items >= 5
+     ORDER BY flow_date DESC LIMIT 5`
+  ).all() as any[];
+  const breakdownDates = topDates.map((r: any) => r.d).reverse();
 
-  const breakdown: any[] = [];
-  const bdMap = new Map<string, any>();
-  for (const row of breakdownRows) {
-    const key = `${row.category}::${row.line_item}`;
-    if (!bdMap.has(key)) {
-      bdMap.set(key, { lineItem: row.line_item, category: row.category, date: row.flow_date, forecast: null, actual: null, variance: null });
-    }
-    const e = bdMap.get(key)!;
-    if (row.line_type === 'forecast') e.forecast = row.amount;
-    else if (row.line_type === 'actual') e.actual = row.amount;
-    else if (row.line_type === 'variance') e.variance = row.amount;
-  }
-
-  // Order the breakdown to match the spreadsheet
+  const breakdownByWeek: Record<string, any[]> = {};
   const breakdownOrder = [
     ...additionOrder.map(n => `addition::${n}`),
     'addition_total::Subtotal',
@@ -194,13 +172,38 @@ export function GET(req: NextRequest) {
     'subtraction_total::Subtotal',
     'ending::Ending Cash',
   ];
-  for (const key of breakdownOrder) {
-    const entry = bdMap.get(key);
-    if (entry) breakdown.push(entry);
+
+  for (const date of breakdownDates) {
+    const rows2 = db.prepare(
+      `SELECT line_item, category, line_type, flow_date, amount
+       FROM corp_cashflow_items
+       WHERE category IN ('addition', 'subtraction', 'addition_total', 'subtraction_total', 'ending')
+         AND flow_date = ?
+       ORDER BY category, line_item`
+    ).all(date) as any[];
+
+    const bdMap = new Map<string, any>();
+    for (const row of rows2) {
+      const key = `${row.category}::${row.line_item}`;
+      if (!bdMap.has(key)) {
+        bdMap.set(key, { lineItem: row.line_item, category: row.category, date: row.flow_date, forecast: null, actual: null, variance: null });
+      }
+      const e = bdMap.get(key)!;
+      if (row.line_type === 'forecast') e.forecast = row.amount;
+      else if (row.line_type === 'actual') e.actual = row.amount;
+      else if (row.line_type === 'variance') e.variance = row.amount;
+    }
+
+    const ordered: any[] = [];
+    for (const key of breakdownOrder) {
+      const entry = bdMap.get(key);
+      if (entry) ordered.push(entry);
+    }
+    breakdownByWeek[date] = ordered;
   }
 
   return NextResponse.json({
     success: true,
-    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison, categoryTimeSeries, breakdown },
+    data: { dates: sortedDates, today, waterfall, endingTrend, monthly, categoryComparison, categoryTimeSeries, breakdownByWeek, breakdownDates },
   });
 }

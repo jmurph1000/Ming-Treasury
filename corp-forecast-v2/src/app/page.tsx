@@ -90,6 +90,7 @@ export default function CorpForecastV2Page() {
   }, [totalByDate, chartHorizon]);
 
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [breakdownWeek, setBreakdownWeek] = useState(0);
 
   const toggleCategory = (name: string) => {
     setSelectedCategories(prev => {
@@ -564,8 +565,14 @@ export default function CorpForecastV2Page() {
           </div>
 
           {/* Row 4: Cash Flow Breakdown Table */}
-          {(cashflowData?.data?.breakdown || []).length > 0 && (() => {
-            const breakdown: any[] = cashflowData.data.breakdown;
+          {(() => {
+            const breakdownDates: string[] = cashflowData?.data?.breakdownDates || [];
+            const breakdownByWeek: Record<string, any[]> = cashflowData?.data?.breakdownByWeek || {};
+            if (breakdownDates.length === 0) return null;
+            const weekIdx = Math.min(breakdownWeek, breakdownDates.length - 1);
+            const activeDate = breakdownDates[breakdownDates.length - 1 - weekIdx];
+            const breakdown: any[] = breakdownByWeek[activeDate] || [];
+            if (breakdown.length === 0) return null;
             const addItems = breakdown.filter((r: any) => r.category === 'addition');
             const addTotal = breakdown.find((r: any) => r.category === 'addition_total');
             const subItems = breakdown.filter((r: any) => r.category === 'subtraction');
@@ -592,6 +599,7 @@ export default function CorpForecastV2Page() {
                 <td className={`px-4 py-2.5 text-right font-mono font-bold ${varColor(r.variance)}`}>{r.variance != null && r.variance !== 0 ? (r.variance > 0 ? '+' : '') + formatCurrency(r.variance) : '\u2014'}</td>
               </tr>
             );
+            const weekLabel = (d: string) => { const dt = new Date(d + 'T12:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}`; };
             return (
               <div className="bg-[#162038] border border-[#1e3054] rounded-xl overflow-hidden">
                 <div className="px-5 py-4 border-b border-[#1e3054] flex items-center justify-between">
@@ -599,7 +607,21 @@ export default function CorpForecastV2Page() {
                     <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
                     Cash Flow Breakdown
                   </h3>
-                  <span className="text-xs text-[#5a6f8f]">Week of {breakdown[0]?.date || ''}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      {breakdownDates.slice().reverse().map((d: string, i: number) => (
+                        <button key={d} onClick={() => setBreakdownWeek(i)}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
+                            weekIdx === i
+                              ? 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/40'
+                              : 'bg-[#111b2e] text-[#5a6f8f] border-[#1e3054] hover:text-[#8a9bb8] hover:border-[#f59e0b]/30'
+                          }`}>
+                          {i === 0 ? '1W' : `${i+1}W`}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs text-[#5a6f8f]">Week of {weekLabel(activeDate)}</span>
+                  </div>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
