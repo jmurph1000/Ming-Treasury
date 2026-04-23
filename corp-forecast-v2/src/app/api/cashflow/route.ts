@@ -159,7 +159,7 @@ export function GET(req: NextRequest) {
     `SELECT flow_date as d, COUNT(DISTINCT line_item) as items
      FROM corp_cashflow_items
      WHERE line_type = 'forecast' AND category IN ('addition', 'subtraction')
-     GROUP BY flow_date HAVING items >= 5
+     GROUP BY flow_date HAVING items >= 10
      ORDER BY flow_date DESC LIMIT 5`
   ).all() as any[];
   const breakdownDates = topDates.map((r: any) => r.d).reverse();
