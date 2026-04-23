@@ -34662,12 +34662,12 @@
   {
     "account_description": "Chase 3rd Party Processors - 5119",
     "reporting_date": "2026-04-23",
-    "value": 5488478.88
+    "value": 8094734.48
   },
   {
     "account_description": "Chase Customer Deposits (Gusto) -7908",
     "reporting_date": "2026-04-23",
-    "value": 510544253.8
+    "value": 947626960.45
   },
   {
     "account_description": "Chase GEP Partnership 9025",
@@ -34677,17 +34677,17 @@
   {
     "account_description": "Chase Recovery Ops (Gusto)-9803",
     "reporting_date": "2026-04-23",
-    "value": 120291.88
+    "value": 315107.6
   },
   {
     "account_description": "Chase Reverse Wire Payrolls (Gusto) -9795",
     "reporting_date": "2026-04-23",
-    "value": 2314269.9
+    "value": 21914938.27
   },
   {
     "account_description": "Chase Wire In (Gusto) -9829",
     "reporting_date": "2026-04-23",
-    "value": 1033586.77
+    "value": 1723830.1
   },
   {
     "account_description": "GH Program - 5843",
@@ -34717,7 +34717,7 @@
   {
     "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
     "reporting_date": "2026-04-23",
-    "value": 252416544.38
+    "value": 414064396.25
   },
   {
     "account_description": "PNC Customer Drawdowns -0462",
@@ -34727,7 +34727,7 @@
   {
     "account_description": "PNC Customer Wire Ins (Gusto) -0489",
     "reporting_date": "2026-04-23",
-    "value": 1270032.88
+    "value": 1028856.07
   },
   {
     "account_description": "PNC Investments - 24410000",
