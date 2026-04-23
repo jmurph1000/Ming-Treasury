@@ -101122,7 +101122,7 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-23",
-    "value": 1233930.39
+    "value": 1118853.16
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -101147,12 +101147,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-23",
-    "value": 288391.46
+    "value": 284913.65
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-23",
-    "value": 47.79
+    "value": 49.78
   },
   {
     "account_description": "Chase DDA 0195",
@@ -101192,17 +101192,17 @@
   {
     "account_description": "Chase Guideline Securities LLC 2018",
     "reporting_date": "2026-04-23",
-    "value": 2693387.38
+    "value": 2595610.63
   },
   {
     "account_description": "Chase Guideline, Inc. 9176",
     "reporting_date": "2026-04-23",
-    "value": 4379665.95
+    "value": 4380336.35
   },
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
     "reporting_date": "2026-04-23",
-    "value": 134881.78
+    "value": 134865.54
   },
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
@@ -101212,12 +101212,12 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-23",
-    "value": 1407791.88
+    "value": 1393575.73
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-23",
-    "value": 40279471.11
+    "value": 40434263
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
@@ -101252,12 +101252,12 @@
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-23",
-    "value": 627810
+    "value": 646487.44
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-23",
-    "value": 18677.44
+    "value": 96224.91
   },
   {
     "account_description": "Chase ZP Insurance 9962",
@@ -101292,7 +101292,7 @@
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
     "reporting_date": "2026-04-23",
-    "value": 8414.78
+    "value": 8014.78
   },
   {
     "account_description": "Gusto PEO I Benefits 8278",
@@ -101452,7 +101452,7 @@
   {
     "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-04-23",
-    "value": 563157.64
+    "value": 574771.54
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
