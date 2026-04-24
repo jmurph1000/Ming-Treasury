@@ -34792,7 +34792,7 @@
   {
     "account_description": "BTC GDL CORRECTIONS 109963000507",
     "reporting_date": "2026-04-24",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
@@ -34807,7 +34807,7 @@
   {
     "account_description": "BTC GDL IRA Trade Er 109963000504",
     "reporting_date": "2026-04-24",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "BTC GDL IRA Trade Su 109963000505",
@@ -34827,12 +34827,12 @@
   {
     "account_description": "Chase 3rd Party Processors - 5119",
     "reporting_date": "2026-04-24",
-    "value": 8094734.48
+    "value": 9185338.07
   },
   {
     "account_description": "Chase Customer Deposits (Gusto) -7908",
     "reporting_date": "2026-04-24",
-    "value": 947577699.03
+    "value": 540537153.42
   },
   {
     "account_description": "Chase GEP Partnership 9025",
@@ -34842,17 +34842,17 @@
   {
     "account_description": "Chase Recovery Ops (Gusto)-9803",
     "reporting_date": "2026-04-24",
-    "value": 326528.33
+    "value": 226148.8
   },
   {
     "account_description": "Chase Reverse Wire Payrolls (Gusto) -9795",
     "reporting_date": "2026-04-24",
-    "value": 21914938.27
+    "value": 3047238.85
   },
   {
     "account_description": "Chase Wire In (Gusto) -9829",
     "reporting_date": "2026-04-24",
-    "value": 1723830.1
+    "value": 2153238.47
   },
   {
     "account_description": "GH Program - 5843",
@@ -34882,7 +34882,7 @@
   {
     "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
     "reporting_date": "2026-04-24",
-    "value": 406965852.18
+    "value": 291535627.99
   },
   {
     "account_description": "PNC Customer Drawdowns -0462",
@@ -34892,7 +34892,7 @@
   {
     "account_description": "PNC Customer Wire Ins (Gusto) -0489",
     "reporting_date": "2026-04-24",
-    "value": 1837091.45
+    "value": 476194.42
   },
   {
     "account_description": "PNC Investments - 24410000",
