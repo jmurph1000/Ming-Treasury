@@ -101502,7 +101502,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-04-24",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -101542,7 +101542,7 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-24",
-    "value": 1118853.16
+    "value": 308463.51
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -101552,7 +101552,7 @@
   {
     "account_description": "Chase Ardius 9012",
     "reporting_date": "2026-04-24",
-    "value": 0
+    "value": 925671.49
   },
   {
     "account_description": "Chase Ardius 9178",
@@ -101567,12 +101567,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-24",
-    "value": 284913.65
+    "value": 282162.13
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-24",
-    "value": 49.78
+    "value": 52.76
   },
   {
     "account_description": "Chase DDA 0195",
@@ -101582,12 +101582,12 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-24",
-    "value": 140561.83
+    "value": 297955.94
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
     "reporting_date": "2026-04-24",
-    "value": 2445.16
+    "value": 347363.02
   },
   {
     "account_description": "Chase Guideline Holdings, LLC 5725",
@@ -101617,12 +101617,12 @@
   {
     "account_description": "Chase Guideline, Inc. 9176",
     "reporting_date": "2026-04-24",
-    "value": 4380336.35
+    "value": 1092158.56
   },
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
     "reporting_date": "2026-04-24",
-    "value": 134865.54
+    "value": 854850.54
   },
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
@@ -101632,12 +101632,12 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-24",
-    "value": 1393575.73
+    "value": 1368240.62
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-24",
-    "value": 40434263
+    "value": 52479690.01
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
@@ -101672,12 +101672,12 @@
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-24",
-    "value": 646487.44
+    "value": 739983.96
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-24",
-    "value": 96224.91
+    "value": 183849.83
   },
   {
     "account_description": "Chase ZP Insurance 9962",
@@ -101712,7 +101712,7 @@
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
     "reporting_date": "2026-04-24",
-    "value": 8014.78
+    "value": 32999.78
   },
   {
     "account_description": "Gusto PEO I Benefits 8278",
@@ -101797,7 +101797,7 @@
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-04-24",
-    "value": 200000.0
+    "value": 200000
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
@@ -101817,7 +101817,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-04-24",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -101847,7 +101847,7 @@
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
     "reporting_date": "2026-04-24",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
@@ -101862,7 +101862,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-04-24",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -101872,17 +101872,17 @@
   {
     "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-04-24",
-    "value": 574771.54
+    "value": 588520.77
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-04-24",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-04-24",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
