@@ -101962,17 +101962,17 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-25",
-    "value": 308463.51
+    "value": 16508463.51
   },
   {
     "account_description": "Chase Ardius 0727",
     "reporting_date": "2026-04-25",
-    "value": 381224.45
+    "value": 1306895.94
   },
   {
     "account_description": "Chase Ardius 9012",
     "reporting_date": "2026-04-25",
-    "value": 925671.49
+    "value": 0
   },
   {
     "account_description": "Chase Ardius 9178",
@@ -101987,12 +101987,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-25",
-    "value": 282162.13
+    "value": 279029.18
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-25",
-    "value": 52.76
+    "value": 50.78
   },
   {
     "account_description": "Chase DDA 0195",
@@ -102002,7 +102002,7 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-25",
-    "value": 297955.94
+    "value": 805467.16
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -102052,12 +102052,12 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-25",
-    "value": 1368240.62
+    "value": 1360781.03
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-25",
-    "value": 52479690.01
+    "value": 36318610.07
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
@@ -102092,12 +102092,12 @@
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-25",
-    "value": 739983.96
+    "value": 922814
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-25",
-    "value": 183849.83
+    "value": 3209600.82
   },
   {
     "account_description": "Chase ZP Insurance 9962",
