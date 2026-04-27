@@ -102812,7 +102812,7 @@
   {
     "account_description": "Chase Ardius 9012",
     "reporting_date": "2026-04-27",
-    "value": 0
+    "value": -109.08
   },
   {
     "account_description": "Chase Ardius 9178",
@@ -102827,12 +102827,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-27",
-    "value": 279029.18
+    "value": 278213.18
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-27",
-    "value": 50.78
+    "value": 84.41
   },
   {
     "account_description": "Chase DDA 0195",
@@ -102842,7 +102842,7 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-27",
-    "value": 805467.16
+    "value": 825722.06
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -102937,7 +102937,7 @@
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-27",
-    "value": 3209600.82
+    "value": 3229590.9
   },
   {
     "account_description": "Chase ZP Insurance 9962",
@@ -103132,7 +103132,7 @@
   {
     "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-04-27",
-    "value": 588520.77
+    "value": 615442.15
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
