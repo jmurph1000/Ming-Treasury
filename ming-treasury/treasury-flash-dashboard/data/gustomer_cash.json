@@ -35247,7 +35247,7 @@
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-04-27",
-    "value": 16748080.7
+    "value": 12101829.32
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
@@ -35287,12 +35287,12 @@
   {
     "account_description": "BTC GDL CORRECTIONS 109963000507",
     "reporting_date": "2026-04-27",
-    "value": 0
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
     "reporting_date": "2026-04-27",
-    "value": 3398.8
+    "value": 3398.81
   },
   {
     "account_description": "BTC GDL IRA CORRECT 102063000000",
@@ -35302,7 +35302,7 @@
   {
     "account_description": "BTC GDL IRA Trade Er 109963000504",
     "reporting_date": "2026-04-27",
-    "value": 0
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL IRA Trade Su 109963000505",
@@ -35312,7 +35312,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-04-27",
-    "value": 80211.16
+    "value": 79176.71
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -35352,7 +35352,7 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-04-27",
-    "value": 7727481.26
+    "value": 6869379.69
   },
   {
     "account_description": "JPMChase Investments -6826",
@@ -35362,7 +35362,7 @@
   {
     "account_description": "NBKC Customer (Instant Payroll) - 0673",
     "reporting_date": "2026-04-27",
-    "value": 77840.97
+    "value": 72695.87
   },
   {
     "account_description": "PNC Customer (Gusto) - 6975",
@@ -35397,7 +35397,7 @@
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-04-27",
-    "value": 129531584.8
+    "value": 129608902.3
   },
   {
     "account_description": "Recovery Wire In 3711",
