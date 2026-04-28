@@ -35542,7 +35542,7 @@
   {
     "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
     "reporting_date": "2026-04-28",
-    "value": 230313499.88
+    "value": 224752800.5
   },
   {
     "account_description": "PNC Customer Drawdowns -0462",
@@ -35552,7 +35552,7 @@
   {
     "account_description": "PNC Customer Wire Ins (Gusto) -0489",
     "reporting_date": "2026-04-28",
-    "value": 1640102.31
+    "value": 3980690.8
   },
   {
     "account_description": "PNC Investments - 24410000",
