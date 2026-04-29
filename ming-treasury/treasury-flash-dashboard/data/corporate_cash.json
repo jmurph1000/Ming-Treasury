@@ -103642,7 +103642,7 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-04-29",
-    "value": 2793635.98
+    "value": 1424112.72
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -103667,12 +103667,12 @@
   {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-04-29",
-    "value": 275555.48
+    "value": 274256.25
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-04-29",
-    "value": 76.83
+    "value": 60.97
   },
   {
     "account_description": "Chase DDA 0195",
@@ -103682,7 +103682,7 @@
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-04-29",
-    "value": 912454.81
+    "value": 22744.31
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -103717,7 +103717,7 @@
   {
     "account_description": "Chase Guideline, Inc. 9176",
     "reporting_date": "2026-04-29",
-    "value": 1092158.56
+    "value": 1092264.99
   },
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
@@ -103732,12 +103732,12 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-04-29",
-    "value": 1356700.79
+    "value": 13433700.53
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-04-29",
-    "value": 39069819.75
+    "value": 20165714.5
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
@@ -103772,17 +103772,17 @@
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-04-29",
-    "value": 4152404.9
+    "value": 716744.54
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-04-29",
-    "value": 931.88
+    "value": 672
   },
   {
     "account_description": "Chase ZP Insurance 9962",
     "reporting_date": "2026-04-29",
-    "value": 161412.18
+    "value": 0
   },
   {
     "account_description": "Fee Account (Grasshopper) 3871",
@@ -103972,7 +103972,7 @@
   {
     "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-04-29",
-    "value": 662648.13
+    "value": 673989.04
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
