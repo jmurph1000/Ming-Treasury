@@ -1090,8 +1090,8 @@
         }
 
         // State for each trend chart: current range days + selected banks
-        var corpTrendState = { days: 5, banks: null };
-        var gustTrendState = { days: 5, banks: null };
+        var corpTrendState = { days: 252, banks: null };
+        var gustTrendState = { days: 252, banks: null };
 
         function refreshTrendChart(chart, rawData, gcFilter, state) {
           var filtered = state.banks ? filterByBanks(rawData, state.banks) : rawData;
@@ -1122,8 +1122,8 @@
         setupRangeButtons('range-buttons-corporate', corpChart, corpDataAll, gustoCapitalAccounts, corpTrendState);
         setupRangeButtons('range-buttons-gustomer', gustChart, gustData, null, gustTrendState);
 
-        updateChartData(corpChart, corpSeries, 5);
-        updateChartData(gustChart, gustSeries, 5);
+        updateChartData(corpChart, corpSeries, 252);
+        updateChartData(gustChart, gustSeries, 252);
 
         // Bank filters for trend charts
         var corpBanks = discoverBanks(corpData);
