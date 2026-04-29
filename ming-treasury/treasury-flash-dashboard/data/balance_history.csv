@@ -701,3 +701,120 @@ Date,Type,Account,Balance
 2026-04-28,Customer,PNC Investments -8174,129562168.24
 2026-04-28,Customer,Recovery Wire In 3711,0.0
 2026-04-28,Customer,Scotiabank 5310 (CAD),508.29
+2026-04-29,Corporate,BBVA Gusto Turkiye 4638 (TRY),63860.43
+2026-04-29,Corporate,BBVA Gusto Turkiye 5947 USD,5748.29
+2026-04-29,Corporate,BRB Operating 3313,219138.01
+2026-04-29,Corporate,BTC GDL 401K AUM FEE 102063000002,80921.34
+2026-04-29,Corporate,BTC GDL 401K FLEX RE 109963000506,43282.58
+2026-04-29,Corporate,BTC GDL ACNTS PASS 109963000501,18300
+2026-04-29,Corporate,BTC GDL Client Plans 109963000001,-73.8
+2026-04-29,Corporate,BTC GDL DISMISS FEE 109963000500,16599.01
+2026-04-29,Corporate,BTC GDL IRA AUM FEE 102063000003,4669.01
+2026-04-29,Corporate,BTC GDL PASS-THRU 101063000000,109312.8
+2026-04-29,Corporate,BTC IRA PASS-THRU 102063900000,3388.79
+2026-04-29,Corporate,Bank Leumi 0065,15130.13
+2026-04-29,Corporate,BofA Operating Checking -8441 (RemoteTeam),92068.24
+2026-04-29,Corporate,Chase Accounts Payable 9329,1424112.72
+2026-04-29,Corporate,Chase Ardius 0727,106786.86
+2026-04-29,Corporate,Chase Ardius 9012,0
+2026-04-29,Corporate,Chase Ardius 9178,0
+2026-04-29,Corporate,Chase Ardius 9392,0
+2026-04-29,Corporate,Chase Billing/Collection 9378,274256.25
+2026-04-29,Corporate,Chase Billings Gusto 9837,60.97
+2026-04-29,Corporate,Chase DDA 0195,534.48
+2026-04-29,Corporate,Chase Deposit 0226,22744.31
+2026-04-29,Corporate,Chase Flex Pay Revenue Gusto Capital LLC 0393,347363.02
+2026-04-29,Corporate,"Chase Guideline Holdings, LLC 5725",0
+2026-04-29,Corporate,"Chase Guideline Investments, LLC 1820",116573.31
+2026-04-29,Corporate,Chase Guideline NBT LLC 1861,0
+2026-04-29,Corporate,"Chase Guideline RK, LLC 1937",320413.24
+2026-04-29,Corporate,Chase Guideline Securities LLC 2018,2595610.63
+2026-04-29,Corporate,"Chase Guideline, Inc. 9176",1092264.99
+2026-04-29,Corporate,Chase Gusto Canada ULC -(CAD) 1602,170231.82
+2026-04-29,Corporate,"Chase Gusto Capital, LLC 3962",25790.37
+2026-04-29,Corporate,Chase Internal Payroll 0566,13433700.53
+2026-04-29,Corporate,Chase Master Gusto 9811,20165714.5
+2026-04-29,Corporate,Chase Mexico (MXN) 6837,3014560.23
+2026-04-29,Corporate,Chase Remote 8151,0
+2026-04-29,Corporate,Chase Tax 0269,496349.56
+2026-04-29,Corporate,Chase Test Account 2378,85.66
+2026-04-29,Corporate,Chase ZP Insurance 0101,0
+2026-04-29,Corporate,Chase ZP Insurance 5202,0
+2026-04-29,Corporate,Chase ZP Insurance 8961,716744.54
+2026-04-29,Corporate,Chase ZP Insurance 9657,672
+2026-04-29,Corporate,Chase ZP Insurance 9962,0
+2026-04-29,Corporate,Fee Account (Grasshopper) 3871,0
+2026-04-29,Corporate,Guideline BNY,17583.63
+2026-04-29,Corporate,Guideline Money Market JP Morgan,0
+2026-04-29,Corporate,Guideline Stripe Sales Receipts,-49.33
+2026-04-29,Corporate,Gusto Corporate (Grasshopper) 7000,3832.57
+2026-04-29,Corporate,Gusto Holding Company Inc. (JPM) (CAD) 5665,9218
+2026-04-29,Corporate,Gusto PEO I Benefits 8278,0
+2026-04-29,Corporate,Gusto PEO I Workers Comp 8291,0
+2026-04-29,Corporate,"Gusto PEO I, LLC 6385",500.16
+2026-04-29,Corporate,"Gusto PEO I, LLC 7853",150101.27
+2026-04-29,Corporate,Gusto PEO II Benefits 8299,0
+2026-04-29,Corporate,Gusto PEO II Workers Comp 8306,0
+2026-04-29,Corporate,"Gusto PEO II, LLC 6502",500.16
+2026-04-29,Corporate,"Gusto PEO II, LLC 7872",150101.27
+2026-04-29,Corporate,Gusto Stripe,4800.35
+2026-04-29,Corporate,"GustoHR, Inc. 6375",500.16
+2026-04-29,Corporate,"GustoHR, Inc. 7838",3000000
+2026-04-29,Corporate,JPM Collateral **8192,87701.41
+2026-04-29,Corporate,MidFirst Bank 2-Way ZBA - 2868 (Symmetry),0
+2026-04-29,Corporate,MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC),-64.11
+2026-04-29,Corporate,MidFirst Bank Customer Wires - 2876 (Symmetry),0
+2026-04-29,Corporate,Midfirst Symmetry Customer Wires ZBA 5812,34500
+2026-04-29,Corporate,Midfirst Symmetry Operating 2841,650000
+2026-04-29,Corporate,Midfirst Symmetry Operating 5804,395430.18
+2026-04-29,Corporate,Midfirst Symmetry Savings 4829,967065.14
+2026-04-29,Corporate,Morgan Stanley Cash Citibank,285608973.46
+2026-04-29,Corporate,NBKC ACH Risk Reserve -7431,45000
+2026-04-29,Corporate,NBKC ATM Reserve (Collateral) Account **0275,571914.27
+2026-04-29,Corporate,NBKC Card Settlement -4683 (Gusto Capital LLC),3050239.82
+2026-04-29,Corporate,NBKC Corepro Incentives -6666 (Gusto Capital LLC),4359.95
+2026-04-29,Corporate,NBKC Corepro Reserve -6131 (Gusto Capital LLC),56840.36
+2026-04-29,Corporate,NBKC Corepro Tabapay -5431 (Gusto Capital LLC),1158976.54
+2026-04-29,Corporate,NBKC Everyday Pay -9729 (Gusto Capital LLC),0
+2026-04-29,Corporate,NBKC Rev Share (Inbound) -7432,444417.99
+2026-04-29,Corporate,NBKC Sunrise Reserve Account 4319,69.99
+2026-04-29,Corporate,NBKC Tabapay Reserve -2280 (Gusto Capital LLC),7500
+2026-04-29,Corporate,PNC Corporate (Gusto) - 6428,19.54
+2026-04-29,Corporate,PNC Corporate (Gusto) -0446,673989.04
+2026-04-29,Corporate,Pathward Gusto Capital Operating 1720,499995
+2026-04-29,Corporate,Reserve Account - Gusto MRB Processing 4973,750000
+2026-04-29,Corporate,Scotiabank 6812 (CAD),601.43
+2026-04-29,Corporate,Symmetry Petty Cash,2964.76
+2026-04-29,Customer,BRB Customer ACH -3251 (Gusto),8261806.59
+2026-04-29,Customer,BRB Customer ACH -5683 (Gusto),0
+2026-04-29,Customer,BRB Customer Drawdowns -8889 (Gusto),0
+2026-04-29,Customer,BRB Customer Future Use -5353 (Gusto),0
+2026-04-29,Customer,BRB Customer Master -2065 (Gusto),0
+2026-04-29,Customer,BRB Customer Master -2715 (Gusto),175.13
+2026-04-29,Customer,BRB Customer Wire-Ins -2019,1077359.58
+2026-04-29,Customer,BRB Customer Wire-Ins -2559 (Gusto),0
+2026-04-29,Customer,BTC GDL CORRECTIONS 109963000507,0
+2026-04-29,Customer,BTC GDL FBO Clients 109963000000,4015.34
+2026-04-29,Customer,BTC GDL IRA CORRECT 102063000000,-46.72
+2026-04-29,Customer,BTC GDL IRA Trade Er 109963000504,0
+2026-04-29,Customer,BTC GDL IRA Trade Su 109963000505,4562.57
+2026-04-29,Customer,BTC GDL RK Trade Err 109963000503,81214.08
+2026-04-29,Customer,BTC GDL RK Trade Sup 109963000502,186.28
+2026-04-29,Customer,Chase 3rd Party Processors - 5119,6272018.96
+2026-04-29,Customer,Chase Customer Deposits (Gusto) -7908,1182044441.52
+2026-04-29,Customer,Chase GEP Partnership 9025,0
+2026-04-29,Customer,Chase Recovery Ops (Gusto)-9803,11397.76
+2026-04-29,Customer,Chase Reverse Wire Payrolls (Gusto) -9795,73123228.47
+2026-04-29,Customer,Chase Wire In (Gusto) -9829,5227443.31
+2026-04-29,Customer,GH Program - 5843,4057430.13
+2026-04-29,Customer,JPMChase Investments -6826,161061407.69
+2026-04-29,Customer,NBKC Customer (Instant Payroll) - 0673,81445.17
+2026-04-29,Customer,PNC Customer (Gusto) - 6975,0
+2026-04-29,Customer,PNC Customer 3rd Party Debits -0454,0
+2026-04-29,Customer,PNC Customer ACH/OB Wires (Gusto) -0497,443827741.17
+2026-04-29,Customer,PNC Customer Drawdowns -0462,0
+2026-04-29,Customer,PNC Customer Wire Ins (Gusto) -0489,7961746.53
+2026-04-29,Customer,PNC Investments - 24410000,0
+2026-04-29,Customer,PNC Investments -8174,129509693.24
+2026-04-29,Customer,Recovery Wire In 3711,0
+2026-04-29,Customer,Scotiabank 5310 (CAD),503.68

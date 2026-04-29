@@ -35577,7 +35577,7 @@
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-04-29",
-    "value": 12009966.84
+    "value": 8261806.59
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
@@ -35642,7 +35642,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-04-29",
-    "value": 80503.72
+    "value": 81214.08
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -35682,7 +35682,7 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-04-29",
-    "value": 4579197.52
+    "value": 4057430.13
   },
   {
     "account_description": "JPMChase Investments -6826",
@@ -35692,7 +35692,7 @@
   {
     "account_description": "NBKC Customer (Instant Payroll) - 0673",
     "reporting_date": "2026-04-29",
-    "value": 80451.82
+    "value": 81445.17
   },
   {
     "account_description": "PNC Customer (Gusto) - 6975",
@@ -35727,7 +35727,7 @@
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-04-29",
-    "value": 129562168.24
+    "value": 129509693.24
   },
   {
     "account_description": "Recovery Wire In 3711",
@@ -35737,6 +35737,6 @@
   {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-04-29",
-    "value": 508.29
+    "value": 503.68
   }
 ]
