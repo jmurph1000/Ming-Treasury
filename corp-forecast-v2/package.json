@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start -p 3002"
+    "start": "next start -p 3002",
+    "export-data": "node scripts/export-data.js",
+    "build:static": "node scripts/export-data.js && next build",
+    "deploy": "node scripts/export-data.js && next build && node scripts/deploy.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

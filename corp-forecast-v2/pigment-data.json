@@ -1,0 +1,94 @@
+{
+  "lastSynced": "2026-04-23T12:00:00Z",
+  "scenario": "Mar 26 Close / Apr 26 Reforecast",
+  "revenue": {
+    "fy25": [
+      { "month": "May 24", "value": 59622379.27 },
+      { "month": "Jun 24", "value": 61427908.90 },
+      { "month": "Jul 24", "value": 63361403.70 },
+      { "month": "Aug 24", "value": 62846389.75 },
+      { "month": "Sep 24", "value": 63386536.40 },
+      { "month": "Oct 24", "value": 65775086.79 },
+      { "month": "Nov 24", "value": 64396544.34 },
+      { "month": "Dec 24", "value": 66491818.39 },
+      { "month": "Jan 25", "value": 75409586.46 },
+      { "month": "Feb 25", "value": 68269979.77 },
+      { "month": "Mar 25", "value": 75346587.56 },
+      { "month": "Apr 25", "value": 77358619.04 }
+    ],
+    "fy26": [
+      { "month": "May 25", "value": 75441818.75 },
+      { "month": "Jun 25", "value": 76551519.20 },
+      { "month": "Jul 25", "value": 79310266.48 },
+      { "month": "Aug 25", "value": 79606135.46 },
+      { "month": "Sep 25", "value": 80863590.71 },
+      { "month": "Oct 25", "value": 84790752.09 },
+      { "month": "Nov 25", "value": 91518326.12 },
+      { "month": "Dec 25", "value": 96132347.70 },
+      { "month": "Jan 26", "value": 105168605.33 },
+      { "month": "Feb 26", "value": 97557839.05 },
+      { "month": "Mar 26", "value": 100924694.54 },
+      { "month": "Apr 26", "value": 103808417.05 }
+    ]
+  },
+  "arr": {
+    "fy25": [
+      { "month": "May 24", "value": 1974047226.24 },
+      { "month": "Jun 24", "value": 1988899652.54 },
+      { "month": "Jul 24", "value": 2050611478.81 },
+      { "month": "Aug 24", "value": 2064965042.35 },
+      { "month": "Sep 24", "value": 2059236887.76 },
+      { "month": "Oct 24", "value": 2115686450.55 },
+      { "month": "Nov 24", "value": 2112882477.37 },
+      { "month": "Dec 24", "value": 2148306333.65 },
+      { "month": "Jan 25", "value": 2255484355.89 },
+      { "month": "Feb 25", "value": 2240747031.23 },
+      { "month": "Mar 25", "value": 2381224800.07 },
+      { "month": "Apr 25", "value": 2419859233.73 }
+    ],
+    "fy26": [
+      { "month": "May 25", "value": 2465942744.07 },
+      { "month": "Jun 25", "value": 2500777774.15 },
+      { "month": "Jul 25", "value": 2562864647.69 },
+      { "month": "Aug 25", "value": 2603136460.68 },
+      { "month": "Sep 25", "value": 2617596708.81 },
+      { "month": "Oct 25", "value": 2703271807.50 },
+      { "month": "Nov 25", "value": 2682673527.35 },
+      { "month": "Dec 25", "value": 2779372537.17 },
+      { "month": "Jan 26", "value": 2911529302.01 },
+      { "month": "Feb 26", "value": 2907170629.12 },
+      { "month": "Mar 26", "value": 2978118798.35 },
+      { "month": "Apr 26", "value": 3086088218.67 }
+    ]
+  },
+  "operatingCashFlow": {
+    "fy25": [
+      { "month": "May 24", "value": 14838922.94 },
+      { "month": "Jun 24", "value": 13421747.39 },
+      { "month": "Jul 24", "value": 4371329.74 },
+      { "month": "Aug 24", "value": 7226761.92 },
+      { "month": "Sep 24", "value": 4985089.28 },
+      { "month": "Oct 24", "value": 7978154.85 },
+      { "month": "Nov 24", "value": 362075.21 },
+      { "month": "Dec 24", "value": 2605165.95 },
+      { "month": "Jan 25", "value": -89952.81 },
+      { "month": "Feb 25", "value": 12088530.14 },
+      { "month": "Mar 25", "value": 8420722.37 },
+      { "month": "Apr 25", "value": -5187425.90 }
+    ],
+    "fy26": [
+      { "month": "May 25", "value": 16824926.69 },
+      { "month": "Jun 25", "value": 11243262.56 },
+      { "month": "Jul 25", "value": 115093.87 },
+      { "month": "Aug 25", "value": 12730490.49 },
+      { "month": "Sep 25", "value": 4171635.95 },
+      { "month": "Oct 25", "value": 9485992.58 },
+      { "month": "Nov 25", "value": 23704938.43 },
+      { "month": "Dec 25", "value": -8098934.96 },
+      { "month": "Jan 26", "value": -1339526.75 },
+      { "month": "Feb 26", "value": 9361752.11 },
+      { "month": "Mar 26", "value": 16210588.98 },
+      { "month": "Apr 26", "value": 8824529.90 }
+    ]
+  }
+}

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   RefreshCw, Loader2, AlertTriangle, AlertCircle, CheckCircle,
-  BarChart3, Table2, TrendingDown, TrendingUp, Calendar, DollarSign,
+  BarChart3, Table2, TrendingDown, TrendingUp, Calendar, DollarSign, PieChart,
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -38,10 +38,11 @@ const axisTickSm = { fontSize: 12, fill: '#5a6f8f' };
 
 export default function CorpForecastV2Page() {
   const [weeksBack, setWeeksBack] = useState(4);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'monthly'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'table' | 'monthly' | 'pigment'>('dashboard');
   const [chartHorizon, setChartHorizon] = useState<number | null>(null);
   const [data, setData] = useState<any>(null);
   const [cashflowData, setCashflowData] = useState<any>(null);
+  const [pigmentData, setPigmentData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,18 +50,22 @@ export default function CorpForecastV2Page() {
     setIsLoading(true);
     setError(null);
     try {
-      const [fcRes, cfRes] = await Promise.all([
-        fetch('/api/forecast?weeks_back=104'),
-        fetch(`/api/cashflow?weeks_back=${weeksBack}&weeks_forward=${Math.max(8, weeksBack)}`),
+      const base = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      const [fcRes, cfRes, pgRes] = await Promise.all([
+        fetch(`${base}/data/forecast.json`),
+        fetch(`${base}/data/cashflow.json`),
+        fetch(`${base}/data/pigment.json`),
       ]);
       setData(await fcRes.json());
       setCashflowData(await cfRes.json());
+      const pgJson = await pgRes.json();
+      if (pgJson.success) setPigmentData(pgJson.data);
     } catch (e: any) {
       setError(e.message);
     } finally {
       setIsLoading(false);
     }
-  }, [weeksBack]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -90,7 +95,6 @@ export default function CorpForecastV2Page() {
   }, [totalByDate, chartHorizon]);
 
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
-  const [breakdownWeek, setBreakdownWeek] = useState(0);
 
   const toggleCategory = (name: string) => {
     setSelectedCategories(prev => {
@@ -149,6 +153,114 @@ export default function CorpForecastV2Page() {
       });
   }, [categoryTimeSeries, selectedCategories]);
 
+  const mcChartData = useMemo(() => {
+    if (netTimeSeriesData.length < 8) return netTimeSeriesData;
+
+    const actuals = netTimeSeriesData.filter((d: any) => d.actual != null);
+    if (actuals.length < 12) return netTimeSeriesData;
+
+    // Compute weekly changes from actuals for block bootstrap
+    const changes: number[] = [];
+    for (let i = 1; i < actuals.length; i++) {
+      changes.push((actuals[i].actual ?? 0) - (actuals[i - 1].actual ?? 0));
+    }
+    if (changes.length < 4) return netTimeSeriesData;
+
+    const lastActual = actuals[actuals.length - 1];
+    const startValue = lastActual.actual ?? 0;
+    const startDate = new Date(lastActual.fullDate + 'T12:00:00');
+
+    // Generate 26 future weekly dates (6 months)
+    const futureWeeks = 26;
+    const futureDates: { date: string; fullDate: string }[] = [];
+    for (let w = 1; w <= futureWeeks; w++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + w * 7);
+      const iso = d.toISOString().split('T')[0];
+      futureDates.push({
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        fullDate: iso,
+      });
+    }
+
+    const existingDates = new Set(netTimeSeriesData.map((d: any) => d.fullDate));
+    const allMcDates = futureDates;
+
+    // Block bootstrap MC simulation
+    const NUM_SIMS = 300;
+    const BLOCK_SIZE = Math.min(8, Math.floor(changes.length / 2));
+    const simPaths: number[][] = [];
+
+    // Seeded PRNG for reproducibility
+    let seed = 42;
+    function nextRand() {
+      seed = (seed * 16807 + 0) % 2147483647;
+      return seed / 2147483647;
+    }
+
+    for (let s = 0; s < NUM_SIMS; s++) {
+      const path: number[] = [];
+      let val = startValue;
+      let idx = 0;
+      while (idx < futureWeeks) {
+        const blockStart = Math.floor(nextRand() * (changes.length - BLOCK_SIZE + 1));
+        for (let b = 0; b < BLOCK_SIZE && idx < futureWeeks; b++, idx++) {
+          val += changes[blockStart + b];
+          path.push(val);
+        }
+      }
+      simPaths.push(path);
+    }
+
+    // Compute percentiles at each future step
+    const mcProjection = allMcDates.map((fd, i) => {
+      const vals = simPaths.map(p => p[i]).sort((a, b) => a - b);
+      const p10 = vals[Math.floor(NUM_SIMS * 0.1)];
+      const p50 = vals[Math.floor(NUM_SIMS * 0.5)];
+      const p90 = vals[Math.floor(NUM_SIMS * 0.9)];
+      return { ...fd, mcP10: p10, mcP50: p50, mcP90: p90 };
+    });
+
+    // Build combined data: original points get null mc fields, then append mc-only points
+    const combined = netTimeSeriesData.map((d: any) => {
+      const mcMatch = mcProjection.find(m => m.fullDate === d.fullDate);
+      return {
+        ...d,
+        mcP10: mcMatch?.mcP10 ?? null,
+        mcP50: mcMatch?.mcP50 ?? null,
+        mcP90: mcMatch?.mcP90 ?? null,
+      };
+    });
+
+    // Bridge: set mc values on the last actual point so lines connect
+    const lastActualIdx = combined.findIndex((d: any) => d.fullDate === lastActual.fullDate);
+    if (lastActualIdx >= 0) {
+      combined[lastActualIdx] = {
+        ...combined[lastActualIdx],
+        mcP10: startValue,
+        mcP50: startValue,
+        mcP90: startValue,
+      };
+    }
+
+    // Append new future dates not already in the data
+    for (const mp of mcProjection) {
+      if (!existingDates.has(mp.fullDate)) {
+        combined.push({
+          date: mp.date,
+          fullDate: mp.fullDate,
+          forecast: null,
+          actual: null,
+          mcP10: mp.mcP10,
+          mcP50: mp.mcP50,
+          mcP90: mp.mcP90,
+        });
+      }
+    }
+
+    return combined;
+  }, [netTimeSeriesData]);
+
   const healthCounts = useMemo(() => {
     let below = 0, near = 0, healthy = 0;
     if (dates.length === 0) return { below: 0, near: 0, healthy: 0, total: 0 };
@@ -177,9 +289,25 @@ export default function CorpForecastV2Page() {
     return Object.entries(map).map(([name, d]) => ({ name, ...d }));
   }, [accounts, dates]);
 
-  const waterfall: any[] = cashflowData?.data?.waterfall || [];
-  const endingTrend: any[] = cashflowData?.data?.endingTrend || [];
   const today: string = cashflowData?.data?.today || '';
+
+  const { waterfall, endingTrend } = useMemo(() => {
+    const rawWaterfall: any[] = cashflowData?.data?.waterfall || [];
+    const rawEndingTrend: any[] = cashflowData?.data?.endingTrend || [];
+    const allDates: string[] = cashflowData?.data?.dates || [];
+    if (allDates.length === 0) return { waterfall: rawWaterfall, endingTrend: rawEndingTrend };
+    const maxDate = allDates[allDates.length - 1];
+    const cutoff = new Date(maxDate + 'T12:00:00');
+    cutoff.setDate(cutoff.getDate() - weeksBack * 7);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const fwd = new Date(maxDate + 'T12:00:00');
+    fwd.setDate(fwd.getDate() + Math.max(8, weeksBack) * 7);
+    const fwdStr = fwd.toISOString().split('T')[0];
+    return {
+      waterfall: rawWaterfall.filter((w: any) => w.date >= cutoffStr && w.date <= fwdStr),
+      endingTrend: rawEndingTrend.filter((e: any) => e.date >= cutoffStr && e.date <= fwdStr),
+    };
+  }, [cashflowData, weeksBack]);
 
   const waterfallChartData = useMemo(() => {
     return waterfall.map((w: any) => {
@@ -360,9 +488,9 @@ export default function CorpForecastV2Page() {
       {/* Controls + Tabs */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-[#162038] border border-[#1e3054] p-4 rounded-xl">
         <div className="flex border-b sm:border-b-0 sm:border-r border-[#1e3054] pr-0 sm:pr-4 pb-2 sm:pb-0">
-          {(['dashboard', 'table', 'monthly'] as const).map(tab => {
-            const Icon = tab === 'dashboard' ? BarChart3 : tab === 'table' ? Table2 : Calendar;
-            const label = tab.charAt(0).toUpperCase() + tab.slice(1);
+          {(['dashboard', 'table', 'monthly', 'pigment'] as const).map(tab => {
+            const Icon = tab === 'dashboard' ? BarChart3 : tab === 'table' ? Table2 : tab === 'monthly' ? Calendar : PieChart;
+            const label = tab === 'pigment' ? 'FP&A (Pigment)' : tab.charAt(0).toUpperCase() + tab.slice(1);
             return (
               <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${tab !== 'dashboard' ? 'ml-1' : ''} ${
@@ -543,18 +671,22 @@ export default function CorpForecastV2Page() {
                 <div className="text-xs text-[#5a6f8f] mb-2">
                   {selectedCategories.size} categor{selectedCategories.size === 1 ? 'y' : 'ies'} selected
                   {selectedCategories.size > 1 && ' — showing net result'}
+                  {mcChartData.some((d: any) => d.mcP50 != null) && ' — yellow = Monte Carlo 6-month projection (10th/90th band)'}
                 </div>
                 <ResponsiveContainer width="100%" height={380}>
-                  <LineChart data={netTimeSeriesData} margin={{ left: 10, right: 10 }}>
+                  <ComposedChart data={mcChartData} margin={{ left: 10, right: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
                     <XAxis dataKey="date" tick={axisTickSm} stroke={COLORS.grid} />
                     <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
                     <Tooltip content={<DarkTooltip />} />
                     <Legend />
+                    <Line type="monotone" dataKey="mcP90" name="MC 90th Pctl" stroke="#f59e0b" strokeWidth={1} strokeDasharray="4 2" dot={false} connectNulls />
+                    <Line type="monotone" dataKey="mcP10" name="MC 10th Pctl" stroke="#f59e0b" strokeWidth={1} strokeDasharray="4 2" dot={false} connectNulls />
+                    <Line type="monotone" dataKey="mcP50" name="MC Median" stroke="#f59e0b" strokeWidth={2.5} dot={false} connectNulls />
                     <Line type="monotone" dataKey="forecast" name="Forecast" stroke={COLORS.cyan} strokeWidth={2} dot={false} strokeDasharray="6 3" connectNulls />
                     <Line type="monotone" dataKey="actual" name="Actual" stroke={COLORS.green} strokeWidth={2.5} dot={false} connectNulls />
                     <ReferenceLine y={0} stroke="#5a6f8f" strokeDasharray="3 3" />
-                  </LineChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </>
             ) : (
@@ -563,99 +695,6 @@ export default function CorpForecastV2Page() {
               </div>
             )}
           </div>
-
-          {/* Row 4: Cash Flow Breakdown Table */}
-          {(() => {
-            const breakdownDates: string[] = cashflowData?.data?.breakdownDates || [];
-            const breakdownByWeek: Record<string, any[]> = cashflowData?.data?.breakdownByWeek || {};
-            if (breakdownDates.length === 0) return null;
-            const weekIdx = Math.min(breakdownWeek, breakdownDates.length - 1);
-            const activeDate = breakdownDates[breakdownDates.length - 1 - weekIdx];
-            const breakdown: any[] = breakdownByWeek[activeDate] || [];
-            if (breakdown.length === 0) return null;
-            const addItems = breakdown.filter((r: any) => r.category === 'addition');
-            const addTotal = breakdown.find((r: any) => r.category === 'addition_total');
-            const subItems = breakdown.filter((r: any) => r.category === 'subtraction');
-            const subTotal = breakdown.find((r: any) => r.category === 'subtraction_total');
-            const ending = breakdown.find((r: any) => r.category === 'ending');
-            const fmtCell = (v: number | null) => v != null ? formatCurrency(Math.abs(v)) : '\u2014';
-            const varColor = (v: number | null) => {
-              if (v == null || v === 0) return 'text-[#5a6f8f]';
-              return v > 0 ? 'text-[#10b981]' : 'text-[#ef4444]';
-            };
-            const renderRow = (r: any, indent: boolean = true) => (
-              <tr key={`${r.category}-${r.lineItem}`} className="border-b border-[rgba(30,48,84,0.5)] hover:bg-[rgba(59,130,246,0.06)] transition-colors">
-                <td className={`px-4 py-2 text-[#e8ecf4] ${indent ? 'pl-8' : 'font-semibold'}`}>{r.lineItem}</td>
-                <td className="px-4 py-2 text-right font-mono text-[#22d3ee]">{fmtCell(r.forecast)}</td>
-                <td className="px-4 py-2 text-right font-mono text-[#8a9bb8]">{fmtCell(r.actual)}</td>
-                <td className={`px-4 py-2 text-right font-mono ${varColor(r.variance)}`}>{r.variance != null && r.variance !== 0 ? (r.variance > 0 ? '+' : '') + formatCurrency(r.variance) : '\u2014'}</td>
-              </tr>
-            );
-            const renderTotal = (r: any, label: string, accent: string) => (
-              <tr key={`${r.category}-total`} className="border-b border-[#1e3054]" style={{ background: 'rgba(26,39,68,0.6)' }}>
-                <td className={`px-4 py-2.5 font-bold ${accent}`}>{label}</td>
-                <td className={`px-4 py-2.5 text-right font-mono font-bold ${accent}`}>{fmtCell(r.forecast)}</td>
-                <td className={`px-4 py-2.5 text-right font-mono font-bold ${accent}`}>{fmtCell(r.actual)}</td>
-                <td className={`px-4 py-2.5 text-right font-mono font-bold ${varColor(r.variance)}`}>{r.variance != null && r.variance !== 0 ? (r.variance > 0 ? '+' : '') + formatCurrency(r.variance) : '\u2014'}</td>
-              </tr>
-            );
-            const weekLabel = (d: string) => { const dt = new Date(d + 'T12:00:00'); return `${dt.getMonth()+1}/${dt.getDate()}`; };
-            return (
-              <div className="bg-[#162038] border border-[#1e3054] rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-[#1e3054] flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[#e8ecf4] flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
-                    Cash Flow Breakdown
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      {breakdownDates.slice().reverse().map((d: string, i: number) => (
-                        <button key={d} onClick={() => setBreakdownWeek(i)}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition-all ${
-                            weekIdx === i
-                              ? 'bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/40'
-                              : 'bg-[#111b2e] text-[#5a6f8f] border-[#1e3054] hover:text-[#8a9bb8] hover:border-[#f59e0b]/30'
-                          }`}>
-                          {i === 0 ? '1W' : `${i+1}W`}
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-xs text-[#5a6f8f]">Week of {weekLabel(activeDate)}</span>
-                  </div>
-                </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#1e3054]" style={{ background: '#111b2e' }}>
-                      <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#5a6f8f]">Line Item</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#22d3ee]">Forecast</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#8a9bb8]">Actual</th>
-                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-[#5a6f8f]">Variance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-b border-[#1e3054]" style={{ background: 'rgba(16,185,129,0.06)' }}>
-                      <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#10b981]">Additions</td>
-                    </tr>
-                    {addItems.map((r: any) => renderRow(r))}
-                    {addTotal && renderTotal(addTotal, 'Total Additions', 'text-[#10b981]')}
-                    <tr className="border-b border-[#1e3054]" style={{ background: 'rgba(239,68,68,0.06)' }}>
-                      <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wider text-[#ef4444]">Subtractions</td>
-                    </tr>
-                    {subItems.map((r: any) => renderRow(r))}
-                    {subTotal && renderTotal(subTotal, 'Total Subtractions', 'text-[#ef4444]')}
-                    {ending && (
-                      <tr style={{ background: 'rgba(59,130,246,0.08)' }}>
-                        <td className="px-4 py-3 font-bold text-[#e8ecf4]">{ending.lineItem}</td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-[#22d3ee]">{fmtCell(ending.forecast)}</td>
-                        <td className="px-4 py-3 text-right font-mono font-bold text-[#e8ecf4]">{fmtCell(ending.actual)}</td>
-                        <td className={`px-4 py-3 text-right font-mono font-bold ${varColor(ending.variance)}`}>{ending.variance != null && ending.variance !== 0 ? (ending.variance > 0 ? '+' : '') + formatCurrency(ending.variance) : '\u2014'}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
 
           {/* Cash Flow Section */}
           {hasCashflowData && (
@@ -761,6 +800,230 @@ export default function CorpForecastV2Page() {
                   </div>
                 )}
               </div>
+            </>
+          )}
+        </div>
+      ) : activeTab === 'pigment' ? (
+        <div className="space-y-6">
+          {!pigmentData ? (
+            <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-12 text-center">
+              <h3 className="text-lg font-medium text-[#e8ecf4]">No Pigment data available</h3>
+              <p className="text-[#5a6f8f] mt-2">Sync Pigment data to view FP&A metrics.</p>
+            </div>
+          ) : (
+            <>
+              {/* Pigment KPI Cards */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#e8ecf4]">FP&A Metrics from Pigment</h2>
+                  <p className="text-xs text-[#5a6f8f] mt-0.5">Scenario: {pigmentData.scenario} &middot; Synced: {new Date(pigmentData.lastSynced).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-[#5a6f8f] text-sm mb-1">
+                    <DollarSign className="h-4 w-4 text-[#22d3ee]" /> FY26 Revenue
+                  </div>
+                  <div className="text-2xl font-bold text-[#e8ecf4]">{formatCurrency(pigmentData.summary.fy26Revenue)}</div>
+                  <div className="text-xs mt-1">
+                    <span className={pigmentData.summary.revenueGrowth >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}>
+                      {pigmentData.summary.revenueGrowth >= 0 ? '+' : ''}{(pigmentData.summary.revenueGrowth * 100).toFixed(1)}% YoY
+                    </span>
+                    <span className="text-[#5a6f8f] ml-1">vs FY25 {formatCurrency(pigmentData.summary.fy25Revenue)}</span>
+                  </div>
+                </div>
+                <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-[#5a6f8f] text-sm mb-1">
+                    <TrendingUp className="h-4 w-4 text-[#a78bfa]" /> Latest ARR
+                  </div>
+                  <div className="text-2xl font-bold text-[#e8ecf4]">{formatCurrency(pigmentData.summary.latestARR)}</div>
+                  <div className="text-xs mt-1">
+                    <span className={pigmentData.summary.arrGrowth >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}>
+                      {pigmentData.summary.arrGrowth >= 0 ? '+' : ''}{(pigmentData.summary.arrGrowth * 100).toFixed(1)}% YoY
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-4">
+                  <div className="flex items-center gap-2 text-[#5a6f8f] text-sm mb-1">
+                    <BarChart3 className="h-4 w-4 text-[#10b981]" /> FY26 Operating Cash Flow
+                  </div>
+                  <div className="text-2xl font-bold text-[#e8ecf4]">{formatCurrency(pigmentData.summary.fy26OCF)}</div>
+                  <div className="text-xs mt-1">
+                    <span className={pigmentData.summary.ocfGrowth >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}>
+                      {pigmentData.summary.ocfGrowth >= 0 ? '+' : ''}{(pigmentData.summary.ocfGrowth * 100).toFixed(1)}% YoY
+                    </span>
+                    <span className="text-[#5a6f8f] ml-1">vs FY25 {formatCurrency(pigmentData.summary.fy25OCF)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Revenue FY25 vs FY26 */}
+              <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#22d3ee]"></span>
+                  Monthly Revenue — FY25 vs FY26
+                </h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={pigmentData.revenueChart} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                    <XAxis dataKey="month" tick={axisTickSm} stroke={COLORS.grid} />
+                    <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                    <Tooltip content={<DarkTooltip />} />
+                    <Legend />
+                    <Bar dataKey="fy25" name="FY25" fill={COLORS.gray} radius={[4, 4, 0, 0]} fillOpacity={0.5} />
+                    <Bar dataKey="fy26" name="FY26" fill={COLORS.cyan} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* ARR Trend */}
+              <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#a78bfa]"></span>
+                  ARR Trajectory — FY25 through FY26
+                </h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <LineChart data={pigmentData.arrChart} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                    <XAxis dataKey="label" tick={axisTickSm} stroke={COLORS.grid} />
+                    <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                    <Tooltip content={<DarkTooltip />} />
+                    <Legend />
+                    <Line type="monotone" dataKey="value" name="ARR" stroke={COLORS.purple} strokeWidth={2.5} dot={{ r: 3, fill: COLORS.purple }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Operating Cash Flow FY25 vs FY26 */}
+              <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#10b981]"></span>
+                  Operating Cash Flow — FY25 vs FY26
+                </h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <ComposedChart data={pigmentData.ocfChart} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                    <XAxis dataKey="month" tick={axisTickSm} stroke={COLORS.grid} />
+                    <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                    <Tooltip content={<DarkTooltip />} />
+                    <Legend />
+                    <Bar dataKey="fy25" name="FY25 OCF" fill={COLORS.gray} radius={[4, 4, 0, 0]} fillOpacity={0.5} />
+                    <Bar dataKey="fy26" name="FY26 OCF" fill={COLORS.green} radius={[4, 4, 0, 0]} />
+                    <ReferenceLine y={0} stroke="#5a6f8f" strokeDasharray="3 3" />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Side-by-side: Pigment OCF vs GSheet Cash Flow */}
+              {pigmentData.comparison?.length > 0 && (
+                <>
+                  <div className="border-t border-[#1e3054] pt-6 mt-2">
+                    <h2 className="text-lg font-bold text-[#e8ecf4] mb-1">Pigment vs Treasury GSheet — Side by Side</h2>
+                    <p className="text-xs text-[#5a6f8f] mb-4">Pigment FP&A operating cash flow compared to the weekly Treasury cash forecast (aggregated monthly)</p>
+                  </div>
+
+                  {/* Cash Flow Comparison Chart */}
+                  <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                    <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#f59e0b]"></span>
+                      Monthly Net Cash Flow — Pigment OCF vs GSheet Treasury
+                    </h3>
+                    <ResponsiveContainer width="100%" height={380}>
+                      <ComposedChart data={pigmentData.comparison.filter((c: any) => c.pigmentOCF != null)} margin={{ left: 10, right: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                        <XAxis dataKey="label" tick={axisTickSm} stroke={COLORS.grid} />
+                        <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                        <Tooltip content={<DarkTooltip />} />
+                        <Legend />
+                        <Bar dataKey="pigmentOCF" name="Pigment OCF (FP&A)" fill={COLORS.purple} radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="gsheetNetCashFlow" name="GSheet Net Cash Flow (Treasury)" fill={COLORS.cyan} radius={[4, 4, 0, 0]} fillOpacity={0.7} />
+                        <ReferenceLine y={0} stroke="#5a6f8f" strokeDasharray="3 3" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <p className="text-xs text-[#5a6f8f] mt-2 text-center">
+                      Pigment OCF = FP&A operating cash flow (monthly) &middot; GSheet = Treasury weekly additions + subtractions (aggregated to monthly)
+                    </p>
+                  </div>
+
+                  {/* Ending Cash Comparison */}
+                  <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                    <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#22d3ee]"></span>
+                      Month-End Cash Position — GSheet Forecast vs Actual
+                    </h3>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <LineChart data={pigmentData.comparison} margin={{ left: 10, right: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                        <XAxis dataKey="label" tick={axisTickSm} stroke={COLORS.grid} />
+                        <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                        <Tooltip content={<DarkTooltip />} />
+                        <Legend />
+                        <Line type="monotone" dataKey="gsheetEndingCash" name="GSheet Ending (Forecast)" stroke={COLORS.cyan} strokeWidth={2} strokeDasharray="6 3" dot={{ r: 3 }} connectNulls />
+                        <Line type="monotone" dataKey="gsheetEndingActual" name="GSheet Ending (Actual)" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 4 }} connectNulls />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Pigment Revenue vs GSheet Additions */}
+                  <div className="bg-[#162038] border border-[#1e3054] rounded-xl p-6">
+                    <h3 className="text-sm font-semibold text-[#e8ecf4] mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[#a78bfa]"></span>
+                      Pigment Revenue vs GSheet Cash Additions
+                    </h3>
+                    <ResponsiveContainer width="100%" height={350}>
+                      <ComposedChart data={pigmentData.comparison.filter((c: any) => c.pigmentRevenue != null)} margin={{ left: 10, right: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                        <XAxis dataKey="label" tick={axisTickSm} stroke={COLORS.grid} />
+                        <YAxis tickFormatter={(v: number) => formatCurrency(v)} tick={axisTick} width={80} stroke={COLORS.grid} />
+                        <Tooltip content={<DarkTooltip />} />
+                        <Legend />
+                        <Bar dataKey="pigmentRevenue" name="Pigment Revenue (Accrual)" fill={COLORS.purple} radius={[4, 4, 0, 0]} fillOpacity={0.7} />
+                        <Bar dataKey="gsheetAdditions" name="GSheet Cash Additions (Treasury)" fill={COLORS.green} radius={[4, 4, 0, 0]} fillOpacity={0.7} />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                    <p className="text-xs text-[#5a6f8f] mt-2 text-center">
+                      Revenue (accrual) vs actual cash collected — timing differences are expected
+                    </p>
+                  </div>
+
+                  {/* Detailed Comparison Table */}
+                  <div className="bg-[#162038] border border-[#1e3054] rounded-xl overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#111b2e] border-b border-[#1e3054]">
+                          <th className="px-4 py-3 text-left font-medium text-[#5a6f8f]">Month</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#a78bfa]">Pigment OCF</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#22d3ee]">GSheet Net CF</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#5a6f8f]">Variance</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#a78bfa]">Pigment Rev</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#10b981]">GSheet Additions</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#22d3ee]">End Cash (Fcst)</th>
+                          <th className="px-4 py-3 text-right font-medium text-[#10b981]">End Cash (Actual)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pigmentData.comparison.map((c: any) => {
+                          const variance = c.pigmentOCF != null ? c.pigmentOCF - c.gsheetNetCashFlow : null;
+                          return (
+                            <tr key={c.month} className="border-b border-[#1e3054] hover:bg-[rgba(59,130,246,0.06)]">
+                              <td className="px-4 py-3 font-medium text-[#e8ecf4]">{c.label}</td>
+                              <td className="px-4 py-3 text-right font-mono text-[#a78bfa]">{c.pigmentOCF != null ? formatCurrency(c.pigmentOCF) : '-'}</td>
+                              <td className={`px-4 py-3 text-right font-mono ${c.gsheetNetCashFlow >= 0 ? 'text-[#22d3ee]' : 'text-[#ef4444]'}`}>{formatCurrency(c.gsheetNetCashFlow)}</td>
+                              <td className={`px-4 py-3 text-right font-mono text-xs ${variance != null ? (variance >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]') : 'text-[#5a6f8f]'}`}>
+                                {variance != null ? `${variance >= 0 ? '+' : ''}${formatCurrency(variance)}` : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-right font-mono text-[#a78bfa]">{c.pigmentRevenue != null ? formatCurrency(c.pigmentRevenue) : '-'}</td>
+                              <td className="px-4 py-3 text-right font-mono text-[#10b981]">{formatCurrency(c.gsheetAdditions)}</td>
+                              <td className="px-4 py-3 text-right font-mono text-[#22d3ee]">{c.gsheetEndingCash != null ? formatCurrency(c.gsheetEndingCash) : '-'}</td>
+                              <td className="px-4 py-3 text-right font-mono text-[#10b981]">{c.gsheetEndingActual != null ? formatCurrency(c.gsheetEndingActual) : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
