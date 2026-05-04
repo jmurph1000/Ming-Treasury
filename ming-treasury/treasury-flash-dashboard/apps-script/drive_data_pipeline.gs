@@ -79,7 +79,17 @@ var PIPELINE_CONFIG = {
   GITHUB_REPO: 'Ming-Treasury',
   GITHUB_BRANCH: 'ming-treasury',
   GITHUB_CORPORATE_PATH: 'ming-treasury/treasury-flash-dashboard/data/corporate_cash.json',
-  GITHUB_GUSTOMER_PATH: 'ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json'
+  GITHUB_GUSTOMER_PATH: 'ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json',
+
+  // Balance history CSV path in GitHub
+  GITHUB_BALANCE_HISTORY_PATH: 'ming-treasury/treasury-flash-dashboard/data/balance_history.csv',
+
+  // Number of business days to look back for gaps when backfilling
+  BACKFILL_LOOKBACK_DAYS: 5,
+
+  // Gmail search queries (used by Gmail fallback when no manifest exists)
+  JPM_GMAIL_QUERY: 'from:jpmorganaccessalerts@jpmorgan.com subject:"Your J.P. Morgan Access Scheduled Report is Complete"',
+  PNC_GMAIL_QUERY: 'from:PINACLE@pnc.com subject:"PNC Event: PNC Flash Data"'
 };
 
 // ============================================================================
@@ -356,6 +366,13 @@ function writeFileToGitHub_(filePath, jsonContent, sha, commitMsg) {
  * reads PNC and JPM files, parses balances, merges with existing GitHub
  * JSON data, and pushes the updated files back to GitHub.
  *
+ * If no manifest is found, falls back to reading attachments directly
+ * from Gmail. Also checks for missing previous business days and
+ * backfills them automatically.
+ *
+ * After updating JSON, also appends new rows to balance_history.csv
+ * in GitHub so both data stores stay in sync.
+ *
  * Intended to run daily at ~11:00 AM ET via time-driven trigger, after
  * the attachment downloader has saved the files.
  */
@@ -366,81 +383,25 @@ function processDailyData() {
     Logger.log('Current time (ET): ' +
                Utilities.formatDate(startTime, 'America/New_York', 'yyyy-MM-dd HH:mm:ss'));
 
-    // Step 1: Find today's manifest file
-    var manifest = findTodaysManifest_();
-    if (!manifest) {
-      Logger.log('No manifest file found for today. Exiting.');
-      return;
-    }
-    Logger.log('Found manifest with ' + manifest.files.length + ' file(s).');
+    var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
 
-    // Step 2: Identify PNC and JPM files from the manifest
-    var pncFileIds = [];
-    var jpmFileIds = [];
+    // Step 1: Backfill any missing previous business days first
+    backfillMissingBusinessDays_();
 
-    for (var i = 0; i < manifest.files.length; i++) {
-      var entry = manifest.files[i];
-      var name = entry.originalName || entry.fileName || '';
-      if (PIPELINE_CONFIG.PNC_BALANCE_PATTERN.test(name)) {
-        pncFileIds.push({ id: entry.driveFileId, name: name });
-        Logger.log('PNC Balance CSV found: ' + name + ' (ID: ' + entry.driveFileId + ')');
-      } else if (PIPELINE_CONFIG.JPM_XLS_PATTERN.test(name)) {
-        jpmFileIds.push({ id: entry.driveFileId, name: name });
-        Logger.log('JPM XLS found: ' + name + ' (ID: ' + entry.driveFileId + ')');
-      }
-    }
+    // Step 2: Process today's data — try manifest first, fall back to Gmail
+    var result = processDateFromManifestOrGmail_(todayStr);
 
-    if (pncFileIds.length === 0 && jpmFileIds.length === 0) {
-      Logger.log('No PNC or JPM files found in manifest. Exiting.');
-      return;
-    }
-
-    // Sort files by name (ascending) so later reports are processed last
-    // and win in the deduplication step (filenames contain timestamps)
-    jpmFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-    pncFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-
-    Logger.log('Processing ' + jpmFileIds.length + ' JPM files and ' + pncFileIds.length + ' PNC files (sorted by time).');
-
-    // Step 3: Parse all files and collect records
-    var corporateRecords = [];
-    var gustomerRecords = [];
-
-    // Process PNC files
-    for (var p = 0; p < pncFileIds.length; p++) {
-      var pncResult = processPncFile_(pncFileIds[p].id, pncFileIds[p].name);
-      corporateRecords = corporateRecords.concat(pncResult.corporate);
-      gustomerRecords = gustomerRecords.concat(pncResult.gustomer);
-    }
-
-    // Process JPM files
-    for (var j = 0; j < jpmFileIds.length; j++) {
-      var jpmResult = processJpmFile_(jpmFileIds[j].id, jpmFileIds[j].name);
-      corporateRecords = corporateRecords.concat(jpmResult.corporate);
-      gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
-    }
-
-    Logger.log('Parsed totals - Corporate: ' + corporateRecords.length +
-               ' records, Gustomer: ' + gustomerRecords.length + ' records.');
-
-    // Step 4: Merge with existing GitHub data and push updates
-    if (corporateRecords.length > 0 || gustomerRecords.length > 0) {
-      var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
-
-      if (corporateRecords.length > 0) {
-        mergeAndPushToGitHub_(
-          PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
-          corporateRecords,
-          'Update corporate_cash.json for ' + todayStr
+    if (result.corporate.length === 0 && result.gustomer.length === 0) {
+      // No data found from either source on a business day — alert
+      if (isBusinessDay_(new Date())) {
+        sendPipelineErrorNotification_(
+          new Error('No JPM or PNC data found for ' + todayStr +
+                    ' from either Drive manifest or Gmail fallback. ' +
+                    'Check that bank emails arrived and the attachment downloader is running.'),
+          'processDailyData'
         );
       }
-      if (gustomerRecords.length > 0) {
-        mergeAndPushToGitHub_(
-          PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
-          gustomerRecords,
-          'Update gustomer_cash.json for ' + todayStr
-        );
-      }
+      Logger.log('No data found for today. Exiting.');
     }
 
     var elapsed = ((new Date().getTime()) - startTime.getTime()) / 1000;
@@ -451,6 +412,610 @@ function processDailyData() {
     Logger.log('Stack: ' + (err.stack || 'N/A'));
     sendPipelineErrorNotification_(err, 'processDailyData');
   }
+}
+
+/**
+ * Processes data for a single date. Tries manifest first, then Gmail fallback.
+ * Merges into JSON and appends to CSV on GitHub.
+ *
+ * @param  {string} dateStr  ISO date string (YYYY-MM-DD)
+ * @return {Object}          { corporate: [...], gustomer: [...] }
+ */
+function processDateFromManifestOrGmail_(dateStr) {
+  var corporateRecords = [];
+  var gustomerRecords = [];
+
+  // Try 1: Find a manifest file for this date
+  var manifest = findManifestForDate_(dateStr);
+  if (manifest) {
+    Logger.log('Found manifest for ' + dateStr + ' with ' + manifest.files.length + ' file(s).');
+    var manifestResult = processManifestFiles_(manifest);
+    corporateRecords = manifestResult.corporate;
+    gustomerRecords = manifestResult.gustomer;
+  }
+
+  // Try 2: If no manifest or no data from manifest, fall back to Gmail
+  if (corporateRecords.length === 0 && gustomerRecords.length === 0) {
+    Logger.log('No manifest data for ' + dateStr + '. Falling back to Gmail...');
+    var gmailResult = processDateFromGmail_(dateStr);
+    corporateRecords = gmailResult.corporate;
+    gustomerRecords = gmailResult.gustomer;
+  }
+
+  Logger.log('Total for ' + dateStr + ' - Corporate: ' + corporateRecords.length +
+             ' records, Gustomer: ' + gustomerRecords.length + ' records.');
+
+  // Merge into GitHub JSON and update CSV
+  if (corporateRecords.length > 0 || gustomerRecords.length > 0) {
+    if (corporateRecords.length > 0) {
+      mergeAndPushToGitHub_(
+        PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
+        corporateRecords,
+        'Update corporate_cash.json for ' + dateStr
+      );
+    }
+    if (gustomerRecords.length > 0) {
+      mergeAndPushToGitHub_(
+        PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
+        gustomerRecords,
+        'Update gustomer_cash.json for ' + dateStr
+      );
+    }
+
+    // Append to balance_history.csv
+    appendToBalanceHistoryCsv_(corporateRecords, gustomerRecords, dateStr);
+  }
+
+  return { corporate: corporateRecords, gustomer: gustomerRecords };
+}
+
+/**
+ * Extracts PNC and JPM records from a manifest's files.
+ *
+ * @param  {Object} manifest  Parsed manifest object with .files array
+ * @return {Object}           { corporate: [...], gustomer: [...] }
+ */
+function processManifestFiles_(manifest) {
+  var pncFileIds = [];
+  var jpmFileIds = [];
+
+  for (var i = 0; i < manifest.files.length; i++) {
+    var entry = manifest.files[i];
+    var name = entry.originalName || entry.fileName || '';
+    if (PIPELINE_CONFIG.PNC_BALANCE_PATTERN.test(name)) {
+      pncFileIds.push({ id: entry.driveFileId, name: name });
+      Logger.log('PNC Balance CSV found: ' + name + ' (ID: ' + entry.driveFileId + ')');
+    } else if (PIPELINE_CONFIG.JPM_XLS_PATTERN.test(name)) {
+      jpmFileIds.push({ id: entry.driveFileId, name: name });
+      Logger.log('JPM XLS found: ' + name + ' (ID: ' + entry.driveFileId + ')');
+    }
+  }
+
+  // Sort so later reports win in deduplication
+  jpmFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+  pncFileIds.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+
+  var corporateRecords = [];
+  var gustomerRecords = [];
+
+  for (var p = 0; p < pncFileIds.length; p++) {
+    var pncResult = processPncFile_(pncFileIds[p].id, pncFileIds[p].name);
+    corporateRecords = corporateRecords.concat(pncResult.corporate);
+    gustomerRecords = gustomerRecords.concat(pncResult.gustomer);
+  }
+
+  for (var j = 0; j < jpmFileIds.length; j++) {
+    var jpmResult = processJpmFile_(jpmFileIds[j].id, jpmFileIds[j].name);
+    corporateRecords = corporateRecords.concat(jpmResult.corporate);
+    gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
+  }
+
+  return { corporate: corporateRecords, gustomer: gustomerRecords };
+}
+
+// ============================================================================
+// GMAIL FALLBACK
+// ============================================================================
+
+/**
+ * Reads JPM and PNC attachments directly from Gmail for a specific date,
+ * converts them to Drive files temporarily, parses, and cleans up.
+ *
+ * This is the fallback path when the attachment downloader didn't run
+ * and no manifest exists.
+ *
+ * @param  {string} dateStr  ISO date string (YYYY-MM-DD) to search for
+ * @return {Object}          { corporate: [...], gustomer: [...] }
+ */
+function processDateFromGmail_(dateStr) {
+  var corporateRecords = [];
+  var gustomerRecords = [];
+
+  // Convert YYYY-MM-DD to YYYY/MM/DD for Gmail query
+  var gmailDate = dateStr.replace(/-/g, '/');
+  // Gmail "after:" is inclusive of that date, "before:" is exclusive
+  var parts = dateStr.split('-');
+  var nextDay = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  nextDay.setDate(nextDay.getDate() + 1);
+  var nextDayStr = Utilities.formatDate(nextDay, 'America/New_York', 'yyyy/MM/dd');
+
+  // --- PNC ---
+  var pncQuery = PIPELINE_CONFIG.PNC_GMAIL_QUERY +
+                 ' after:' + gmailDate + ' before:' + nextDayStr;
+  Logger.log('Gmail PNC query: ' + pncQuery);
+
+  var pncThreads = GmailApp.search(pncQuery, 0, 10);
+  Logger.log('PNC Gmail threads found: ' + pncThreads.length);
+
+  for (var t = 0; t < pncThreads.length; t++) {
+    var messages = pncThreads[t].getMessages();
+    for (var m = messages.length - 1; m >= 0; m--) {
+      var attachments = messages[m].getAttachments();
+      for (var a = 0; a < attachments.length; a++) {
+        var fileName = attachments[a].getName();
+        if (PIPELINE_CONFIG.PNC_BALANCE_PATTERN.test(fileName)) {
+          Logger.log('Gmail PNC attachment: ' + fileName);
+          var csvContent = attachments[a].getDataAsString();
+          var pncResult = parsePncCsvContent_(csvContent, fileName);
+          corporateRecords = corporateRecords.concat(pncResult.corporate);
+          gustomerRecords = gustomerRecords.concat(pncResult.gustomer);
+        }
+      }
+    }
+  }
+
+  // --- JPM ---
+  var jpmQuery = PIPELINE_CONFIG.JPM_GMAIL_QUERY +
+                 ' after:' + gmailDate + ' before:' + nextDayStr;
+  Logger.log('Gmail JPM query: ' + jpmQuery);
+
+  var jpmThreads = GmailApp.search(jpmQuery, 0, 10);
+  Logger.log('JPM Gmail threads found: ' + jpmThreads.length);
+
+  for (var t2 = 0; t2 < jpmThreads.length; t2++) {
+    var jpmMessages = jpmThreads[t2].getMessages();
+    for (var m2 = jpmMessages.length - 1; m2 >= 0; m2--) {
+      var jpmAttachments = jpmMessages[m2].getAttachments();
+      for (var a2 = 0; a2 < jpmAttachments.length; a2++) {
+        var jpmFileName = jpmAttachments[a2].getName();
+        if (PIPELINE_CONFIG.JPM_XLS_PATTERN.test(jpmFileName)) {
+          Logger.log('Gmail JPM attachment: ' + jpmFileName + ' (' + jpmAttachments[a2].getSize() + ' bytes)');
+          var blob = jpmAttachments[a2].copyBlob();
+          var tempSheetId = convertXlsToDriveSheet_(blob, jpmFileName);
+          if (tempSheetId) {
+            try {
+              var jpmResult = processJpmFile_(tempSheetId, jpmFileName);
+              corporateRecords = corporateRecords.concat(jpmResult.corporate);
+              gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
+            } finally {
+              deleteTempFile_(tempSheetId);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  Logger.log('Gmail fallback for ' + dateStr + ': Corporate=' + corporateRecords.length +
+             ', Gustomer=' + gustomerRecords.length);
+  return { corporate: corporateRecords, gustomer: gustomerRecords };
+}
+
+/**
+ * Parses PNC Balance CSV content directly (without needing a Drive file).
+ * Used by the Gmail fallback path.
+ *
+ * @param  {string} csvContent  Raw CSV text
+ * @param  {string} fileName    File name (for logging)
+ * @return {Object}             { corporate: [...], gustomer: [...] }
+ */
+function parsePncCsvContent_(csvContent, fileName) {
+  Logger.log('Parsing PNC CSV content from: ' + fileName);
+
+  var lines = csvContent.split(/\r?\n/);
+  var corporate = [];
+  var gustomer = [];
+
+  for (var i = 1; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+
+    var fields = parseCsvLine_(line);
+    if (fields.length < 7) continue;
+
+    var asOfDate      = fields[0].trim();
+    var accountNumber = fields[2].trim();
+    var currentLedger = fields[5].trim();
+    var accountName   = fields[3].replace(/\t/g, '').replace(/"/g, '').trim();
+
+    var isoDate = convertMMDDYYYYtoISO_(asOfDate);
+    if (!isoDate) continue;
+
+    var mapping = PNC_ACCOUNT_MAP[accountNumber];
+    if (!mapping) {
+      Logger.log('WARNING: Unmapped PNC account: ' + accountNumber + ' (' + accountName + '). Skipping.');
+      continue;
+    }
+
+    var value = parseNumericValue_(currentLedger);
+    if (value === null) value = 0;
+
+    var record = { date: isoDate, account_name: mapping.dashboardName, value: value };
+
+    if (mapping.category === 'corporate') {
+      corporate.push(record);
+    } else {
+      gustomer.push(record);
+    }
+  }
+
+  Logger.log('PNC CSV parsed: ' + corporate.length + ' corporate, ' + gustomer.length + ' gustomer.');
+  return { corporate: corporate, gustomer: gustomer };
+}
+
+// ============================================================================
+// BACKFILL MISSING BUSINESS DAYS
+// ============================================================================
+
+/**
+ * Checks the existing GitHub JSON for gaps in the last N business days.
+ * For each missing business day, attempts to retrieve data from Gmail
+ * and backfill.
+ */
+function backfillMissingBusinessDays_() {
+  Logger.log('Checking for missing business days to backfill...');
+
+  // Read existing data to find which dates are present
+  var corpFile = readFileFromGitHub_(PIPELINE_CONFIG.GITHUB_CORPORATE_PATH);
+  var existingDates = {};
+  for (var i = 0; i < corpFile.content.length; i++) {
+    existingDates[corpFile.content[i].reporting_date] = true;
+  }
+
+  // Build list of recent business days to check
+  var today = new Date();
+  var missingDates = [];
+  var daysChecked = 0;
+  var d = new Date(today);
+  d.setDate(d.getDate() - 1); // start from yesterday
+
+  while (daysChecked < PIPELINE_CONFIG.BACKFILL_LOOKBACK_DAYS) {
+    if (isBusinessDay_(d)) {
+      var ds = Utilities.formatDate(d, 'America/New_York', 'yyyy-MM-dd');
+      if (!existingDates[ds]) {
+        missingDates.push(ds);
+      }
+      daysChecked++;
+    }
+    d.setDate(d.getDate() - 1);
+  }
+
+  if (missingDates.length === 0) {
+    Logger.log('No missing business days found in the last ' +
+               PIPELINE_CONFIG.BACKFILL_LOOKBACK_DAYS + ' days.');
+    return;
+  }
+
+  Logger.log('Missing business days: ' + missingDates.join(', '));
+
+  // Backfill each missing date (oldest first)
+  missingDates.sort();
+  for (var m = 0; m < missingDates.length; m++) {
+    Logger.log('Backfilling: ' + missingDates[m]);
+    processDateFromManifestOrGmail_(missingDates[m]);
+  }
+}
+
+/**
+ * Returns true if the given date is a weekday (Mon-Fri) and not a
+ * major US bank holiday.
+ *
+ * @param  {Date} d
+ * @return {boolean}
+ */
+function isBusinessDay_(d) {
+  var day = d.getDay(); // 0=Sun, 6=Sat
+  if (day === 0 || day === 6) return false;
+
+  // Check major US bank holidays (fixed dates in ET)
+  var dateStr = Utilities.formatDate(d, 'America/New_York', 'MM-dd');
+  var year = parseInt(Utilities.formatDate(d, 'America/New_York', 'yyyy'), 10);
+
+  // Fixed holidays
+  var fixedHolidays = [
+    '01-01', // New Year's Day
+    '06-19', // Juneteenth
+    '07-04', // Independence Day
+    '11-11', // Veterans Day
+    '12-25'  // Christmas Day
+  ];
+
+  if (fixedHolidays.indexOf(dateStr) !== -1) return false;
+
+  // Floating holidays (approximate — MLK, Presidents, Memorial, Labor,
+  // Columbus, Thanksgiving). This is a simplified check.
+  var month = d.getMonth(); // 0-indexed
+  var date = d.getDate();
+
+  // MLK Day: 3rd Monday in January
+  if (month === 0 && day === 1 && date >= 15 && date <= 21) return false;
+  // Presidents Day: 3rd Monday in February
+  if (month === 1 && day === 1 && date >= 15 && date <= 21) return false;
+  // Memorial Day: last Monday in May
+  if (month === 4 && day === 1 && date >= 25 && date <= 31) return false;
+  // Labor Day: 1st Monday in September
+  if (month === 8 && day === 1 && date >= 1 && date <= 7) return false;
+  // Columbus Day: 2nd Monday in October
+  if (month === 9 && day === 1 && date >= 8 && date <= 14) return false;
+  // Thanksgiving: 4th Thursday in November
+  if (month === 10 && day === 4 && date >= 22 && date <= 28) return false;
+
+  return true;
+}
+
+// ============================================================================
+// MANIFEST DISCOVERY (date-specific)
+// ============================================================================
+
+/**
+ * Searches Google Drive for a manifest JSON file for a specific date.
+ *
+ * @param  {string} dateStr  ISO date string (YYYY-MM-DD)
+ * @return {Object|null}     Parsed manifest object, or null if not found.
+ */
+function findManifestForDate_(dateStr) {
+  var searchName = PIPELINE_CONFIG.MANIFEST_PATTERN + dateStr;
+  Logger.log('Searching Drive for manifest: ' + searchName);
+
+  var query = 'title contains "' + searchName + '" and trashed = false';
+  if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
+    query += ' and "' + PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID + '" in parents';
+  }
+
+  var files = DriveApp.searchFiles(query);
+  var latestFile = null;
+  var latestDate = null;
+
+  while (files.hasNext()) {
+    var file = files.next();
+    var modified = file.getLastUpdated();
+    if (!latestDate || modified > latestDate) {
+      latestDate = modified;
+      latestFile = file;
+    }
+  }
+
+  if (!latestFile) {
+    Logger.log('No manifest found for ' + dateStr);
+    return null;
+  }
+
+  Logger.log('Found manifest: ' + latestFile.getName());
+  var content = latestFile.getBlob().getDataAsString();
+  var manifest = JSON.parse(content);
+  if (!manifest.files && Array.isArray(manifest)) {
+    manifest = { files: manifest };
+  }
+  return manifest;
+}
+
+// ============================================================================
+// BALANCE HISTORY CSV UPDATE
+// ============================================================================
+
+/**
+ * Appends new records to balance_history.csv in GitHub. Reads the current
+ * CSV, checks which (date, account) pairs are already present, appends
+ * only new rows, and commits back.
+ *
+ * CSV format: Date,Type,Account,Balance
+ *
+ * @param {Object[]} corporateRecords  Array of { date, account_name, value }
+ * @param {Object[]} gustomerRecords   Array of { date, account_name, value }
+ * @param {string}   dateStr           ISO date for the commit message
+ */
+function appendToBalanceHistoryCsv_(corporateRecords, gustomerRecords, dateStr) {
+  Logger.log('Updating balance_history.csv for ' + dateStr + '...');
+
+  var csvFile = readCsvFromGitHub_(PIPELINE_CONFIG.GITHUB_BALANCE_HISTORY_PATH);
+  var existingCsv = csvFile.content; // raw string
+  var sha = csvFile.sha;
+
+  // Build a set of existing (date, account) keys to avoid duplicates
+  var existingKeys = {};
+  var lines = existingCsv.split('\n');
+  for (var i = 1; i < lines.length; i++) { // skip header
+    var line = lines[i].trim();
+    if (!line) continue;
+    // CSV: Date,Type,Account,Balance
+    var commaIdx1 = line.indexOf(',');
+    var commaIdx2 = line.indexOf(',', commaIdx1 + 1);
+    var commaIdx3 = line.indexOf(',', commaIdx2 + 1);
+    if (commaIdx3 > 0) {
+      var csvDate = line.substring(0, commaIdx1);
+      var csvAccount = line.substring(commaIdx2 + 1, commaIdx3);
+      existingKeys[csvDate + '|' + csvAccount] = true;
+    }
+  }
+
+  // Build new rows
+  var newRows = [];
+
+  for (var c = 0; c < corporateRecords.length; c++) {
+    var cr = corporateRecords[c];
+    var key = cr.date + '|' + cr.account_name;
+    if (!existingKeys[key]) {
+      newRows.push(cr.date + ',Corporate,' + cr.account_name + ',' + cr.value);
+      existingKeys[key] = true;
+    }
+  }
+
+  for (var g = 0; g < gustomerRecords.length; g++) {
+    var gr = gustomerRecords[g];
+    var key2 = gr.date + '|' + gr.account_name;
+    if (!existingKeys[key2]) {
+      newRows.push(gr.date + ',Customer,' + gr.account_name + ',' + gr.value);
+      existingKeys[key2] = true;
+    }
+  }
+
+  if (newRows.length === 0) {
+    Logger.log('No new CSV rows to append for ' + dateStr);
+    return;
+  }
+
+  // Append new rows and commit
+  var updatedCsv = existingCsv;
+  if (!updatedCsv.endsWith('\n')) {
+    updatedCsv += '\n';
+  }
+  updatedCsv += newRows.join('\n') + '\n';
+
+  writeCsvToGitHub_(
+    PIPELINE_CONFIG.GITHUB_BALANCE_HISTORY_PATH,
+    updatedCsv,
+    'Append balance_history.csv for ' + dateStr + ' (' + newRows.length + ' rows)'
+  );
+
+  Logger.log('Appended ' + newRows.length + ' rows to balance_history.csv.');
+}
+
+/**
+ * Reads a raw text file from GitHub (not JSON-parsed).
+ *
+ * @param  {string} filePath  Path within the repo
+ * @return {Object}           { content: <string>, sha: <string|null> }
+ */
+function readCsvFromGitHub_(filePath) {
+  var token = getGitHubToken_();
+  var baseUrl = 'https://api.github.com/repos/' +
+                PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+                PIPELINE_CONFIG.GITHUB_REPO;
+  var headers = {
+    'Authorization': 'token ' + token,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'TreasuryDashboard-AppsScript'
+  };
+
+  var metaUrl = baseUrl + '/contents/' + filePath + '?ref=' + PIPELINE_CONFIG.GITHUB_BRANCH;
+  var metaResp = UrlFetchApp.fetch(metaUrl, { method: 'get', headers: headers, muteHttpExceptions: true });
+
+  if (metaResp.getResponseCode() === 404) {
+    Logger.log('CSV file not found on GitHub (will be created): ' + filePath);
+    return { content: 'Date,Type,Account,Balance\n', sha: null };
+  }
+
+  if (metaResp.getResponseCode() !== 200) {
+    throw new Error('GitHub GET failed for CSV (' + metaResp.getResponseCode() + '): ' + metaResp.getContentText());
+  }
+
+  var meta = JSON.parse(metaResp.getContentText());
+
+  // Inline content (< 1MB)
+  if (meta.content && meta.content.length > 0) {
+    var decoded = Utilities.newBlob(
+      Utilities.base64Decode(meta.content.replace(/\n/g, ''))
+    ).getDataAsString();
+    return { content: decoded, sha: meta.sha };
+  }
+
+  // Large file via Blobs API
+  var blobUrl = baseUrl + '/git/blobs/' + meta.sha;
+  var blobResp = UrlFetchApp.fetch(blobUrl, { method: 'get', headers: headers, muteHttpExceptions: true });
+  if (blobResp.getResponseCode() !== 200) {
+    throw new Error('GitHub Blobs API failed for CSV: ' + blobResp.getContentText());
+  }
+  var blobJson = JSON.parse(blobResp.getContentText());
+  var blobDecoded = Utilities.newBlob(
+    Utilities.base64Decode(blobJson.content.replace(/\n/g, ''))
+  ).getDataAsString();
+  return { content: blobDecoded, sha: meta.sha };
+}
+
+/**
+ * Writes raw text content to a file in GitHub (used for CSV).
+ * Uses the Git Data API (blobs/trees/commits) for any file size.
+ *
+ * @param {string} filePath    Path within the repo
+ * @param {string} content     Raw text content
+ * @param {string} commitMsg   Commit message
+ */
+function writeCsvToGitHub_(filePath, content, commitMsg) {
+  var token = getGitHubToken_();
+  var baseUrl = 'https://api.github.com/repos/' +
+                PIPELINE_CONFIG.GITHUB_OWNER + '/' +
+                PIPELINE_CONFIG.GITHUB_REPO;
+  var headers = {
+    'Authorization': 'token ' + token,
+    'Accept': 'application/vnd.github.v3+json',
+    'User-Agent': 'TreasuryDashboard-AppsScript'
+  };
+
+  // Create blob
+  var blobResp = UrlFetchApp.fetch(baseUrl + '/git/blobs', {
+    method: 'post', headers: headers, contentType: 'application/json',
+    payload: JSON.stringify({ content: content, encoding: 'utf-8' }),
+    muteHttpExceptions: true
+  });
+  if (blobResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create blob failed (CSV): ' + blobResp.getContentText());
+  }
+  var blobSha = JSON.parse(blobResp.getContentText()).sha;
+
+  // Get current commit
+  var refResp = UrlFetchApp.fetch(baseUrl + '/git/ref/heads/' + PIPELINE_CONFIG.GITHUB_BRANCH, {
+    method: 'get', headers: headers, muteHttpExceptions: true
+  });
+  if (refResp.getResponseCode() !== 200) {
+    throw new Error('GitHub get ref failed (CSV): ' + refResp.getContentText());
+  }
+  var currentCommitSha = JSON.parse(refResp.getContentText()).object.sha;
+
+  // Get base tree
+  var commitResp = UrlFetchApp.fetch(baseUrl + '/git/commits/' + currentCommitSha, {
+    method: 'get', headers: headers, muteHttpExceptions: true
+  });
+  if (commitResp.getResponseCode() !== 200) {
+    throw new Error('GitHub get commit failed (CSV): ' + commitResp.getContentText());
+  }
+  var baseTreeSha = JSON.parse(commitResp.getContentText()).tree.sha;
+
+  // Create tree
+  var treeResp = UrlFetchApp.fetch(baseUrl + '/git/trees', {
+    method: 'post', headers: headers, contentType: 'application/json',
+    payload: JSON.stringify({
+      base_tree: baseTreeSha,
+      tree: [{ path: filePath, mode: '100644', type: 'blob', sha: blobSha }]
+    }),
+    muteHttpExceptions: true
+  });
+  if (treeResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create tree failed (CSV): ' + treeResp.getContentText());
+  }
+  var newTreeSha = JSON.parse(treeResp.getContentText()).sha;
+
+  // Create commit
+  var newCommitResp = UrlFetchApp.fetch(baseUrl + '/git/commits', {
+    method: 'post', headers: headers, contentType: 'application/json',
+    payload: JSON.stringify({ message: commitMsg, tree: newTreeSha, parents: [currentCommitSha] }),
+    muteHttpExceptions: true
+  });
+  if (newCommitResp.getResponseCode() !== 201) {
+    throw new Error('GitHub create commit failed (CSV): ' + newCommitResp.getContentText());
+  }
+  var newCommitSha = JSON.parse(newCommitResp.getContentText()).sha;
+
+  // Update ref
+  var updateRefResp = UrlFetchApp.fetch(baseUrl + '/git/refs/heads/' + PIPELINE_CONFIG.GITHUB_BRANCH, {
+    method: 'patch', headers: headers, contentType: 'application/json',
+    payload: JSON.stringify({ sha: newCommitSha }),
+    muteHttpExceptions: true
+  });
+  if (updateRefResp.getResponseCode() !== 200) {
+    throw new Error('GitHub update ref failed (CSV): ' + updateRefResp.getContentText());
+  }
+
+  Logger.log('Committed CSV update to GitHub (commit: ' + newCommitSha.substring(0, 7) + ').');
 }
 
 // ============================================================================
@@ -581,74 +1146,13 @@ function trimToMaxBusinessDaysJson_(records) {
 
 /**
  * Searches Google Drive for the most recent manifest JSON file from today.
- * The attachment downloader creates files named "manifest_YYYYMMDD_HHMMSS.json".
+ * Delegates to findManifestForDate_ with today's date.
  *
  * @return {Object|null} Parsed manifest object, or null if not found.
  */
 function findTodaysManifest_() {
-  var today = new Date();
-  var todayStr = Utilities.formatDate(today, 'America/New_York', 'yyyy-MM-dd');
-  var searchName = PIPELINE_CONFIG.MANIFEST_PATTERN + todayStr;
-
-  Logger.log('Searching Drive for manifest files matching: ' + searchName);
-
-  // Search Drive for files whose name contains today's date pattern
-  // Manifest files are saved as text/plain, not application/json
-  var query = 'title contains "' + searchName + '" and trashed = false';
-
-  // If a specific folder is configured, scope the search
-  if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
-    query += ' and "' + PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID + '" in parents';
-  }
-
-  var files = DriveApp.searchFiles(query);
-  var latestFile = null;
-  var latestDate = null;
-
-  while (files.hasNext()) {
-    var file = files.next();
-    var modified = file.getLastUpdated();
-    if (!latestDate || modified > latestDate) {
-      latestDate = modified;
-      latestFile = file;
-    }
-  }
-
-  if (!latestFile) {
-    // Fallback: search for any manifest modified today
-    Logger.log('No exact match. Trying broader search for manifests modified today...');
-    var todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    var broadQuery = 'title contains "manifest_" and modifiedDate >= "' +
-                     todayStart.toISOString() + '" and trashed = false';
-    var broadFiles = DriveApp.searchFiles(broadQuery);
-    while (broadFiles.hasNext()) {
-      var bf = broadFiles.next();
-      var bfDate = bf.getLastUpdated();
-      if (!latestDate || bfDate > latestDate) {
-        latestDate = bfDate;
-        latestFile = bf;
-      }
-    }
-  }
-
-  if (!latestFile) {
-    Logger.log('No manifest file found for today.');
-    return null;
-  }
-
-  Logger.log('Found manifest: ' + latestFile.getName() + ' (ID: ' + latestFile.getId() + ')');
-
-  // Read and parse the manifest JSON
-  var content = latestFile.getBlob().getDataAsString();
-  var manifest = JSON.parse(content);
-
-  // Normalize: the manifest might have files at the top level or nested
-  if (!manifest.files && Array.isArray(manifest)) {
-    manifest = { files: manifest };
-  }
-
-  return manifest;
+  var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+  return findManifestForDate_(todayStr);
 }
 
 // ============================================================================
