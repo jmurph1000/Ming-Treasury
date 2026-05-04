@@ -1106,6 +1106,13 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
 function trimToMaxBusinessDaysJson_(records) {
   if (records.length === 0) return records;
 
+  // Never trim if MAX_BUSINESS_DAYS is not a finite positive number
+  var maxDays = PIPELINE_CONFIG.MAX_BUSINESS_DAYS;
+  if (!maxDays || !isFinite(maxDays) || maxDays <= 0) {
+    Logger.log('MAX_BUSINESS_DAYS is ' + maxDays + ' — skipping trim (all data preserved).');
+    return records;
+  }
+
   // Collect unique dates
   var uniqueDates = [];
   var seenDates = {};
@@ -1118,17 +1125,17 @@ function trimToMaxBusinessDaysJson_(records) {
   }
 
   // If within limits, return as-is
-  if (uniqueDates.length <= PIPELINE_CONFIG.MAX_BUSINESS_DAYS) {
+  if (uniqueDates.length <= maxDays) {
     return records;
   }
 
-  // Keep only the most recent MAX_BUSINESS_DAYS dates
+  // Keep only the most recent maxDays dates
   uniqueDates.sort();
-  var cutoffIndex = uniqueDates.length - PIPELINE_CONFIG.MAX_BUSINESS_DAYS;
+  var cutoffIndex = uniqueDates.length - maxDays;
   var cutoffDate = uniqueDates[cutoffIndex];
 
   Logger.log('Trimming data: keeping dates from ' + cutoffDate + ' onward (' +
-             PIPELINE_CONFIG.MAX_BUSINESS_DAYS + ' unique dates).');
+             maxDays + ' unique dates).');
 
   var trimmed = [];
   for (var j = 0; j < records.length; j++) {
