@@ -36567,7 +36567,7 @@
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-05-05",
-    "value": 9768115.63
+    "value": 10534532.71
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
@@ -36597,7 +36597,7 @@
   {
     "account_description": "BRB Customer Wire-Ins -2019",
     "reporting_date": "2026-05-05",
-    "value": 1180597.52
+    "value": 1266735.9
   },
   {
     "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
@@ -36612,7 +36612,7 @@
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
     "reporting_date": "2026-05-05",
-    "value": 78.47
+    "value": 2030.32
   },
   {
     "account_description": "BTC GDL IRA CORRECT 102063000000",
@@ -36632,7 +36632,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-05-05",
-    "value": 79850.39
+    "value": 80641.21
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -36672,7 +36672,7 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-05-05",
-    "value": 5661684.46
+    "value": 3767915.04
   },
   {
     "account_description": "JPMChase Investments -6826",
@@ -36717,7 +36717,7 @@
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-05-05",
-    "value": 139595653.32
+    "value": 149503255.82
   },
   {
     "account_description": "Recovery Wire In 3711",
