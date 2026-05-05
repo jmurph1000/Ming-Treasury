@@ -1139,8 +1139,8 @@
         });
 
         // Forecast charts state
-        var corpFcState = { days: 252, banks: null };
-        var gustFcState = { days: 252, banks: null };
+        var corpFcState = { days: 21, banks: null };
+        var gustFcState = { days: 21, banks: null };
         var corpFcColor = 'rgba(245, 158, 11, 1)';
         var gustFcColor = 'rgba(167, 139, 250, 1)';
 
@@ -1173,7 +1173,7 @@
         setTimeout(function () {
           var corpFcChart = createForecastChart(
             'chart-corporate-forecast', 'Corporate Cash',
-            corpSeries, 252, '#22d3ee', corpFcColor
+            corpSeries, 21, '#22d3ee', corpFcColor
           );
 
           setupYSlider('yslider-corp-forecast', 'yslider-corp-val', corpFcChart);
@@ -1199,7 +1199,7 @@
 
           var gustFcChart = createForecastChart(
             'chart-gustomer-forecast', 'Gustomer Cash',
-            gustSeries, 252, '#10b981', gustFcColor
+            gustSeries, 21, '#10b981', gustFcColor
           );
 
           setupYSlider('yslider-gust-forecast', 'yslider-gust-val', gustFcChart);
