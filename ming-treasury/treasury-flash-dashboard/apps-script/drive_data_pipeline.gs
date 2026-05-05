@@ -477,6 +477,19 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
 
   Logger.log('Existing records from GitHub: ' + existingData.length);
 
+  // Safety guard: if the file exists but returned far fewer records than
+  // expected, the read likely failed silently (e.g. GitHub API truncation
+  // or blob decode error). Abort rather than overwriting good data.
+  var MIN_EXPECTED_RECORDS = 500;
+  if (sha && existingData.length < MIN_EXPECTED_RECORDS && existingData.length < newRecords.length * 5) {
+    var errMsg = 'SAFETY ABORT: GitHub read returned only ' + existingData.length +
+                 ' records for ' + filePath + ' (expected 500+). ' +
+                 'This likely means the read failed. Refusing to overwrite to prevent data loss.';
+    Logger.log(errMsg);
+    sendPipelineErrorNotification_(new Error(errMsg), 'mergeAndPushToGitHub_');
+    return;
+  }
+
   // Step 2: Build a set of (date, account_name) keys being updated
   var newKeys = {};
   for (var i = 0; i < newRecords.length; i++) {
@@ -571,6 +584,17 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
   keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
 
   Logger.log('Total records after merge: ' + keptRecords.length);
+
+  // Safety guard: never write fewer records than we started with.
+  // The pipeline only adds data — a decrease means something went wrong.
+  if (existingData.length > 0 && keptRecords.length < existingData.length * 0.9) {
+    var errMsg = 'SAFETY ABORT: Merge would reduce records from ' + existingData.length +
+                 ' to ' + keptRecords.length + ' in ' + filePath +
+                 '. This indicates data loss. Refusing to push.';
+    Logger.log(errMsg);
+    sendPipelineErrorNotification_(new Error(errMsg), 'mergeAndPushToGitHub_');
+    return;
+  }
 
   // Step 9: Push the updated JSON back to GitHub
   writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
