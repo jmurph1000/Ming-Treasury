@@ -559,7 +559,7 @@
 
   function buildForecastDatasets(historicalSeries, forecastDays, histColor, forecastColor) {
     var forecast = generateForecast(historicalSeries, forecastDays);
-    var trailDays = Math.min(63, historicalSeries.length);
+    var trailDays = Math.min(forecastDays, historicalSeries.length);
     var histTail = historicalSeries.slice(-trailDays);
 
     var allLabels = histTail.map(function (d) { return d.date; })
