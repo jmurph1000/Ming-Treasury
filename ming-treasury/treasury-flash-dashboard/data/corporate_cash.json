@@ -104442,7 +104442,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-05-01",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -104737,7 +104737,7 @@
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-05-01",
-    "value": 200000.0
+    "value": 200000
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
@@ -104757,7 +104757,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-05-01",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -104802,7 +104802,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-05-01",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -104817,12 +104817,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-05-01",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-05-01",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
@@ -105702,7 +105702,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-05-04",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -106017,7 +106017,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-05-04",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -106047,7 +106047,7 @@
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
     "reporting_date": "2026-05-04",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
@@ -106062,7 +106062,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-05-04",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -106077,12 +106077,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-05-04",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-05-04",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
@@ -106122,7 +106122,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-05-05",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -106437,7 +106437,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-05-05",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -106467,7 +106467,7 @@
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
     "reporting_date": "2026-05-05",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
@@ -106482,7 +106482,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-05-05",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -106497,12 +106497,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-05-05",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-05-05",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
@@ -106542,7 +106542,7 @@
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-05-06",
-    "value": 18300.0
+    "value": 18300
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
@@ -106857,7 +106857,7 @@
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-05-06",
-    "value": 45000.0
+    "value": 45000
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
@@ -106887,7 +106887,7 @@
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
     "reporting_date": "2026-05-06",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
@@ -106902,7 +106902,7 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-05-06",
-    "value": 7500.0
+    "value": 7500
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -106917,12 +106917,12 @@
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-05-06",
-    "value": 499995.0
+    "value": 499995
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-05-06",
-    "value": 750000.0
+    "value": 750000
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
