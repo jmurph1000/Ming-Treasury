@@ -1087,10 +1087,9 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return 0;
   });
 
-  // Step 7: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
-  keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
+  // Step 7: No trimming — all historical data is preserved permanently.
 
-  Logger.log('Total records after merge and trim: ' + keptRecords.length);
+  Logger.log('Total records after merge: ' + keptRecords.length);
 
   // Step 8: Push the updated JSON back to GitHub
   writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
