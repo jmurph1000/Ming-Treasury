@@ -1041,17 +1041,20 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
 
   Logger.log('Existing records from GitHub: ' + existingData.length);
 
-  // Step 2: Determine which dates are being updated
-  var newDates = {};
+  // Step 2: Build a set of (date, account) keys from new records
+  var newKeys = {};
   for (var i = 0; i < newRecords.length; i++) {
-    newDates[newRecords[i].date] = true;
+    var nk = newRecords[i].date + '|' + newRecords[i].account_name;
+    newKeys[nk] = true;
   }
 
-  // Step 3: Filter out existing records for dates being replaced
+  // Step 3: Keep existing records unless the pipeline has a new value for
+  //         the exact same (date, account). Records from other sources
+  //         (e.g. screenshot balances) on the same date are preserved.
   var keptRecords = [];
   for (var j = 0; j < existingData.length; j++) {
-    var existingDate = existingData[j].reporting_date;
-    if (!newDates[existingDate]) {
+    var ek = existingData[j].reporting_date + '|' + existingData[j].account_description;
+    if (!newKeys[ek]) {
       keptRecords.push(existingData[j]);
     }
   }
@@ -1087,7 +1090,45 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return 0;
   });
 
-  // Step 7: No trimming — all historical data is preserved permanently.
+  // Step 7: Carry forward accounts missing from the latest date.
+  //         Non-pipeline accounts (e.g. NBKC, Morgan Stanley, BTC) are only
+  //         updated via screenshots. When the pipeline adds a new date for
+  //         JPM/PNC, those other accounts would have no row for the new date.
+  //         Carry their last known balance forward so they remain visible.
+  var allDates = {};
+  for (var cf = 0; cf < keptRecords.length; cf++) {
+    allDates[keptRecords[cf].reporting_date] = true;
+  }
+  var sortedDates = Object.keys(allDates).sort();
+  if (sortedDates.length >= 2) {
+    var latestDate = sortedDates[sortedDates.length - 1];
+    var prevDate = sortedDates[sortedDates.length - 2];
+    var latestAccts = {};
+    var prevAccts = {};
+    for (var cf2 = 0; cf2 < keptRecords.length; cf2++) {
+      if (keptRecords[cf2].reporting_date === latestDate) {
+        latestAccts[keptRecords[cf2].account_description] = true;
+      }
+      if (keptRecords[cf2].reporting_date === prevDate) {
+        prevAccts[keptRecords[cf2].account_description] = keptRecords[cf2].value;
+      }
+    }
+    var carried = 0;
+    var prevKeys2 = Object.keys(prevAccts);
+    for (var cf3 = 0; cf3 < prevKeys2.length; cf3++) {
+      if (!latestAccts[prevKeys2[cf3]]) {
+        keptRecords.push({
+          account_description: prevKeys2[cf3],
+          reporting_date: latestDate,
+          value: prevAccts[prevKeys2[cf3]]
+        });
+        carried++;
+      }
+    }
+    if (carried > 0) {
+      Logger.log('Carried forward ' + carried + ' accounts from ' + prevDate + ' to ' + latestDate);
+    }
+  }
 
   Logger.log('Total records after merge: ' + keptRecords.length);
 
