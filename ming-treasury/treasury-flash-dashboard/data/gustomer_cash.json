@@ -36952,7 +36952,7 @@
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-05-07",
-    "value": 9768115.63
+    "value": 6654625.56
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
@@ -36982,7 +36982,7 @@
   {
     "account_description": "BRB Customer Wire-Ins -2019",
     "reporting_date": "2026-05-07",
-    "value": 1180597.52
+    "value": 1335027.39
   },
   {
     "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
@@ -36992,12 +36992,12 @@
   {
     "account_description": "BTC GDL CORRECTIONS 109963000507",
     "reporting_date": "2026-05-07",
-    "value": 0
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
     "reporting_date": "2026-05-07",
-    "value": 78.47
+    "value": 2041.66
   },
   {
     "account_description": "BTC GDL IRA CORRECT 102063000000",
@@ -37007,7 +37007,7 @@
   {
     "account_description": "BTC GDL IRA Trade Er 109963000504",
     "reporting_date": "2026-05-07",
-    "value": 0
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL IRA Trade Su 109963000505",
@@ -37017,7 +37017,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-05-07",
-    "value": 79850.39
+    "value": 80920.0
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -37027,7 +37027,7 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-05-07",
-    "value": 5661684.46
+    "value": 8405821.56
   },
   {
     "account_description": "JPMChase Investments -6826",
@@ -37037,7 +37037,7 @@
   {
     "account_description": "NBKC Customer (Instant Payroll) - 0673",
     "reporting_date": "2026-05-07",
-    "value": 81611.4
+    "value": 77499.16
   },
   {
     "account_description": "PNC Investments - 24410000",
@@ -37047,7 +37047,7 @@
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-05-07",
-    "value": 139595653.32
+    "value": 149640035.82
   },
   {
     "account_description": "Recovery Wire In 3711",
@@ -37057,6 +37057,6 @@
   {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-05-07",
-    "value": 467.48
+    "value": 472.12
   }
 ]
