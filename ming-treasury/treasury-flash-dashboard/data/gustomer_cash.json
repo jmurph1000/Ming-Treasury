@@ -37060,81 +37060,6 @@
     "value": 472.12
   },
   {
-    "account_description": "BRB Customer ACH -3251 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 6654625.56
-  },
-  {
-    "account_description": "BRB Customer ACH -5683 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Drawdowns -8889 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Future Use -5353 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Master -2065 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Master -2715 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 175.29
-  },
-  {
-    "account_description": "BRB Customer Wire-Ins -2019",
-    "reporting_date": "2026-05-08",
-    "value": 1335027.39
-  },
-  {
-    "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL CORRECTIONS 109963000507",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL FBO Clients 109963000000",
-    "reporting_date": "2026-05-08",
-    "value": 2041.66
-  },
-  {
-    "account_description": "BTC GDL IRA CORRECT 102063000000",
-    "reporting_date": "2026-05-08",
-    "value": -46.72
-  },
-  {
-    "account_description": "BTC GDL IRA Trade Er 109963000504",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL IRA Trade Su 109963000505",
-    "reporting_date": "2026-05-08",
-    "value": 4562.57
-  },
-  {
-    "account_description": "BTC GDL RK Trade Err 109963000503",
-    "reporting_date": "2026-05-08",
-    "value": 80920
-  },
-  {
-    "account_description": "BTC GDL RK Trade Sup 109963000502",
-    "reporting_date": "2026-05-08",
-    "value": 186.28
-  },
-  {
     "account_description": "Chase 3rd Party Processors - 5119",
     "reporting_date": "2026-05-08",
     "value": 7106933.95
@@ -37165,21 +37090,6 @@
     "value": 3818380.03
   },
   {
-    "account_description": "GH Program - 5843",
-    "reporting_date": "2026-05-08",
-    "value": 8405821.56
-  },
-  {
-    "account_description": "JPMChase Investments -6826",
-    "reporting_date": "2026-05-08",
-    "value": 161061407.69
-  },
-  {
-    "account_description": "NBKC Customer (Instant Payroll) - 0673",
-    "reporting_date": "2026-05-08",
-    "value": 77499.16
-  },
-  {
     "account_description": "PNC Customer (Gusto) - 6975",
     "reporting_date": "2026-05-08",
     "value": 0
@@ -37192,7 +37102,7 @@
   {
     "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
     "reporting_date": "2026-05-08",
-    "value": 189651845.19
+    "value": 213825713.48
   },
   {
     "account_description": "PNC Customer Drawdowns -0462",
@@ -37202,356 +37112,116 @@
   {
     "account_description": "PNC Customer Wire Ins (Gusto) -0489",
     "reporting_date": "2026-05-08",
-    "value": 2709655.35
-  },
-  {
-    "account_description": "PNC Investments - 24410000",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Investments -8174",
-    "reporting_date": "2026-05-08",
-    "value": 149640035.82
-  },
-  {
-    "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-05-08",
-    "value": 0
-  },
-  {
-    "account_description": "Scotiabank 5310 (CAD)",
-    "reporting_date": "2026-05-08",
-    "value": 472.12
+    "value": 563274.9
   },
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
-    "reporting_date": "2026-05-09",
-    "value": 6654625.56
+    "reporting_date": "2026-05-08",
+    "value": 13345454.77
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "BRB Customer Drawdowns -8889 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "BRB Customer Future Use -5353 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "BRB Customer Master -2065 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "BRB Customer Master -2715 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 175.29
   },
   {
     "account_description": "BRB Customer Wire-Ins -2019",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 1335027.39
   },
   {
     "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "BTC GDL CORRECTIONS 109963000507",
-    "reporting_date": "2026-05-09",
-    "value": 0
+    "reporting_date": "2026-05-08",
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
-    "reporting_date": "2026-05-09",
-    "value": 2041.66
+    "reporting_date": "2026-05-08",
+    "value": 2137.51
   },
   {
     "account_description": "BTC GDL IRA CORRECT 102063000000",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": -46.72
   },
   {
     "account_description": "BTC GDL IRA Trade Er 109963000504",
-    "reporting_date": "2026-05-09",
-    "value": 0
+    "reporting_date": "2026-05-08",
+    "value": 0.0
   },
   {
     "account_description": "BTC GDL IRA Trade Su 109963000505",
-    "reporting_date": "2026-05-09",
+    "reporting_date": "2026-05-08",
     "value": 4562.57
   },
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
-    "reporting_date": "2026-05-09",
-    "value": 80920
+    "reporting_date": "2026-05-08",
+    "value": 82011.19
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
-    "reporting_date": "2026-05-09",
-    "value": 186.28
-  },
-  {
-    "account_description": "Chase 3rd Party Processors - 5119",
-    "reporting_date": "2026-05-09",
-    "value": 9390639.59
-  },
-  {
-    "account_description": "Chase Customer Deposits (Gusto) -7908",
-    "reporting_date": "2026-05-09",
-    "value": 417367352.48
-  },
-  {
-    "account_description": "Chase GEP Partnership 9025",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Recovery Ops (Gusto)-9803",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Reverse Wire Payrolls (Gusto) -9795",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Wire In (Gusto) -9829",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "GH Program - 5843",
-    "reporting_date": "2026-05-09",
-    "value": 8405821.56
-  },
-  {
-    "account_description": "JPMChase Investments -6826",
-    "reporting_date": "2026-05-09",
-    "value": 161061407.69
-  },
-  {
-    "account_description": "NBKC Customer (Instant Payroll) - 0673",
-    "reporting_date": "2026-05-09",
-    "value": 77499.16
-  },
-  {
-    "account_description": "PNC Customer (Gusto) - 6975",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer 3rd Party Debits -0454",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
-    "reporting_date": "2026-05-09",
-    "value": 189651845.19
-  },
-  {
-    "account_description": "PNC Customer Drawdowns -0462",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer Wire Ins (Gusto) -0489",
-    "reporting_date": "2026-05-09",
-    "value": 2709655.35
-  },
-  {
-    "account_description": "PNC Investments - 24410000",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Investments -8174",
-    "reporting_date": "2026-05-09",
-    "value": 149640035.82
-  },
-  {
-    "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-05-09",
-    "value": 0
-  },
-  {
-    "account_description": "Scotiabank 5310 (CAD)",
-    "reporting_date": "2026-05-09",
-    "value": 472.12
-  },
-  {
-    "account_description": "Chase 3rd Party Processors - 5119",
-    "reporting_date": "2026-05-10",
-    "value": 9390639.59
-  },
-  {
-    "account_description": "Chase Customer Deposits (Gusto) -7908",
-    "reporting_date": "2026-05-10",
-    "value": 417367352.48
-  },
-  {
-    "account_description": "Chase GEP Partnership 9025",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Recovery Ops (Gusto)-9803",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Reverse Wire Payrolls (Gusto) -9795",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Wire In (Gusto) -9829",
-    "reporting_date": "2026-05-10",
-    "value": 14250.09
-  },
-  {
-    "account_description": "BRB Customer ACH -3251 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 6654625.56
-  },
-  {
-    "account_description": "BRB Customer ACH -5683 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Drawdowns -8889 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Future Use -5353 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Master -2065 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Customer Master -2715 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 175.29
-  },
-  {
-    "account_description": "BRB Customer Wire-Ins -2019",
-    "reporting_date": "2026-05-10",
-    "value": 1335027.39
-  },
-  {
-    "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL CORRECTIONS 109963000507",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL FBO Clients 109963000000",
-    "reporting_date": "2026-05-10",
-    "value": 2041.66
-  },
-  {
-    "account_description": "BTC GDL IRA CORRECT 102063000000",
-    "reporting_date": "2026-05-10",
-    "value": -46.72
-  },
-  {
-    "account_description": "BTC GDL IRA Trade Er 109963000504",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "BTC GDL IRA Trade Su 109963000505",
-    "reporting_date": "2026-05-10",
-    "value": 4562.57
-  },
-  {
-    "account_description": "BTC GDL RK Trade Err 109963000503",
-    "reporting_date": "2026-05-10",
-    "value": 80920
-  },
-  {
-    "account_description": "BTC GDL RK Trade Sup 109963000502",
-    "reporting_date": "2026-05-10",
+    "reporting_date": "2026-05-08",
     "value": 186.28
   },
   {
     "account_description": "GH Program - 5843",
-    "reporting_date": "2026-05-10",
-    "value": 8405821.56
+    "reporting_date": "2026-05-08",
+    "value": 6056435.38
   },
   {
     "account_description": "JPMChase Investments -6826",
-    "reporting_date": "2026-05-10",
+    "reporting_date": "2026-05-08",
     "value": 161061407.69
   },
   {
     "account_description": "NBKC Customer (Instant Payroll) - 0673",
-    "reporting_date": "2026-05-10",
-    "value": 77499.16
-  },
-  {
-    "account_description": "PNC Customer (Gusto) - 6975",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer 3rd Party Debits -0454",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer ACH/OB Wires (Gusto) -0497",
-    "reporting_date": "2026-05-10",
-    "value": 189651845.19
-  },
-  {
-    "account_description": "PNC Customer Drawdowns -0462",
-    "reporting_date": "2026-05-10",
-    "value": 0
-  },
-  {
-    "account_description": "PNC Customer Wire Ins (Gusto) -0489",
-    "reporting_date": "2026-05-10",
-    "value": 2709655.35
+    "reporting_date": "2026-05-08",
+    "value": 72392.11
   },
   {
     "account_description": "PNC Investments - 24410000",
-    "reporting_date": "2026-05-10",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "PNC Investments -8174",
-    "reporting_date": "2026-05-10",
-    "value": 149640035.82
+    "reporting_date": "2026-05-08",
+    "value": 149575630.82
   },
   {
     "account_description": "Recovery Wire In 3711",
-    "reporting_date": "2026-05-10",
+    "reporting_date": "2026-05-08",
     "value": 0
   },
   {
     "account_description": "Scotiabank 5310 (CAD)",
-    "reporting_date": "2026-05-10",
-    "value": 472.12
+    "reporting_date": "2026-05-08",
+    "value": 467.48
   }
 ]
