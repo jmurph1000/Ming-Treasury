@@ -559,16 +559,8 @@
 
   function buildForecastDatasets(historicalSeries, forecastDays, histColor, forecastColor) {
     var forecast = generateForecast(historicalSeries, forecastDays);
-
-    // Start from Monday of the current week
-    var now = new Date();
-    var dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
-    var diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    var monday = new Date(now);
-    monday.setDate(now.getDate() - diffToMon);
-    var mondayStr = toDateStr(monday);
-
-    var histTail = historicalSeries.filter(function (d) { return d.date >= mondayStr; });
+    var trailDays = Math.min(forecastDays, historicalSeries.length);
+    var histTail = historicalSeries.slice(-trailDays);
 
     var allLabels = histTail.map(function (d) { return d.date; })
       .concat(forecast.map(function (d) { return d.date; }));
