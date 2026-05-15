@@ -197192,47 +197192,47 @@
   {
     "account_description": "BRB Operating 3313",
     "reporting_date": "2026-05-15",
-    "value": 191865.15
+    "value": 191446.58
   },
   {
     "account_description": "BTC GDL 401K AUM FEE 102063000002",
     "reporting_date": "2026-05-15",
-    "value": 270483.37
+    "value": 199360.09
   },
   {
     "account_description": "BTC GDL 401K FLEX RE 109963000506",
     "reporting_date": "2026-05-15",
-    "value": 45386.58
+    "value": 45954.58
   },
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-05-15",
-    "value": 16900
+    "value": 16900.0
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
     "reporting_date": "2026-05-15",
-    "value": -2313.56
+    "value": 15490.17
   },
   {
     "account_description": "BTC GDL DISMISS FEE 109963000500",
     "reporting_date": "2026-05-15",
-    "value": 194289.25
+    "value": 116933.0
   },
   {
     "account_description": "BTC GDL IRA AUM FEE 102063000003",
     "reporting_date": "2026-05-15",
-    "value": 29168.75
+    "value": 29159.86
   },
   {
     "account_description": "BTC GDL PASS-THRU 101063000000",
     "reporting_date": "2026-05-15",
-    "value": 112143.55
+    "value": 112140.83
   },
   {
     "account_description": "BTC IRA PASS-THRU 102063900000",
     "reporting_date": "2026-05-15",
-    "value": 8440.54
+    "value": 8442.54
   },
   {
     "account_description": "Bank Leumi 0065",
@@ -197282,7 +197282,7 @@
   {
     "account_description": "Gusto Stripe",
     "reporting_date": "2026-05-15",
-    "value": 12153.2
+    "value": 14573.4
   },
   {
     "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
@@ -197307,32 +197307,32 @@
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-05-15",
-    "value": 200000
+    "value": 210351.0
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
     "reporting_date": "2026-05-15",
-    "value": 218879.26
+    "value": 186429.92
   },
   {
     "account_description": "Midfirst Symmetry Savings 4829",
     "reporting_date": "2026-05-15",
-    "value": 2755323.82
+    "value": 2744972.82
   },
   {
     "account_description": "Morgan Stanley Cash Citibank",
     "reporting_date": "2026-05-15",
-    "value": 286047463.49
+    "value": 286076611.45
   },
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
     "reporting_date": "2026-05-15",
-    "value": 45000
+    "value": 45000.0
   },
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
     "reporting_date": "2026-05-15",
-    "value": 536347
+    "value": 520862.28
   },
   {
     "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
@@ -197342,17 +197342,17 @@
   {
     "account_description": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
     "reporting_date": "2026-05-15",
-    "value": 54713.51
+    "value": 60123.32
   },
   {
     "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
     "reporting_date": "2026-05-15",
-    "value": 1564787.97
+    "value": 2932141.75
   },
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
     "reporting_date": "2026-05-15",
-    "value": 0
+    "value": 0.0
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
@@ -197367,17 +197367,17 @@
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-05-15",
-    "value": 7500
+    "value": 7500.0
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
     "reporting_date": "2026-05-15",
-    "value": 499995
+    "value": 499995.0
   },
   {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-05-15",
-    "value": 750000
+    "value": 750000.0
   },
   {
     "account_description": "Scotiabank 6812 (CAD)",
