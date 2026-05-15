@@ -972,28 +972,8 @@
 
   // ===== Main Initialization =====
 
-  function convertForeignCurrency(data) {
-    var MXN_USD = 19.5;
-    return fetchJSON('https://open.er-api.com/v6/latest/USD')
-      .then(function (rates) { MXN_USD = rates.rates.MXN || MXN_USD; })
-      .catch(function () {})
-      .then(function () {
-        data.forEach(function (r) {
-          if (r.account_description === 'Chase Mexico (MXN) 6837' && r.value > 50000) {
-            r.value = r.value / MXN_USD;
-          }
-        });
-        return data;
-      });
-  }
-
   function init() {
     loadDashboardData()
-      .then(function (data) {
-        return convertForeignCurrency(data.corporate).then(function (corp) {
-          return { corporate: corp, gustomer: data.gustomer };
-        });
-      })
       .then(function (data) {
         var corpDataAll = data.corporate;
         var gustData = data.gustomer;
