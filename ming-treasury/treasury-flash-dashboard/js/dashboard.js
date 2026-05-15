@@ -903,14 +903,6 @@
       badge.textContent = bankAccounts.length;
       tdBankName.appendChild(badge);
 
-      // Stale balance alert icon
-      if (staleMap[bank] && staleMap[bank].stale) {
-        var staleIcon = document.createElement('span');
-        staleIcon.className = 'stale-icon';
-        staleIcon.textContent = '⚠';
-        staleIcon.title = 'Balance unchanged since ' + formatDate(staleMap[bank].lastChangedDate);
-        tdBankName.appendChild(staleIcon);
-      }
 
       var tdBankVal = document.createElement('td');
       tdBankVal.textContent = formatCurrencyFull(bankTotal);
@@ -927,13 +919,6 @@
         tr.className = 'account-row' + (isExpanded ? ' visible' : '');
         var tdName = document.createElement('td');
         tdName.textContent = row.account_description;
-        if (acctStaleMap[row.account_description]) {
-          var acctIcon = document.createElement('span');
-          acctIcon.className = 'stale-icon';
-          acctIcon.textContent = '⚠';
-          acctIcon.title = 'Balance unchanged from prior day';
-          tdName.appendChild(acctIcon);
-        }
         var tdVal = document.createElement('td');
         tdVal.textContent = formatCurrencyFull(row.value);
         tr.appendChild(tdName);
