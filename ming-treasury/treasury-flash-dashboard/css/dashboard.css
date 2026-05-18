@@ -458,7 +458,8 @@ body {
 }
 
 /* Stale balance caution icon */
-.stale-icon {
+.stale-icon,
+.stale-warning {
   color: var(--accent-red);
   font-size: 0.85rem;
   margin-left: 0.35rem;
