@@ -152,6 +152,27 @@
    */
   function getRecordsForDate(data, dateStr) {
     var records = data.filter(function (r) { return r.reporting_date === dateStr; });
+
+    // Carry forward: for accounts that exist on prior dates but not on this date,
+    // include their most recent value so they don't disappear from the table.
+    var presentAccounts = {};
+    records.forEach(function (r) { presentAccounts[r.account_description] = true; });
+
+    var allAccounts = {};
+    data.forEach(function (r) {
+      if (!allAccounts[r.account_description] || r.reporting_date > allAccounts[r.account_description].reporting_date) {
+        if (r.reporting_date <= dateStr) {
+          allAccounts[r.account_description] = r;
+        }
+      }
+    });
+
+    Object.keys(allAccounts).forEach(function (acct) {
+      if (!presentAccounts[acct]) {
+        records.push(allAccounts[acct]);
+      }
+    });
+
     records.sort(function (a, b) { return b.value - a.value; });
     return { date: dateStr, records: records };
   }
