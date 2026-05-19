@@ -38477,7 +38477,7 @@
   {
     "account_description": "BTC GDL CORRECTIONS 109963000507",
     "reporting_date": "2026-05-18",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
@@ -38492,7 +38492,7 @@
   {
     "account_description": "BTC GDL IRA Trade Er 109963000504",
     "reporting_date": "2026-05-18",
-    "value": 0.0
+    "value": 0
   },
   {
     "account_description": "BTC GDL IRA Trade Su 109963000505",
@@ -38542,6 +38542,71 @@
   {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-05-18",
+    "value": 467.48
+  },
+  {
+    "account_description": "BRB Customer Wire-Ins -2019",
+    "reporting_date": "2026-05-19",
+    "value": 1347963.82
+  },
+  {
+    "account_description": "BRB Customer Master -2715 (Gusto)",
+    "reporting_date": "2026-05-19",
+    "value": 175.29
+  },
+  {
+    "account_description": "BRB Customer ACH -3251 (Gusto)",
+    "reporting_date": "2026-05-19",
+    "value": 10315720.47
+  },
+  {
+    "account_description": "BTC GDL IRA CORRECT 102063000000",
+    "reporting_date": "2026-05-19",
+    "value": -780.12
+  },
+  {
+    "account_description": "BTC GDL FBO Clients 109963000000",
+    "reporting_date": "2026-05-19",
+    "value": 2500.72
+  },
+  {
+    "account_description": "BTC GDL RK Trade Sup 109963000502",
+    "reporting_date": "2026-05-19",
+    "value": 186.28
+  },
+  {
+    "account_description": "BTC GDL RK Trade Err 109963000503",
+    "reporting_date": "2026-05-19",
+    "value": 85536.95
+  },
+  {
+    "account_description": "BTC GDL IRA Trade Er 109963000504",
+    "reporting_date": "2026-05-19",
+    "value": 0
+  },
+  {
+    "account_description": "BTC GDL IRA Trade Su 109963000505",
+    "reporting_date": "2026-05-19",
+    "value": 4562.57
+  },
+  {
+    "account_description": "BTC GDL CORRECTIONS 109963000507",
+    "reporting_date": "2026-05-19",
+    "value": 0
+  },
+  {
+    "account_description": "GH Program - 5843",
+    "reporting_date": "2026-05-19",
+    "value": 3484725.97
+  },
+  {
+    "account_description": "PNC Investments -8174",
+    "reporting_date": "2026-05-19",
+    "value": 149367410.82
+  },
+  {
+    "account_description": "Scotiabank 5310 (CAD)",
+    "reporting_date": "2026-05-19",
     "value": 467.48
   }
 ]
