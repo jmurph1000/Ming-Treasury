@@ -198982,12 +198982,12 @@
   {
     "account_description": "BTC GDL 401K AUM FEE 102063000002",
     "reporting_date": "2026-05-20",
-    "value": 10734.7
+    "value": 199454.56
   },
   {
     "account_description": "BTC GDL 401K FLEX RE 109963000506",
     "reporting_date": "2026-05-20",
-    "value": 46006.58
+    "value": 46614.58
   },
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
@@ -198997,12 +198997,12 @@
   {
     "account_description": "BTC GDL Client Plans 109963000001",
     "reporting_date": "2026-05-20",
-    "value": -2265.52
+    "value": -2174.03
   },
   {
     "account_description": "BTC GDL DISMISS FEE 109963000500",
     "reporting_date": "2026-05-20",
-    "value": 58880.98
+    "value": 111140.98
   },
   {
     "account_description": "BTC GDL IRA AUM FEE 102063000003",
@@ -199037,7 +199037,7 @@
   {
     "account_description": "Gusto Stripe",
     "reporting_date": "2026-05-20",
-    "value": 12792.08
+    "value": 17334.11
   },
   {
     "account_description": "Midfirst Symmetry Operating 2841",
@@ -199047,7 +199047,7 @@
   {
     "account_description": "Midfirst Symmetry Operating 5804",
     "reporting_date": "2026-05-20",
-    "value": 191679.92
+    "value": 266460.92
   },
   {
     "account_description": "Midfirst Symmetry Savings 4829",
@@ -199057,7 +199057,7 @@
   {
     "account_description": "Morgan Stanley Cash Citibank",
     "reporting_date": "2026-05-20",
-    "value": 286193050.62
+    "value": 286222167.89
   },
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
@@ -199093,5 +199093,45 @@
     "account_description": "Symmetry Petty Cash",
     "reporting_date": "2026-05-20",
     "value": 2964.76
+  },
+  {
+    "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
+    "reporting_date": "2026-05-20",
+    "value": -8655.01
+  },
+  {
+    "account_description": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
+    "reporting_date": "2026-05-20",
+    "value": 62742.64
+  },
+  {
+    "account_description": "NBKC Sunrise Reserve Account 4319",
+    "reporting_date": "2026-05-20",
+    "value": 69.99
+  },
+  {
+    "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
+    "reporting_date": "2026-05-20",
+    "value": 4319.95
+  },
+  {
+    "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
+    "reporting_date": "2026-05-20",
+    "value": 539825.05
+  },
+  {
+    "account_description": "NBKC Card Settlement -4683 (Gusto Capital LLC)",
+    "reporting_date": "2026-05-20",
+    "value": 3321463.04
+  },
+  {
+    "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
+    "reporting_date": "2026-05-20",
+    "value": 0
+  },
+  {
+    "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
+    "reporting_date": "2026-05-20",
+    "value": 1167038.53
   }
 ]

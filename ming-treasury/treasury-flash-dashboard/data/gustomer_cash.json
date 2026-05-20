@@ -38692,7 +38692,7 @@
   {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-05-20",
-    "value": 10315720.47
+    "value": 6838793.13
   },
   {
     "account_description": "BRB Customer Master -2715 (Gusto)",
@@ -38732,7 +38732,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-05-20",
-    "value": 85536.95
+    "value": 84471.25
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -38742,16 +38742,21 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-05-20",
-    "value": 3484725.97
+    "value": 4454406.41
   },
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-05-20",
-    "value": 149367410.82
+    "value": 149295628.32
   },
   {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-05-20",
     "value": 467.48
+  },
+  {
+    "account_description": "NBKC Customer (Instant Payroll) - 0673",
+    "reporting_date": "2026-05-20",
+    "value": 80123.59
   }
 ]
