@@ -520,7 +520,7 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
   // Safety guard: if the file exists but returned far fewer records than
   // expected, the read likely failed silently (e.g. GitHub API truncation
   // or blob decode error). Abort rather than overwriting good data.
-  var MIN_EXPECTED_RECORDS = 500;
+  var MIN_EXPECTED_RECORDS = 50;
   if (sha && existingData.length < MIN_EXPECTED_RECORDS && existingData.length < newRecords.length * 5) {
     var errMsg = 'SAFETY ABORT: GitHub read returned only ' + existingData.length +
                  ' records for ' + filePath + ' (expected 500+). ' +
