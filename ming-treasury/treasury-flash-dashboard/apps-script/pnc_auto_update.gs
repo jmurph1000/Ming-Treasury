@@ -22,7 +22,7 @@ var CONFIG = {
   SHEET_NAME: 'PNC Export',
   GMAIL_QUERY: 'from:PINACLE@pnc.com subject:"PNC Event: PNC Flash Data"',
   BALANCE_FILE_PATTERN: /_Balance\.csv$/i,
-  NOTIFICATION_EMAIL: 'ming.huey@gusto.com',
+  NOTIFICATION_EMAIL: 'john.murphy@gusto.com',
   // Row 1 is the header; row 2 is a summary row; account data starts at row 3
   DATA_START_ROW: 3,
   // Number of account rows to write (7 PNC accounts)

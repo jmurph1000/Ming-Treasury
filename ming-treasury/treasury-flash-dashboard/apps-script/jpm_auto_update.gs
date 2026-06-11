@@ -50,7 +50,7 @@ var JPM_CONFIG = {
   TEMP_FOLDER_NAME: '_JPM_TEMP_CONVERSIONS',
 
   // Notification settings
-  NOTIFICATION_EMAIL: 'ming.huey@gusto.com',
+  NOTIFICATION_EMAIL: 'john.murphy@gusto.com',
 
   // Data layout: row 1 is header, data starts at row 2
   DATA_START_ROW: 2,
