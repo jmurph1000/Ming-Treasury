@@ -444,7 +444,41 @@ function processDailyData() {
       gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
     }
 
-    Logger.log('Parsed totals - Corporate: ' + corporateRecords.length +
+    Logger.log('Parsed totals (email) - Corporate: ' + corporateRecords.length +
+               ' records, Gustomer: ' + gustomerRecords.length + ' records.');
+
+    // Process screenshots (OCR-based) — these do NOT overwrite email-derived records
+    var emailKeys = {};
+    for (var ek = 0; ek < corporateRecords.length; ek++) {
+      emailKeys[corporateRecords[ek].date + '|' + corporateRecords[ek].account_name] = true;
+    }
+    for (var ek2 = 0; ek2 < gustomerRecords.length; ek2++) {
+      emailKeys[gustomerRecords[ek2].date + '|' + gustomerRecords[ek2].account_name] = true;
+    }
+
+    try {
+      var screenshotResult = processScreenshots_();
+      var ssAdded = 0;
+      for (var sc = 0; sc < screenshotResult.corporate.length; sc++) {
+        var scRec = screenshotResult.corporate[sc];
+        if (!emailKeys[scRec.date + '|' + scRec.account_name]) {
+          corporateRecords.push(scRec);
+          ssAdded++;
+        }
+      }
+      for (var sg = 0; sg < screenshotResult.gustomer.length; sg++) {
+        var sgRec = screenshotResult.gustomer[sg];
+        if (!emailKeys[sgRec.date + '|' + sgRec.account_name]) {
+          gustomerRecords.push(sgRec);
+          ssAdded++;
+        }
+      }
+      Logger.log('Screenshots added ' + ssAdded + ' records (skipped duplicates with email data).');
+    } catch (ssErr) {
+      Logger.log('WARNING: Screenshot processing failed (non-fatal): ' + ssErr.message);
+    }
+
+    Logger.log('Final totals - Corporate: ' + corporateRecords.length +
                ' records, Gustomer: ' + gustomerRecords.length + ' records.');
 
     // Merge with existing GitHub data and push updates
@@ -1072,6 +1106,284 @@ function convertXlsToDriveSheet_(xlsBlob, fileName) {
     return null;
   }
 }
+
+// ============================================================================
+// SCREENSHOT OCR PROCESSING (Google Cloud Vision API)
+// ============================================================================
+
+/**
+ * Scans the attachment folder for image files (PNG/JPG/JPEG) modified today,
+ * runs OCR via Cloud Vision API, matches text against screenshot_account_map.json,
+ * and returns parsed balance records.
+ *
+ * Requires VISION_API_KEY in Script Properties.
+ *
+ * @return {Object} { corporate: [...], gustomer: [...] }
+ *                  Each entry: { date, account_name, value }
+ */
+function processScreenshots_() {
+  var corporate = [];
+  var gustomer = [];
+
+  var apiKey = PropertiesService.getScriptProperties().getProperty('VISION_API_KEY');
+  if (!apiKey) {
+    Logger.log('VISION_API_KEY not set in Script Properties. Skipping screenshots.');
+    return { corporate: corporate, gustomer: gustomer };
+  }
+
+  // Load the screenshot account map from the repo (committed as a data file)
+  var accountMap = loadScreenshotAccountMap_();
+  if (!accountMap || !accountMap.screenshots || accountMap.screenshots.length === 0) {
+    Logger.log('No screenshot account map found or empty. Skipping.');
+    return { corporate: corporate, gustomer: gustomer };
+  }
+
+  // Find image files modified today in the attachment folder
+  var todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  var folder;
+  if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
+    folder = DriveApp.getFolderById(PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID);
+  } else {
+    folder = DriveApp.getRootFolder();
+  }
+
+  var imageFiles = [];
+  var query = '(mimeType = "image/png" or mimeType = "image/jpeg") and modifiedDate >= "' +
+              todayStart.toISOString() + '" and trashed = false';
+  var files = folder.searchFiles(query);
+
+  while (files.hasNext()) {
+    var file = files.next();
+    imageFiles.push(file);
+  }
+
+  Logger.log('Found ' + imageFiles.length + ' image file(s) in attachment folder for today.');
+  if (imageFiles.length === 0) {
+    return { corporate: corporate, gustomer: gustomer };
+  }
+
+  var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+
+  for (var i = 0; i < imageFiles.length; i++) {
+    var imgFile = imageFiles[i];
+    var imgName = imgFile.getName();
+    Logger.log('OCR processing: ' + imgName);
+
+    // Determine which screenshot source this matches
+    var matchedSource = null;
+    for (var s = 0; s < accountMap.screenshots.length; s++) {
+      if (imgName.indexOf(accountMap.screenshots[s].source) !== -1) {
+        matchedSource = accountMap.screenshots[s];
+        break;
+      }
+    }
+
+    if (!matchedSource) {
+      Logger.log('No account map match for image: ' + imgName + '. Skipping.');
+      continue;
+    }
+
+    // Run OCR via Cloud Vision API
+    var ocrText = ocrImageViaVisionApi_(imgFile, apiKey);
+    if (!ocrText) {
+      Logger.log('OCR returned no text for: ' + imgName);
+      continue;
+    }
+
+    // Parse balances for each account in this screenshot source
+    for (var a = 0; a < matchedSource.accounts.length; a++) {
+      var acct = matchedSource.accounts[a];
+      var balance = extractBalanceFromOcr_(ocrText, acct.identifier, acct.balanceField);
+
+      if (balance === null) {
+        Logger.log('Could not extract balance for "' + acct.dashboardName + '" from ' + imgName);
+        continue;
+      }
+
+      var record = {
+        date: todayStr,
+        account_name: acct.dashboardName,
+        value: balance
+      };
+
+      if (acct.file === 'corporate_cash.json') {
+        corporate.push(record);
+      } else {
+        gustomer.push(record);
+      }
+    }
+  }
+
+  Logger.log('Screenshot OCR complete: ' + corporate.length + ' corporate, ' +
+             gustomer.length + ' gustomer records.');
+  return { corporate: corporate, gustomer: gustomer };
+}
+
+/**
+ * Loads the screenshot_account_map.json from GitHub.
+ *
+ * @return {Object|null} Parsed JSON or null on failure
+ */
+function loadScreenshotAccountMap_() {
+  try {
+    var ghFile = readFileFromGitHub_(
+      'ming-treasury/treasury-flash-dashboard/data/screenshot_account_map.json'
+    );
+    return ghFile.content;
+  } catch (err) {
+    Logger.log('Failed to load screenshot_account_map.json from GitHub: ' + err.message);
+    return null;
+  }
+}
+
+/**
+ * Sends an image to Google Cloud Vision API for text detection (OCR).
+ *
+ * @param  {File}   driveFile  Google Drive file object
+ * @param  {string} apiKey     Cloud Vision API key
+ * @return {string|null}       Extracted text, or null on failure
+ */
+function ocrImageViaVisionApi_(driveFile, apiKey) {
+  try {
+    var blob = driveFile.getBlob();
+    var base64Image = Utilities.base64Encode(blob.getBytes());
+
+    var requestBody = {
+      requests: [{
+        image: { content: base64Image },
+        features: [{ type: 'TEXT_DETECTION' }]
+      }]
+    };
+
+    var response = UrlFetchApp.fetch(
+      'https://vision.googleapis.com/v1/images:annotate?key=' + apiKey,
+      {
+        method: 'post',
+        contentType: 'application/json',
+        payload: JSON.stringify(requestBody),
+        muteHttpExceptions: true
+      }
+    );
+
+    if (response.getResponseCode() !== 200) {
+      Logger.log('Vision API error (' + response.getResponseCode() + '): ' +
+                 response.getContentText().substring(0, 200));
+      return null;
+    }
+
+    var result = JSON.parse(response.getContentText());
+    var annotations = result.responses && result.responses[0] &&
+                      result.responses[0].fullTextAnnotation;
+
+    if (!annotations || !annotations.text) {
+      return null;
+    }
+
+    return annotations.text;
+
+  } catch (err) {
+    Logger.log('Vision API call failed for ' + driveFile.getName() + ': ' + err.message);
+    return null;
+  }
+}
+
+/**
+ * Extracts a balance value from OCR text by finding the account identifier
+ * and then locating the numeric value nearby.
+ *
+ * Strategy: find the line containing the identifier, then scan subsequent
+ * lines for a dollar amount or large numeric value. The balanceField hint
+ * is used to narrow the search when the OCR text contains labeled fields.
+ *
+ * @param  {string} ocrText       Full OCR text from the image
+ * @param  {string} identifier    Text to search for (account identifier)
+ * @param  {string} balanceField  Hint for which field contains the balance
+ * @return {number|null}          Parsed balance value, or null if not found
+ */
+function extractBalanceFromOcr_(ocrText, identifier, balanceField) {
+  var lines = ocrText.split(/\n/);
+
+  // Find the line index containing the identifier
+  var idxStart = -1;
+  for (var i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf(identifier) !== -1) {
+      idxStart = i;
+      break;
+    }
+  }
+
+  if (idxStart === -1) {
+    // Try case-insensitive partial match
+    var identLower = identifier.toLowerCase();
+    for (var i2 = 0; i2 < lines.length; i2++) {
+      if (lines[i2].toLowerCase().indexOf(identLower) !== -1) {
+        idxStart = i2;
+        break;
+      }
+    }
+  }
+
+  if (idxStart === -1) return null;
+
+  // Search the identifier line and the next several lines for a balance value
+  // Look for the balanceField label first, then grab the number after it
+  var searchWindow = lines.slice(idxStart, Math.min(idxStart + 8, lines.length));
+  var searchText = searchWindow.join('\n');
+
+  // Try to find balanceField label followed by a number
+  var fieldPattern = new RegExp(escapeRegex_(balanceField) + '[:\\s]*([\\$]?[\\d,]+\\.?\\d*)', 'i');
+  var fieldMatch = searchText.match(fieldPattern);
+  if (fieldMatch) {
+    return parseOcrNumeric_(fieldMatch[1]);
+  }
+
+  // Fallback: find any dollar amount or large number on the same line as identifier
+  // or immediately following lines
+  var moneyPattern = /[\$]?\s*([\d,]{2,}\.?\d{0,2})/g;
+  for (var w = 0; w < searchWindow.length; w++) {
+    var matches = searchWindow[w].match(moneyPattern);
+    if (matches) {
+      for (var m = 0; m < matches.length; m++) {
+        var val = parseOcrNumeric_(matches[m]);
+        if (val !== null && val >= 1) {
+          return val;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Parses a numeric string from OCR output (handles $, commas, spaces).
+ *
+ * @param  {string} str  Raw numeric string from OCR
+ * @return {number|null} Parsed value or null
+ */
+function parseOcrNumeric_(str) {
+  if (!str) return null;
+  var cleaned = str.replace(/[\$,\s]/g, '');
+  var val = parseFloat(cleaned);
+  if (isNaN(val)) return null;
+  return val;
+}
+
+/**
+ * Escapes special regex characters in a string.
+ *
+ * @param  {string} str  Input string
+ * @return {string}      Regex-safe string
+ */
+function escapeRegex_(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ============================================================================
+// TEMPORARY FILE CLEANUP
+// ============================================================================
 
 /**
  * Trashes a temporary Google Drive file.
