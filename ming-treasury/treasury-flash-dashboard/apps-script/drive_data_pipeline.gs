@@ -1132,28 +1132,48 @@ function processScreenshots_() {
     return { corporate: corporate, gustomer: gustomer };
   }
 
-  // Find image files modified today in the attachment folder
-  var todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  // Navigate subfolder hierarchy: {Month Year} -> {Month Day, Year} -> images
+  var now = new Date();
+  var monthYearName = Utilities.formatDate(now, 'America/New_York', 'MMMM yyyy');
+  var dayFolderName = Utilities.formatDate(now, 'America/New_York', 'MMMM d, yyyy');
 
-  var folder;
+  var rootFolder;
   if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
-    folder = DriveApp.getFolderById(PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID);
+    rootFolder = DriveApp.getFolderById(PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID);
   } else {
-    folder = DriveApp.getRootFolder();
+    rootFolder = DriveApp.getRootFolder();
   }
 
-  var imageFiles = [];
-  var query = '(mimeType = "image/png" or mimeType = "image/jpeg") and modifiedDate >= "' +
-              todayStart.toISOString() + '" and trashed = false';
-  var files = folder.searchFiles(query);
+  // Step 1: Find the month/year subfolder (e.g., "June 2026")
+  var monthFolders = rootFolder.getFoldersByName(monthYearName);
+  if (!monthFolders.hasNext()) {
+    Logger.log('No month subfolder found: "' + monthYearName + '". Skipping screenshots.');
+    return { corporate: corporate, gustomer: gustomer };
+  }
+  var monthFolder = monthFolders.next();
+  Logger.log('Found month subfolder: ' + monthYearName);
 
+  // Step 2: Find today's date subfolder (e.g., "June 12, 2026")
+  var dayFolders = monthFolder.getFoldersByName(dayFolderName);
+  if (!dayFolders.hasNext()) {
+    Logger.log('No day subfolder found: "' + dayFolderName + '". Skipping screenshots.');
+    return { corporate: corporate, gustomer: gustomer };
+  }
+  var dayFolder = dayFolders.next();
+  Logger.log('Found day subfolder: ' + dayFolderName);
+
+  // Step 3: Scan the daily subfolder for image files
+  var imageFiles = [];
+  var files = dayFolder.getFiles();
   while (files.hasNext()) {
     var file = files.next();
-    imageFiles.push(file);
+    var mimeType = file.getMimeType();
+    if (mimeType === 'image/png' || mimeType === 'image/jpeg') {
+      imageFiles.push(file);
+    }
   }
 
-  Logger.log('Found ' + imageFiles.length + ' image file(s) in attachment folder for today.');
+  Logger.log('Found ' + imageFiles.length + ' image file(s) in ' + dayFolderName + ' subfolder.');
   if (imageFiles.length === 0) {
     return { corporate: corporate, gustomer: gustomer };
   }
