@@ -1125,12 +1125,6 @@ function processScreenshots_() {
   var corporate = [];
   var gustomer = [];
 
-  var apiKey = PropertiesService.getScriptProperties().getProperty('VISION_API_KEY');
-  if (!apiKey) {
-    Logger.log('VISION_API_KEY not set in Script Properties. Skipping screenshots.');
-    return { corporate: corporate, gustomer: gustomer };
-  }
-
   // Load the screenshot account map from the repo (committed as a data file)
   var accountMap = loadScreenshotAccountMap_();
   if (!accountMap || !accountMap.screenshots || accountMap.screenshots.length === 0) {
@@ -1185,8 +1179,8 @@ function processScreenshots_() {
       continue;
     }
 
-    // Run OCR via Cloud Vision API
-    var ocrText = ocrImageViaVisionApi_(imgFile, apiKey);
+    // Run OCR via Drive's built-in OCR (converts image to Google Doc)
+    var ocrText = ocrImageViaDrive_(imgFile);
     if (!ocrText) {
       Logger.log('OCR returned no text for: ' + imgName);
       continue;
@@ -1239,52 +1233,35 @@ function loadScreenshotAccountMap_() {
 }
 
 /**
- * Sends an image to Google Cloud Vision API for text detection (OCR).
+ * OCRs an image using Google Drive's built-in OCR. Uploads the image as a
+ * Google Doc with OCR conversion, reads the text, then trashes the temp doc.
  *
- * @param  {File}   driveFile  Google Drive file object
- * @param  {string} apiKey     Cloud Vision API key
+ * Requires the Drive Advanced Service to be enabled.
+ *
+ * @param  {File}   imageFile  Google Drive file object (PNG/JPG)
  * @return {string|null}       Extracted text, or null on failure
  */
-function ocrImageViaVisionApi_(driveFile, apiKey) {
+function ocrImageViaDrive_(imageFile) {
+  var ocrDocId = null;
   try {
-    var blob = driveFile.getBlob();
-    var base64Image = Utilities.base64Encode(blob.getBytes());
-
-    var requestBody = {
-      requests: [{
-        image: { content: base64Image },
-        features: [{ type: 'TEXT_DETECTION' }]
-      }]
+    var resource = {
+      title: 'OCR_TEMP_' + imageFile.getName(),
+      mimeType: 'application/vnd.google-apps.document'
     };
+    var ocrDoc = Drive.Files.insert(resource, imageFile.getBlob(), { ocr: true, convert: true });
+    ocrDocId = ocrDoc.id;
 
-    var response = UrlFetchApp.fetch(
-      'https://vision.googleapis.com/v1/images:annotate?key=' + apiKey,
-      {
-        method: 'post',
-        contentType: 'application/json',
-        payload: JSON.stringify(requestBody),
-        muteHttpExceptions: true
-      }
-    );
+    var doc = DocumentApp.openById(ocrDocId);
+    var text = doc.getBody().getText();
 
-    if (response.getResponseCode() !== 200) {
-      Logger.log('Vision API error (' + response.getResponseCode() + '): ' +
-                 response.getContentText().substring(0, 200));
-      return null;
-    }
-
-    var result = JSON.parse(response.getContentText());
-    var annotations = result.responses && result.responses[0] &&
-                      result.responses[0].fullTextAnnotation;
-
-    if (!annotations || !annotations.text) {
-      return null;
-    }
-
-    return annotations.text;
+    DriveApp.getFileById(ocrDocId).setTrashed(true);
+    return text || null;
 
   } catch (err) {
-    Logger.log('Vision API call failed for ' + driveFile.getName() + ': ' + err.message);
+    Logger.log('Drive OCR failed for ' + imageFile.getName() + ': ' + err.message);
+    if (ocrDocId) {
+      try { DriveApp.getFileById(ocrDocId).setTrashed(true); } catch (e) {}
+    }
     return null;
   }
 }
