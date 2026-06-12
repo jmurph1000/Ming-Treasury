@@ -1162,18 +1162,19 @@ function processScreenshots_() {
   var dayFolder = dayFolders.next();
   Logger.log('Found day subfolder: ' + dayFolderName);
 
-  // Step 3: Scan the daily subfolder for image files
+  // Step 3: Scan the daily subfolder for image files and Google Docs (Drive auto-converts uploads)
   var imageFiles = [];
   var files = dayFolder.getFiles();
   while (files.hasNext()) {
     var file = files.next();
     var mimeType = file.getMimeType();
-    if (mimeType === 'image/png' || mimeType === 'image/jpeg') {
+    if (mimeType === 'image/png' || mimeType === 'image/jpeg' ||
+        mimeType === 'application/vnd.google-apps.document') {
       imageFiles.push(file);
     }
   }
 
-  Logger.log('Found ' + imageFiles.length + ' image file(s) in ' + dayFolderName + ' subfolder.');
+  Logger.log('Found ' + imageFiles.length + ' screenshot file(s) in ' + dayFolderName + ' subfolder.');
   if (imageFiles.length === 0) {
     return { corporate: corporate, gustomer: gustomer };
   }
@@ -1253,15 +1254,31 @@ function loadScreenshotAccountMap_() {
 }
 
 /**
- * OCRs an image using Google Drive's built-in OCR. Uploads the image as a
- * Google Doc with OCR conversion, reads the text, then trashes the temp doc.
+ * Extracts text from a screenshot file. If the file is already a Google Doc
+ * (Drive auto-converted it on upload with OCR), reads it directly. Otherwise
+ * converts the image to a Google Doc via Drive OCR and reads the text.
  *
  * Requires the Drive Advanced Service to be enabled.
  *
- * @param  {File}   imageFile  Google Drive file object (PNG/JPG)
+ * @param  {File}   imageFile  Google Drive file object (PNG/JPG or Google Doc)
  * @return {string|null}       Extracted text, or null on failure
  */
 function ocrImageViaDrive_(imageFile) {
+  var mimeType = imageFile.getMimeType();
+
+  // Already a Google Doc — just read the text directly (no conversion needed)
+  if (mimeType === 'application/vnd.google-apps.document') {
+    try {
+      var doc = DocumentApp.openById(imageFile.getId());
+      var text = doc.getBody().getText();
+      return text || null;
+    } catch (err) {
+      Logger.log('Failed to read Google Doc ' + imageFile.getName() + ': ' + err.message);
+      return null;
+    }
+  }
+
+  // Image file — convert via Drive OCR
   var ocrDocId = null;
   try {
     var resource = {
@@ -1271,8 +1288,8 @@ function ocrImageViaDrive_(imageFile) {
     var ocrDoc = Drive.Files.insert(resource, imageFile.getBlob(), { ocr: true, convert: true });
     ocrDocId = ocrDoc.id;
 
-    var doc = DocumentApp.openById(ocrDocId);
-    var text = doc.getBody().getText();
+    var ocrResult = DocumentApp.openById(ocrDocId);
+    var text = ocrResult.getBody().getText();
 
     DriveApp.getFileById(ocrDocId).setTrashed(true);
     return text || null;
