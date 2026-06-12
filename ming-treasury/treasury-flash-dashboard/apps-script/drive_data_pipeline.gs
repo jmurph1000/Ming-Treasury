@@ -1264,25 +1264,47 @@ function loadScreenshotAccountMap_() {
  * @return {string|null}       Extracted text, or null on failure
  */
 function ocrImageViaDrive_(imageFile) {
+  var fileId = imageFile.getId();
+  var fileName = imageFile.getName();
   var mimeType = imageFile.getMimeType();
+  Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId +
+             ', getMimeType(): "' + mimeType + '", typeof: ' + typeof mimeType);
 
   // Already a Google Doc — just read the text directly (no conversion needed)
   if (mimeType === 'application/vnd.google-apps.document') {
+    Logger.log('Detected Google Doc, reading text directly via DocumentApp...');
     try {
-      var doc = DocumentApp.openById(imageFile.getId());
+      var doc = DocumentApp.openById(fileId);
       var text = doc.getBody().getText();
+      Logger.log('Google Doc text length: ' + (text ? text.length : 0));
       return text || null;
     } catch (err) {
-      Logger.log('Failed to read Google Doc ' + imageFile.getName() + ': ' + err.message);
+      Logger.log('Failed to read Google Doc ' + fileName + ': ' + err.message);
       return null;
     }
   }
 
+  // Fallback: check via Drive Advanced Service metadata in case DriveApp reports wrong mime
+  try {
+    var driveMeta = Drive.Files.get(fileId);
+    Logger.log('Drive API mimeType for ' + fileName + ': "' + driveMeta.mimeType + '"');
+    if (driveMeta.mimeType === 'application/vnd.google-apps.document') {
+      Logger.log('Drive API confirms Google Doc — reading text directly...');
+      var doc2 = DocumentApp.openById(fileId);
+      var text2 = doc2.getBody().getText();
+      Logger.log('Google Doc text length: ' + (text2 ? text2.length : 0));
+      return text2 || null;
+    }
+  } catch (metaErr) {
+    Logger.log('Drive.Files.get fallback failed: ' + metaErr.message);
+  }
+
   // Image file — convert via Drive OCR
+  Logger.log('Treating as image, converting via Drive OCR...');
   var ocrDocId = null;
   try {
     var resource = {
-      title: 'OCR_TEMP_' + imageFile.getName(),
+      title: 'OCR_TEMP_' + fileName,
       mimeType: 'application/vnd.google-apps.document'
     };
     var ocrDoc = Drive.Files.insert(resource, imageFile.getBlob(), { ocr: true, convert: true });
@@ -1295,7 +1317,7 @@ function ocrImageViaDrive_(imageFile) {
     return text || null;
 
   } catch (err) {
-    Logger.log('Drive OCR failed for ' + imageFile.getName() + ': ' + err.message);
+    Logger.log('Drive OCR failed for ' + fileName + ': ' + err.message);
     if (ocrDocId) {
       try { DriveApp.getFileById(ocrDocId).setTrashed(true); } catch (e) {}
     }
