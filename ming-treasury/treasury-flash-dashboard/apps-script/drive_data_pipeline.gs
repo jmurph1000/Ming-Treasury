@@ -1271,12 +1271,63 @@ function ocrImageViaDrive_(imageFile) {
   Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId +
              ', getMimeType(): "' + mimeType + '"');
 
-  // Step 1: Try DocumentApp directly — works if file is a Google Doc regardless of reported mimeType
+  // Step 1: Read blob as text — handles HTML files saved with .png extension
+  try {
+    var blob = imageFile.getBlob();
+    var textContent = blob.getDataAsString();
+    if (textContent && textContent.length > 0) {
+      var trimmed = textContent.trim();
+      if (trimmed.charAt(0) === '<' || trimmed.indexOf('<!DOCTYPE') === 0 ||
+          trimmed.indexOf('<html') !== -1 || trimmed.indexOf('<table') !== -1) {
+        Logger.log('CODE PATH: Blob is HTML text — file: "' + fileName +
+                   '", length: ' + textContent.length);
+        Logger.log('First 500 chars: ' + textContent.substring(0, 500));
+        return stripHtmlTags_(textContent);
+      }
+      if (trimmed.length > 50 && /[a-zA-Z]{3,}/.test(trimmed.substring(0, 200))) {
+        Logger.log('CODE PATH: Blob is plain text — file: "' + fileName +
+                   '", length: ' + textContent.length);
+        Logger.log('First 500 chars: ' + textContent.substring(0, 500));
+        return textContent;
+      }
+    }
+  } catch (blobErr) {
+    Logger.log('getBlob().getDataAsString() failed for "' + fileName + '": ' + blobErr.message);
+  }
+
+  // Step 1b: Try alternate text extraction methods
+  try {
+    var htmlBlob = imageFile.getAs('text/html');
+    var htmlText = htmlBlob.getDataAsString();
+    if (htmlText && htmlText.length > 0) {
+      Logger.log('CODE PATH: getAs("text/html") succeeded — file: "' + fileName +
+                 '", length: ' + htmlText.length);
+      Logger.log('First 500 chars: ' + htmlText.substring(0, 500));
+      return stripHtmlTags_(htmlText);
+    }
+  } catch (e) {
+    Logger.log('getAs("text/html") failed: ' + e.message);
+  }
+
+  try {
+    var plainBlob = imageFile.getAs('text/plain');
+    var plainText = plainBlob.getDataAsString();
+    if (plainText && plainText.length > 0) {
+      Logger.log('CODE PATH: getAs("text/plain") succeeded — file: "' + fileName +
+                 '", length: ' + plainText.length);
+      Logger.log('First 500 chars: ' + plainText.substring(0, 500));
+      return plainText;
+    }
+  } catch (e) {
+    Logger.log('getAs("text/plain") failed: ' + e.message);
+  }
+
+  // Step 2: Try DocumentApp directly — works if file is a Google Doc
   try {
     var doc = DocumentApp.openById(fileId);
     var text = doc.getBody().getText();
     if (text) {
-      Logger.log('CODE PATH: DocumentApp.openById succeeded directly — file: "' + fileName +
+      Logger.log('CODE PATH: DocumentApp.openById succeeded — file: "' + fileName +
                  '", text length: ' + text.length);
       return text;
     }
@@ -1284,37 +1335,44 @@ function ocrImageViaDrive_(imageFile) {
     Logger.log('DocumentApp.openById(' + fileId + ') failed: ' + e.message);
   }
 
-  // Step 2: If file might be a shortcut, resolve the target and try DocumentApp on that
+  // Step 3: If file might be a shortcut, resolve the target and retry
   var targetId = null;
   try {
     targetId = imageFile.getTargetId();
   } catch (e) {
-    // getTargetId() throws if not a shortcut — that's fine
+    // getTargetId() throws if not a shortcut
   }
   if (targetId) {
     Logger.log('File "' + fileName + '" is a shortcut, resolved targetId: ' + targetId);
     try {
-      var targetDoc = DocumentApp.openById(targetId);
-      var targetText = targetDoc.getBody().getText();
-      if (targetText) {
-        Logger.log('CODE PATH: Shortcut resolved — DocumentApp on targetId succeeded, text length: ' + targetText.length);
+      var targetFile = DriveApp.getFileById(targetId);
+      var targetBlob = targetFile.getBlob();
+      var targetText = targetBlob.getDataAsString();
+      if (targetText && targetText.trim().length > 0) {
+        var tt = targetText.trim();
+        if (tt.charAt(0) === '<' || tt.indexOf('<html') !== -1) {
+          Logger.log('CODE PATH: Shortcut target is HTML — text length: ' + targetText.length);
+          return stripHtmlTags_(targetText);
+        }
+        Logger.log('CODE PATH: Shortcut target read as text — length: ' + targetText.length);
         return targetText;
       }
     } catch (e2) {
-      Logger.log('DocumentApp.openById(targetId=' + targetId + ') failed: ' + e2.message);
+      Logger.log('Shortcut target blob read failed: ' + e2.message);
     }
-    // Use the resolved target ID for subsequent OCR attempt
-    fileId = targetId;
     try {
-      imageFile = DriveApp.getFileById(targetId);
-      fileName = imageFile.getName();
+      var targetDoc = DocumentApp.openById(targetId);
+      var docText = targetDoc.getBody().getText();
+      if (docText) {
+        Logger.log('CODE PATH: Shortcut target DocumentApp succeeded — text length: ' + docText.length);
+        return docText;
+      }
     } catch (e3) {
-      Logger.log('Could not resolve target file for OCR fallback: ' + e3.message);
-      return null;
+      Logger.log('Shortcut target DocumentApp failed: ' + e3.message);
     }
   }
 
-  // Step 3: Fallback — actual image file, convert via Drive OCR
+  // Step 4: Last resort — actual image file, convert via Drive OCR
   Logger.log('CODE PATH: Attempting Drive OCR conversion for "' + fileName + '"...');
   var ocrDocId = null;
   try {
@@ -1340,6 +1398,34 @@ function ocrImageViaDrive_(imageFile) {
     }
     return null;
   }
+}
+
+/**
+ * Strips HTML tags and decodes entities, returning readable text with
+ * newlines preserved for table rows and block elements.
+ */
+function stripHtmlTags_(html) {
+  var text = html;
+  // Insert newlines for block-level elements and table cells
+  text = text.replace(/<\/?(tr|div|p|br|li|h[1-6])[^>]*>/gi, '\n');
+  text = text.replace(/<\/?(td|th)[^>]*>/gi, '\t');
+  // Remove all remaining tags
+  text = text.replace(/<[^>]+>/g, '');
+  // Decode common HTML entities
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&nbsp;/g, ' ');
+  text = text.replace(/&#x24;/g, '$');
+  text = text.replace(/&#36;/g, '$');
+  text = text.replace(/&\#?\w+;/g, '');
+  // Collapse excessive whitespace
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n[ \t]+/g, '\n');
+  text = text.replace(/\n{3,}/g, '\n\n');
+  return text.trim();
 }
 
 /**
@@ -1929,4 +2015,89 @@ function testOneJPM() {
   if (result.corporate.length > 0) {
     Logger.log("Sample: " + JSON.stringify(result.corporate[0]));
   }
+}
+
+function debugFileInfo() {
+  var fileId = '1KJ0MYzPGsu93oG3__Otj0zzcUBSJelrG';
+  Logger.log('=== DEBUG FILE INFO ===');
+  Logger.log('Target fileId: ' + fileId);
+
+  var file;
+  try {
+    file = DriveApp.getFileById(fileId);
+  } catch (err) {
+    Logger.log('DriveApp.getFileById FAILED: ' + err.message);
+    return;
+  }
+
+  Logger.log('file.getName(): ' + file.getName());
+  Logger.log('file.getMimeType(): ' + file.getMimeType());
+  Logger.log('file.getSize(): ' + file.getSize());
+  Logger.log('file.getUrl(): ' + file.getUrl());
+  Logger.log('file.getSharingAccess(): ' + file.getSharingAccess());
+
+  // Blob info
+  try {
+    var blob = file.getBlob();
+    Logger.log('file.getBlob().getContentType(): ' + blob.getContentType());
+    var bytes = blob.getBytes();
+    Logger.log('file.getBlob().getBytes().length: ' + bytes.length);
+    var hex = [];
+    for (var i = 0; i < Math.min(20, bytes.length); i++) {
+      var b = bytes[i] & 0xFF;
+      hex.push(('0' + b.toString(16)).slice(-2));
+    }
+    Logger.log('First 20 bytes (hex): ' + hex.join(' '));
+  } catch (blobErr) {
+    Logger.log('Blob operations FAILED: ' + blobErr.message);
+  }
+
+  // Drive Advanced Service metadata
+  try {
+    var driveMeta = Drive.Files.get(fileId);
+    Logger.log('Drive.Files.get() SUCCEEDED:');
+    Logger.log('  mimeType: ' + driveMeta.mimeType);
+    Logger.log('  title: ' + driveMeta.title);
+    Logger.log('  fileSize: ' + driveMeta.fileSize);
+    Logger.log('  kind: ' + driveMeta.kind);
+    Logger.log('  alternateLink: ' + driveMeta.alternateLink);
+    Logger.log('  Full response: ' + JSON.stringify(driveMeta).substring(0, 2000));
+  } catch (driveErr) {
+    Logger.log('Drive.Files.get() FAILED: ' + driveErr.message);
+  }
+
+  // Try getAs image/png
+  try {
+    var pngBlob = file.getAs('image/png');
+    Logger.log('file.getAs("image/png") SUCCEEDED — size: ' + pngBlob.getBytes().length);
+  } catch (asErr) {
+    Logger.log('file.getAs("image/png") FAILED: ' + asErr.message);
+  }
+
+  // Check if shortcut
+  try {
+    var targetId = file.getTargetId();
+    Logger.log('file.getTargetId() SUCCEEDED — targetId: ' + targetId);
+    try {
+      var targetFile = DriveApp.getFileById(targetId);
+      Logger.log('  target getName(): ' + targetFile.getName());
+      Logger.log('  target getMimeType(): ' + targetFile.getMimeType());
+    } catch (tErr) {
+      Logger.log('  Could not open target file: ' + tErr.message);
+    }
+  } catch (shortcutErr) {
+    Logger.log('file.getTargetId() FAILED (not a shortcut): ' + shortcutErr.message);
+  }
+
+  // Try DocumentApp
+  try {
+    var doc = DocumentApp.openById(fileId);
+    var text = doc.getBody().getText();
+    Logger.log('DocumentApp.openById() SUCCEEDED — text length: ' + text.length);
+    Logger.log('First 500 chars: ' + text.substring(0, 500));
+  } catch (docErr) {
+    Logger.log('DocumentApp.openById() FAILED: ' + docErr.message);
+  }
+
+  Logger.log('=== END DEBUG ===');
 }
