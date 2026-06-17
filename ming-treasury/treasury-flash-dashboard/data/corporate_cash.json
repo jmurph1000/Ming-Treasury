@@ -1840,9 +1840,284 @@
     "value": 2964.76
   },
   {
+    "account_description": "10005",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10007",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10010",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10015",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10020",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10021",
+    "reporting_date": "2026-06-17",
+    "value": 1419193.16
+  },
+  {
+    "account_description": "10030",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10045",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10046",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10047",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10048",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10060",
+    "reporting_date": "2026-06-17",
+    "value": 53659009.11
+  },
+  {
+    "account_description": "10065",
+    "reporting_date": "2026-06-17",
+    "value": 62.05
+  },
+  {
+    "account_description": "10070",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10075",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10081",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10082",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10091",
+    "reporting_date": "2026-06-17",
+    "value": 246897944.5
+  },
+  {
+    "account_description": "10102",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10103",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10104",
+    "reporting_date": "2026-06-17",
+    "value": 782461.35
+  },
+  {
+    "account_description": "10105",
+    "reporting_date": "2026-06-17",
+    "value": 531.87
+  },
+  {
+    "account_description": "10106",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10107",
+    "reporting_date": "2026-06-17",
+    "value": 45000
+  },
+  {
+    "account_description": "10108",
+    "reporting_date": "2026-06-17",
+    "value": 944377.46
+  },
+  {
+    "account_description": "10109",
+    "reporting_date": "2026-06-17",
+    "value": 53364.71
+  },
+  {
+    "account_description": "10110",
+    "reporting_date": "2026-06-17",
+    "value": 3839.95
+  },
+  {
+    "account_description": "10210",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10215",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10220",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10221",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "1040",
+    "reporting_date": "2026-06-17",
+    "value": 544973.68
+  },
+  {
+    "account_description": "1041",
+    "reporting_date": "2026-06-17",
+    "value": -1622.08
+  },
+  {
+    "account_description": "1042",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "1050",
+    "reporting_date": "2026-06-17",
+    "value": 200000
+  },
+  {
+    "account_description": "1060",
+    "reporting_date": "2026-06-17",
+    "value": 4043054.77
+  },
+  {
+    "account_description": "10601",
+    "reporting_date": "2026-06-17",
+    "value": 173067.3382352941
+  },
+  {
+    "account_description": "1090",
+    "reporting_date": "2026-06-17",
+    "value": 2964.76
+  },
+  {
+    "account_description": "10901",
+    "reporting_date": "2026-06-17",
+    "value": 207324.31
+  },
+  {
+    "account_description": "10902",
+    "reporting_date": "2026-06-17",
+    "value": 515817.02
+  },
+  {
+    "account_description": "10905",
+    "reporting_date": "2026-06-17",
+    "value": 13.92
+  },
+  {
+    "account_description": "110100",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "110210",
+    "reporting_date": "2026-06-17",
+    "value": 103216.44
+  },
+  {
+    "account_description": "110220",
+    "reporting_date": "2026-06-17",
+    "value": 54695.42
+  },
+  {
+    "account_description": "110232",
+    "reporting_date": "2026-06-17",
+    "value": 3824.9
+  },
+  {
+    "account_description": "110240",
+    "reporting_date": "2026-06-17",
+    "value": 176732.76
+  },
+  {
+    "account_description": "110254",
+    "reporting_date": "2026-06-17",
+    "value": 10950
+  },
+  {
+    "account_description": "110260",
+    "reporting_date": "2026-06-17",
+    "value": 50424.58
+  },
+  {
+    "account_description": "110270",
+    "reporting_date": "2026-06-17",
+    "value": 298087.95
+  },
+  {
+    "account_description": "110300",
+    "reporting_date": "2026-06-17",
+    "value": -1
+  },
+  {
+    "account_description": "110510",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "110600",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 4638 (TRY)",
+    "reporting_date": "2026-06-17",
+    "value": 339158.05291970796
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 5947 USD",
+    "reporting_date": "2026-06-17",
+    "value": 13463.68
+  },
+  {
+    "account_description": "BRB 7739",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
     "account_description": "BRB Operating 3313",
     "reporting_date": "2026-06-17",
-    "value": 190384.58
+    "value": 1567239
   },
   {
     "account_description": "BTC GDL 401K AUM FEE 102063000002",
@@ -1862,7 +2137,7 @@
   {
     "account_description": "BTC GDL Client Plans 109963000001",
     "reporting_date": "2026-06-17",
-    "value": -2119.49
+    "value": 675.52
   },
   {
     "account_description": "BTC GDL DISMISS FEE 109963000500",
@@ -1885,9 +2160,34 @@
     "value": 8446.54
   },
   {
+    "account_description": "Bank Leumi 0065",
+    "reporting_date": "2026-06-17",
+    "value": 15130.130545784788
+  },
+  {
+    "account_description": "Benefits (PEO I) 8278",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "Benefits (PEO II) 8299",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "BofA Operating Checking -8441 (RemoteTeam)",
+    "reporting_date": "2026-06-17",
+    "value": 92068.24
+  },
+  {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-06-17",
     "value": 2409149.97
+  },
+  {
+    "account_description": "Chase Ardius 0151",
+    "reporting_date": "2026-06-17",
+    "value": 0
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -1933,6 +2233,11 @@
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
     "reporting_date": "2026-06-17",
     "value": 782461.35
+  },
+  {
+    "account_description": "Chase Guideline Holdings, LLC 5725",
+    "reporting_date": "2026-06-17",
+    "value": 0
   },
   {
     "account_description": "Chase Guideline Investments, LLC 1820",
@@ -1985,6 +2290,11 @@
     "value": 4171466.22
   },
   {
+    "account_description": "Chase Remote 8151",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
     "account_description": "Chase Tax 0269",
     "reporting_date": "2026-06-17",
     "value": 501888.4
@@ -2020,6 +2330,21 @@
     "value": 0
   },
   {
+    "account_description": "Fee Account (Grasshopper) 3871",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "Final balance",
+    "reporting_date": "2026-06-17",
+    "value": 347519356.7783971
+  },
+  {
+    "account_description": "GUSTOCAPITAL",
+    "reporting_date": "2026-06-17",
+    "value": 4472596.818235295
+  },
+  {
     "account_description": "Guideline BNY",
     "reporting_date": "2026-06-17",
     "value": 17583.63
@@ -2032,7 +2357,7 @@
   {
     "account_description": "Gusto Corporate (Grasshopper) 7000",
     "reporting_date": "2026-06-17",
-    "value": 4523.22
+    "value": 4285.2
   },
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
@@ -2082,7 +2407,7 @@
   {
     "account_description": "Gusto Stripe",
     "reporting_date": "2026-06-17",
-    "value": 24105.35
+    "value": 27528.19
   },
   {
     "account_description": "GustoHR, Inc. 6375",
@@ -2100,9 +2425,19 @@
     "value": 115332.35
   },
   {
+    "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
     "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
     "reporting_date": "2026-06-17",
     "value": -8655.01
+  },
+  {
+    "account_description": "MidFirst Bank Customer Wires - 2876 (Symmetry)",
+    "reporting_date": "2026-06-17",
+    "value": 0
   },
   {
     "account_description": "Midfirst Symmetry Operating 2841",
@@ -2125,6 +2460,11 @@
     "value": 286251251.72
   },
   {
+    "account_description": "Mosey Stripe",
+    "reporting_date": "2026-06-17",
+    "value": -27.07
+  },
+  {
     "account_description": "Mosey Stripe 5102",
     "reporting_date": "2026-06-17",
     "value": 509338.25
@@ -2145,6 +2485,11 @@
     "value": 3321463.04
   },
   {
+    "account_description": "NBKC Corepro EVDP -9729 (Gusto Capital LLC)",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
     "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
     "reporting_date": "2026-06-17",
     "value": 4319.95
@@ -2157,7 +2502,7 @@
   {
     "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
     "reporting_date": "2026-06-17",
-    "value": 1167038.53
+    "value": 1645545.87
   },
   {
     "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
@@ -2180,6 +2525,16 @@
     "value": 7500
   },
   {
+    "account_description": "PNC CD Collateral **9059",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "PNC Corporate  (Gusto) - 6428",
+    "reporting_date": "2026-06-17",
+    "value": 20.54
+  },
+  {
     "account_description": "PNC Corporate (Gusto) - 6428",
     "reporting_date": "2026-06-17",
     "value": 20.54
@@ -2195,18 +2550,68 @@
     "value": 499995
   },
   {
+    "account_description": "RES100",
+    "reporting_date": "2026-06-17",
+    "value": 70
+  },
+  {
+    "account_description": "RES200",
+    "reporting_date": "2026-06-17",
+    "value": 557268.51
+  },
+  {
     "account_description": "Reserve Account - Gusto MRB Processing 4973",
     "reporting_date": "2026-06-17",
     "value": 750000
   },
   {
+    "account_description": "SVB AP Disbursement 6894 Gusto Capital LLC",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "SVB CMMA 4904",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "SVB COLLATERAL MMA (***6257)⁽¹⁾",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "SVB Collateral Total",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "SVB Customer Receipts 6875 Gusto Capital LLC",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
     "account_description": "Scotiabank 6812 (CAD)",
     "reporting_date": "2026-06-17",
-    "value": 365.48
+    "value": 1933.4779411764705
   },
   {
     "account_description": "Symmetry Petty Cash",
     "reporting_date": "2026-06-17",
     "value": 2964.76
+  },
+  {
+    "account_description": "Workers' Compensation (PEO I) 8291",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "Workers' Compensation (PEO II) 8306",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "ZENPAYROLL",
+    "reporting_date": "2026-06-17",
+    "value": 343046759.9601618
   }
 ]
