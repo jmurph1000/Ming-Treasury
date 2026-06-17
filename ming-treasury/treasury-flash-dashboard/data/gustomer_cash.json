@@ -775,9 +775,104 @@
     "value": 467.48
   },
   {
+    "account_description": "10055",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10067",
+    "reporting_date": "2026-06-17",
+    "value": 1186745176.15
+  },
+  {
+    "account_description": "10068",
+    "reporting_date": "2026-06-17",
+    "value": 16636425.99
+  },
+  {
+    "account_description": "10069",
+    "reporting_date": "2026-06-17",
+    "value": 154901.01
+  },
+  {
+    "account_description": "10071",
+    "reporting_date": "2026-06-17",
+    "value": 9204874.83
+  },
+  {
+    "account_description": "10323",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10504",
+    "reporting_date": "2026-06-17",
+    "value": 6866917.62
+  },
+  {
+    "account_description": "10505",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10511",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10512",
+    "reporting_date": "2026-06-17",
+    "value": 447206341.9
+  },
+  {
+    "account_description": "10513",
+    "reporting_date": "2026-06-17",
+    "value": 1295530.24
+  },
+  {
+    "account_description": "10514",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10515",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10516",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10517",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10518",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10519",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "10520",
+    "reporting_date": "2026-06-17",
+    "value": 0
+  },
+  {
+    "account_description": "110231",
+    "reporting_date": "2026-06-17",
+    "value": -780.12
+  },
+  {
     "account_description": "BRB Customer ACH -3251 (Gusto)",
     "reporting_date": "2026-06-17",
-    "value": 6941830.48
+    "value": 8167851.29
   },
   {
     "account_description": "BRB Customer ACH -5683 (Gusto)",
@@ -802,12 +897,12 @@
   {
     "account_description": "BRB Customer Master -2715 (Gusto)",
     "reporting_date": "2026-06-17",
-    "value": 175.29
+    "value": 175.48
   },
   {
     "account_description": "BRB Customer Wire-Ins -2019",
     "reporting_date": "2026-06-17",
-    "value": 1351271.03
+    "value": 1454883.78
   },
   {
     "account_description": "BRB Customer Wire-Ins -2559 (Gusto)",
@@ -822,7 +917,7 @@
   {
     "account_description": "BTC GDL FBO Clients 109963000000",
     "reporting_date": "2026-06-17",
-    "value": 2500.72
+    "value": 225.77
   },
   {
     "account_description": "BTC GDL IRA CORRECT 102063000000",
@@ -842,7 +937,7 @@
   {
     "account_description": "BTC GDL RK Trade Err 109963000503",
     "reporting_date": "2026-06-17",
-    "value": 83828.64
+    "value": 91198.48
   },
   {
     "account_description": "BTC GDL RK Trade Sup 109963000502",
@@ -887,17 +982,17 @@
   {
     "account_description": "GH Program - 5843",
     "reporting_date": "2026-06-17",
-    "value": 4454406.41
+    "value": 9942839.82
   },
   {
     "account_description": "JPMChase Investments -6826",
     "reporting_date": "2026-06-17",
-    "value": 161061407.69
+    "value": 137972239.95
   },
   {
     "account_description": "NBKC Customer (Instant Payroll) - 0673",
     "reporting_date": "2026-06-17",
-    "value": 80123.59
+    "value": 74956.83
   },
   {
     "account_description": "PNC Customer (Gusto) - 6975",
@@ -932,12 +1027,12 @@
   {
     "account_description": "PNC Investments - 24410000",
     "reporting_date": "2026-06-17",
-    "value": 0
+    "value": 10000000
   },
   {
     "account_description": "PNC Investments -8174",
     "reporting_date": "2026-06-17",
-    "value": 159423015.82
+    "value": 159836255.6
   },
   {
     "account_description": "Recovery Wire In 3711",
@@ -947,6 +1042,11 @@
   {
     "account_description": "Scotiabank 5310 (CAD)",
     "reporting_date": "2026-06-17",
-    "value": 467.48
+    "value": 666178.9999999999
+  },
+  {
+    "account_description": "ZENPAYROLL",
+    "reporting_date": "2026-06-17",
+    "value": 1996320942.4699998
   }
 ]
