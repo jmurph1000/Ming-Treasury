@@ -79,7 +79,10 @@ var PIPELINE_CONFIG = {
   GITHUB_REPO: 'Ming-Treasury',
   GITHUB_BRANCH: 'ming-treasury',
   GITHUB_CORPORATE_PATH: 'ming-treasury/treasury-flash-dashboard/data/corporate_cash.json',
-  GITHUB_GUSTOMER_PATH: 'ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json'
+  GITHUB_GUSTOMER_PATH: 'ming-treasury/treasury-flash-dashboard/data/gustomer_cash.json',
+
+  // Treasury Flash GSheet (fallback source for non-email accounts)
+  TREASURY_FLASH_SHEET_ID: '1aH5mc6wlu_B83rRTN1vP53plUnG-RHQ2bkipXtViBkE'
 };
 
 // ============================================================================
@@ -473,9 +476,38 @@ function processDailyData() {
           ssAdded++;
         }
       }
-      Logger.log('Screenshots added ' + ssAdded + ' records (skipped duplicates with email data).');
+      Logger.log('SOURCE: Screenshots added ' + ssAdded + ' records (skipped duplicates with email data).');
     } catch (ssErr) {
       Logger.log('WARNING: Screenshot processing failed (non-fatal): ' + ssErr.message);
+    }
+
+    // GSheet fallback — if screenshots produced 0 records, try reading from Treasury Flash GSheet
+    var screenshotCount = (typeof ssAdded !== 'undefined') ? ssAdded : 0;
+    if (screenshotCount === 0) {
+      Logger.log('SOURCE: Screenshots produced 0 records — trying GSheet fallback...');
+      try {
+        var gsheetResult = readGSheetBalances_(todayStr);
+        var gsAdded = 0;
+        for (var gc = 0; gc < gsheetResult.corporate.length; gc++) {
+          var gcRec = gsheetResult.corporate[gc];
+          if (!emailKeys[gcRec.date + '|' + gcRec.account_name]) {
+            corporateRecords.push(gcRec);
+            gsAdded++;
+          }
+        }
+        for (var gg = 0; gg < gsheetResult.gustomer.length; gg++) {
+          var ggRec = gsheetResult.gustomer[gg];
+          if (!emailKeys[ggRec.date + '|' + ggRec.account_name]) {
+            gustomerRecords.push(ggRec);
+            gsAdded++;
+          }
+        }
+        Logger.log('SOURCE: GSheet fallback added ' + gsAdded + ' records (skipped duplicates with email data).');
+      } catch (gsErr) {
+        Logger.log('WARNING: GSheet fallback failed (non-fatal): ' + gsErr.message);
+      }
+    } else {
+      Logger.log('SOURCE: Screenshots produced records — skipping GSheet fallback.');
     }
 
     Logger.log('Final totals - Corporate: ' + corporateRecords.length +
@@ -1255,177 +1287,60 @@ function loadScreenshotAccountMap_() {
 }
 
 /**
- * Extracts text from a screenshot file. If the file is already a Google Doc
- * (Drive auto-converted it on upload with OCR), reads it directly. Otherwise
- * converts the image to a Google Doc via Drive OCR and reads the text.
+ * Extracts text from a screenshot PNG via Drive OCR.
+ * Creates a clean copy of the blob with correct PNG metadata, then uses
+ * Drive.Files.insert with OCR to convert to a Google Doc and read the text.
  *
- * Requires the Drive Advanced Service to be enabled.
- *
- * @param  {File}   imageFile  Google Drive file object (PNG/JPG or Google Doc)
+ * @param  {File}   imageFile  Google Drive file object
  * @return {string|null}       Extracted text, or null on failure
  */
 function ocrImageViaDrive_(imageFile) {
   var fileId = imageFile.getId();
   var fileName = imageFile.getName();
-  var mimeType = imageFile.getMimeType();
-  Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId +
-             ', getMimeType(): "' + mimeType + '"');
+  Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId);
 
-  // Step 1: Read blob as text — handles HTML files saved with .png extension
-  try {
-    var blob = imageFile.getBlob();
-    var textContent = blob.getDataAsString();
-    if (textContent && textContent.length > 0) {
-      var trimmed = textContent.trim();
-      if (trimmed.charAt(0) === '<' || trimmed.indexOf('<!DOCTYPE') === 0 ||
-          trimmed.indexOf('<html') !== -1 || trimmed.indexOf('<table') !== -1) {
-        Logger.log('CODE PATH: Blob is HTML text — file: "' + fileName +
-                   '", length: ' + textContent.length);
-        Logger.log('First 500 chars: ' + textContent.substring(0, 500));
-        return stripHtmlTags_(textContent);
-      }
-      if (trimmed.length > 50 && /[a-zA-Z]{3,}/.test(trimmed.substring(0, 200))) {
-        Logger.log('CODE PATH: Blob is plain text — file: "' + fileName +
-                   '", length: ' + textContent.length);
-        Logger.log('First 500 chars: ' + textContent.substring(0, 500));
-        return textContent;
-      }
-    }
-  } catch (blobErr) {
-    Logger.log('getBlob().getDataAsString() failed for "' + fileName + '": ' + blobErr.message);
-  }
-
-  // Step 1b: Try alternate text extraction methods
-  try {
-    var htmlBlob = imageFile.getAs('text/html');
-    var htmlText = htmlBlob.getDataAsString();
-    if (htmlText && htmlText.length > 0) {
-      Logger.log('CODE PATH: getAs("text/html") succeeded — file: "' + fileName +
-                 '", length: ' + htmlText.length);
-      Logger.log('First 500 chars: ' + htmlText.substring(0, 500));
-      return stripHtmlTags_(htmlText);
-    }
-  } catch (e) {
-    Logger.log('getAs("text/html") failed: ' + e.message);
-  }
-
-  try {
-    var plainBlob = imageFile.getAs('text/plain');
-    var plainText = plainBlob.getDataAsString();
-    if (plainText && plainText.length > 0) {
-      Logger.log('CODE PATH: getAs("text/plain") succeeded — file: "' + fileName +
-                 '", length: ' + plainText.length);
-      Logger.log('First 500 chars: ' + plainText.substring(0, 500));
-      return plainText;
-    }
-  } catch (e) {
-    Logger.log('getAs("text/plain") failed: ' + e.message);
-  }
-
-  // Step 2: Try DocumentApp directly — works if file is a Google Doc
-  try {
-    var doc = DocumentApp.openById(fileId);
-    var text = doc.getBody().getText();
-    if (text) {
-      Logger.log('CODE PATH: DocumentApp.openById succeeded — file: "' + fileName +
-                 '", text length: ' + text.length);
-      return text;
-    }
-  } catch (e) {
-    Logger.log('DocumentApp.openById(' + fileId + ') failed: ' + e.message);
-  }
-
-  // Step 3: If file might be a shortcut, resolve the target and retry
-  var targetId = null;
-  try {
-    targetId = imageFile.getTargetId();
-  } catch (e) {
-    // getTargetId() throws if not a shortcut
-  }
-  if (targetId) {
-    Logger.log('File "' + fileName + '" is a shortcut, resolved targetId: ' + targetId);
-    try {
-      var targetFile = DriveApp.getFileById(targetId);
-      var targetBlob = targetFile.getBlob();
-      var targetText = targetBlob.getDataAsString();
-      if (targetText && targetText.trim().length > 0) {
-        var tt = targetText.trim();
-        if (tt.charAt(0) === '<' || tt.indexOf('<html') !== -1) {
-          Logger.log('CODE PATH: Shortcut target is HTML — text length: ' + targetText.length);
-          return stripHtmlTags_(targetText);
-        }
-        Logger.log('CODE PATH: Shortcut target read as text — length: ' + targetText.length);
-        return targetText;
-      }
-    } catch (e2) {
-      Logger.log('Shortcut target blob read failed: ' + e2.message);
-    }
-    try {
-      var targetDoc = DocumentApp.openById(targetId);
-      var docText = targetDoc.getBody().getText();
-      if (docText) {
-        Logger.log('CODE PATH: Shortcut target DocumentApp succeeded — text length: ' + docText.length);
-        return docText;
-      }
-    } catch (e3) {
-      Logger.log('Shortcut target DocumentApp failed: ' + e3.message);
-    }
-  }
-
-  // Step 4: Last resort — actual image file, convert via Drive OCR
-  Logger.log('CODE PATH: Attempting Drive OCR conversion for "' + fileName + '"...');
+  var tempFile = null;
   var ocrDocId = null;
+
   try {
+    // Get the raw blob and force correct PNG metadata
+    var blob = imageFile.getBlob();
+    blob.setContentType('image/png');
+    blob.setName('OCR_TEMP_' + fileName);
+
+    // Create a fresh Drive file with clean metadata
+    tempFile = DriveApp.createFile(blob);
+    Logger.log('Created clean temp PNG: ' + tempFile.getId() + ' (' + tempFile.getBlob().getBytes().length + ' bytes)');
+
+    // Convert the clean PNG to a Google Doc via OCR
     var resource = {
-      title: 'OCR_TEMP_' + fileName,
+      title: 'OCR_DOC_' + fileName,
       mimeType: 'application/vnd.google-apps.document'
     };
-    var ocrDoc = Drive.Files.insert(resource, imageFile.getBlob(), { ocr: true, convert: true });
+    var ocrDoc = Drive.Files.insert(resource, tempFile.getBlob(), { ocr: true, convert: true });
     ocrDocId = ocrDoc.id;
 
-    var ocrResult = DocumentApp.openById(ocrDocId);
-    var ocrText = ocrResult.getBody().getText();
+    // Read OCR text from the resulting Doc
+    var doc = DocumentApp.openById(ocrDocId);
+    var text = doc.getBody().getText();
+    Logger.log('CODE PATH: OCR via clean PNG copy succeeded — file: "' + fileName +
+               '", text length: ' + (text ? text.length : 0));
 
-    DriveApp.getFileById(ocrDocId).setTrashed(true);
-    Logger.log('CODE PATH: Drive OCR succeeded for "' + fileName + '", text length: ' +
-               (ocrText ? ocrText.length : 0));
-    return ocrText || null;
+    return text || null;
 
   } catch (err) {
-    Logger.log('Drive OCR failed for "' + fileName + '": ' + err.message);
+    Logger.log('ocrImageViaDrive_ FAILED for "' + fileName + '": ' + err.message);
+    return null;
+
+  } finally {
+    // Always clean up temp files
+    if (tempFile) {
+      try { tempFile.setTrashed(true); } catch (e) {}
+    }
     if (ocrDocId) {
       try { DriveApp.getFileById(ocrDocId).setTrashed(true); } catch (e) {}
     }
-    return null;
   }
-}
-
-/**
- * Strips HTML tags and decodes entities, returning readable text with
- * newlines preserved for table rows and block elements.
- */
-function stripHtmlTags_(html) {
-  var text = html;
-  // Insert newlines for block-level elements and table cells
-  text = text.replace(/<\/?(tr|div|p|br|li|h[1-6])[^>]*>/gi, '\n');
-  text = text.replace(/<\/?(td|th)[^>]*>/gi, '\t');
-  // Remove all remaining tags
-  text = text.replace(/<[^>]+>/g, '');
-  // Decode common HTML entities
-  text = text.replace(/&amp;/g, '&');
-  text = text.replace(/&lt;/g, '<');
-  text = text.replace(/&gt;/g, '>');
-  text = text.replace(/&quot;/g, '"');
-  text = text.replace(/&#39;/g, "'");
-  text = text.replace(/&nbsp;/g, ' ');
-  text = text.replace(/&#x24;/g, '$');
-  text = text.replace(/&#36;/g, '$');
-  text = text.replace(/&\#?\w+;/g, '');
-  // Collapse excessive whitespace
-  text = text.replace(/[ \t]+/g, ' ');
-  text = text.replace(/\n[ \t]+/g, '\n');
-  text = text.replace(/\n{3,}/g, '\n\n');
-  return text.trim();
 }
 
 /**
@@ -1518,6 +1433,110 @@ function parseOcrNumeric_(str) {
  */
 function escapeRegex_(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ============================================================================
+// GSHEET BALANCE FALLBACK
+// ============================================================================
+
+/**
+ * Reads balances from the Treasury Flash GSheet as a fallback source.
+ * The sheet has tabs "Corporate Cash" and "Gustomer Cash" in matrix format:
+ *   Row 1: date headers (e.g. "Wed 6/17/2026")
+ *   Column A/B: account descriptions
+ *   Cell values: balance amounts
+ *
+ * @param  {string} todayStr  Date in yyyy-MM-dd format
+ * @return {Object}           { corporate: [...], gustomer: [...] }
+ */
+function readGSheetBalances_(todayStr) {
+  var result = { corporate: [], gustomer: [] };
+
+  try {
+    var ss = SpreadsheetApp.openById(PIPELINE_CONFIG.TREASURY_FLASH_SHEET_ID);
+  } catch (err) {
+    Logger.log('readGSheetBalances_: Could not open GSheet: ' + err.message);
+    return result;
+  }
+
+  // Parse todayStr to build possible date header formats
+  var dateParts = todayStr.split('-');
+  var year = parseInt(dateParts[0], 10);
+  var month = parseInt(dateParts[1], 10);
+  var day = parseInt(dateParts[2], 10);
+  // Headers use format like "Wed 6/17/2026"
+  var dateObj = new Date(year, month - 1, day);
+  var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var dayName = dayNames[dateObj.getDay()];
+  var headerPattern1 = dayName + ' ' + month + '/' + day + '/' + year;
+  var headerPattern2 = month + '/' + day + '/' + year;
+
+  var tabs = [
+    { name: 'Corporate Cash', target: 'corporate' },
+    { name: 'Gustomer Cash', target: 'gustomer' }
+  ];
+
+  for (var t = 0; t < tabs.length; t++) {
+    var sheet = ss.getSheetByName(tabs[t].name);
+    if (!sheet) {
+      Logger.log('readGSheetBalances_: Tab "' + tabs[t].name + '" not found.');
+      continue;
+    }
+
+    var data = sheet.getDataRange().getValues();
+    if (data.length < 2) continue;
+
+    // Find today's date column in the header row
+    var headerRow = data[0];
+    var dateCol = -1;
+    for (var c = 0; c < headerRow.length; c++) {
+      var cellVal = String(headerRow[c]).trim();
+      if (cellVal === headerPattern1 || cellVal === headerPattern2 ||
+          cellVal.indexOf(month + '/' + day + '/' + year) !== -1) {
+        dateCol = c;
+        break;
+      }
+      // Also handle Date objects in headers
+      if (headerRow[c] instanceof Date) {
+        var hd = headerRow[c];
+        if (hd.getFullYear() === year && (hd.getMonth() + 1) === month && hd.getDate() === day) {
+          dateCol = c;
+          break;
+        }
+      }
+    }
+
+    if (dateCol === -1) {
+      Logger.log('readGSheetBalances_: No column found for ' + todayStr + ' in "' + tabs[t].name +
+                 '". Tried: "' + headerPattern1 + '"');
+      continue;
+    }
+
+    Logger.log('readGSheetBalances_: Found date column ' + dateCol + ' in "' + tabs[t].name + '"');
+
+    // Read account rows (skip header)
+    for (var r = 1; r < data.length; r++) {
+      var accountName = String(data[r][0] || data[r][1] || '').trim();
+      if (!accountName) continue;
+
+      var rawVal = data[r][dateCol];
+      if (rawVal === '' || rawVal === null || rawVal === undefined) continue;
+
+      var balance = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/[\$,]/g, ''));
+      if (isNaN(balance)) continue;
+
+      result[tabs[t].target].push({
+        date: todayStr,
+        account_name: accountName,
+        value: balance
+      });
+    }
+
+    Logger.log('readGSheetBalances_: Read ' + result[tabs[t].target].length +
+               ' records from "' + tabs[t].name + '"');
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -2100,4 +2119,33 @@ function debugFileInfo() {
   }
 
   Logger.log('=== END DEBUG ===');
+}
+
+function testScreenshotOcr() {
+  var fileId = '1KJ0MYzPGsu93oG3__Otj0zzcUBSJelrG';
+  Logger.log('=== testScreenshotOcr START ===');
+  Logger.log('Opening file: ' + fileId);
+
+  var file;
+  try {
+    file = DriveApp.getFileById(fileId);
+    Logger.log('File name: ' + file.getName());
+    Logger.log('File size: ' + file.getSize() + ' bytes');
+  } catch (err) {
+    Logger.log('FAILURE: Cannot open file — ' + err.message);
+    return;
+  }
+
+  var text = ocrImageViaDrive_(file);
+
+  if (text && text.length > 0) {
+    Logger.log('SUCCESS — OCR returned ' + text.length + ' characters');
+    Logger.log('=== FULL OCR TEXT START ===');
+    Logger.log(text);
+    Logger.log('=== FULL OCR TEXT END ===');
+  } else {
+    Logger.log('FAILURE — OCR returned no text');
+  }
+
+  Logger.log('=== testScreenshotOcr END ===');
 }
