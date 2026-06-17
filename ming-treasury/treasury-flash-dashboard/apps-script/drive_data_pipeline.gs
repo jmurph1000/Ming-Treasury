@@ -1184,7 +1184,8 @@ function processScreenshots_() {
   for (var i = 0; i < imageFiles.length; i++) {
     var imgFile = imageFiles[i];
     var imgName = imgFile.getName();
-    Logger.log('OCR processing: ' + imgName);
+    var imgMime = imgFile.getMimeType();
+    Logger.log('OCR processing: "' + imgName + '" | mimeType: "' + imgMime + '"');
 
     // Determine which screenshot source this matches
     var matchedSource = null;
@@ -1268,39 +1269,53 @@ function ocrImageViaDrive_(imageFile) {
   var fileName = imageFile.getName();
   var mimeType = imageFile.getMimeType();
   Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId +
-             ', getMimeType(): "' + mimeType + '", typeof: ' + typeof mimeType);
+             ', getMimeType(): "' + mimeType + '"');
 
-  // Already a Google Doc — just read the text directly (no conversion needed)
-  if (mimeType === 'application/vnd.google-apps.document') {
-    Logger.log('Detected Google Doc, reading text directly via DocumentApp...');
+  // Step 1: Try DocumentApp directly — works if file is a Google Doc regardless of reported mimeType
+  try {
+    var doc = DocumentApp.openById(fileId);
+    var text = doc.getBody().getText();
+    if (text) {
+      Logger.log('CODE PATH: DocumentApp.openById succeeded directly — file: "' + fileName +
+                 '", text length: ' + text.length);
+      return text;
+    }
+  } catch (e) {
+    Logger.log('DocumentApp.openById(' + fileId + ') failed: ' + e.message);
+  }
+
+  // Step 2: If file might be a shortcut, resolve the target and try DocumentApp on that
+  var targetId = null;
+  try {
+    targetId = imageFile.getTargetId();
+  } catch (e) {
+    // getTargetId() throws if not a shortcut — that's fine
+  }
+  if (targetId) {
+    Logger.log('File "' + fileName + '" is a shortcut, resolved targetId: ' + targetId);
     try {
-      var doc = DocumentApp.openById(fileId);
-      var text = doc.getBody().getText();
-      Logger.log('Google Doc text length: ' + (text ? text.length : 0));
-      return text || null;
-    } catch (err) {
-      Logger.log('Failed to read Google Doc ' + fileName + ': ' + err.message);
+      var targetDoc = DocumentApp.openById(targetId);
+      var targetText = targetDoc.getBody().getText();
+      if (targetText) {
+        Logger.log('CODE PATH: Shortcut resolved — DocumentApp on targetId succeeded, text length: ' + targetText.length);
+        return targetText;
+      }
+    } catch (e2) {
+      Logger.log('DocumentApp.openById(targetId=' + targetId + ') failed: ' + e2.message);
+    }
+    // Use the resolved target ID for subsequent OCR attempt
+    fileId = targetId;
+    try {
+      imageFile = DriveApp.getFileById(targetId);
+      fileName = imageFile.getName();
+    } catch (e3) {
+      Logger.log('Could not resolve target file for OCR fallback: ' + e3.message);
       return null;
     }
   }
 
-  // Fallback: check via Drive Advanced Service metadata in case DriveApp reports wrong mime
-  try {
-    var driveMeta = Drive.Files.get(fileId);
-    Logger.log('Drive API mimeType for ' + fileName + ': "' + driveMeta.mimeType + '"');
-    if (driveMeta.mimeType === 'application/vnd.google-apps.document') {
-      Logger.log('Drive API confirms Google Doc — reading text directly...');
-      var doc2 = DocumentApp.openById(fileId);
-      var text2 = doc2.getBody().getText();
-      Logger.log('Google Doc text length: ' + (text2 ? text2.length : 0));
-      return text2 || null;
-    }
-  } catch (metaErr) {
-    Logger.log('Drive.Files.get fallback failed: ' + metaErr.message);
-  }
-
-  // Image file — convert via Drive OCR
-  Logger.log('Treating as image, converting via Drive OCR...');
+  // Step 3: Fallback — actual image file, convert via Drive OCR
+  Logger.log('CODE PATH: Attempting Drive OCR conversion for "' + fileName + '"...');
   var ocrDocId = null;
   try {
     var resource = {
@@ -1311,13 +1326,15 @@ function ocrImageViaDrive_(imageFile) {
     ocrDocId = ocrDoc.id;
 
     var ocrResult = DocumentApp.openById(ocrDocId);
-    var text = ocrResult.getBody().getText();
+    var ocrText = ocrResult.getBody().getText();
 
     DriveApp.getFileById(ocrDocId).setTrashed(true);
-    return text || null;
+    Logger.log('CODE PATH: Drive OCR succeeded for "' + fileName + '", text length: ' +
+               (ocrText ? ocrText.length : 0));
+    return ocrText || null;
 
   } catch (err) {
-    Logger.log('Drive OCR failed for ' + fileName + ': ' + err.message);
+    Logger.log('Drive OCR failed for "' + fileName + '": ' + err.message);
     if (ocrDocId) {
       try { DriveApp.getFileById(ocrDocId).setTrashed(true); } catch (e) {}
     }
