@@ -423,8 +423,7 @@ function processDailyData() {
     }
 
     if (pncFiles.length === 0 && jpmFiles.length === 0) {
-      Logger.log('No PNC or JPM attachments found in Gmail for today. Exiting.');
-      return;
+      Logger.log('No PNC or JPM attachments found in Gmail for today. Will try GSheet source.');
     }
 
     // Sort files by name so later reports win during deduplication
@@ -447,67 +446,46 @@ function processDailyData() {
       gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
     }
 
-    Logger.log('Parsed totals (email) - Corporate: ' + corporateRecords.length +
+    Logger.log('SOURCE: Email — Corporate: ' + corporateRecords.length +
                ' records, Gustomer: ' + gustomerRecords.length + ' records.');
 
-    // Process screenshots (OCR-based) — these do NOT overwrite email-derived records
-    var emailKeys = {};
+    // Build a set of email-derived account names for dedup (GSheet must not
+    // duplicate accounts already obtained from email sources)
+    var emailAccountNames = {};
     for (var ek = 0; ek < corporateRecords.length; ek++) {
-      emailKeys[corporateRecords[ek].date + '|' + corporateRecords[ek].account_name] = true;
+      emailAccountNames[corporateRecords[ek].account_name] = true;
     }
     for (var ek2 = 0; ek2 < gustomerRecords.length; ek2++) {
-      emailKeys[gustomerRecords[ek2].date + '|' + gustomerRecords[ek2].account_name] = true;
+      emailAccountNames[gustomerRecords[ek2].account_name] = true;
     }
 
+    // GSheet — primary source for non-email accounts (Morgan Stanley, NBKC, BTC, etc.)
     try {
-      var screenshotResult = processScreenshots_();
-      var ssAdded = 0;
-      for (var sc = 0; sc < screenshotResult.corporate.length; sc++) {
-        var scRec = screenshotResult.corporate[sc];
-        if (!emailKeys[scRec.date + '|' + scRec.account_name]) {
-          corporateRecords.push(scRec);
-          ssAdded++;
+      var gsheetResult = readGSheetBalances_(todayStr);
+      var gsAdded = 0;
+      var gsSkipped = 0;
+      for (var gc = 0; gc < gsheetResult.corporate.length; gc++) {
+        var gcRec = gsheetResult.corporate[gc];
+        if (emailAccountNames[gcRec.account_name]) {
+          gsSkipped++;
+          continue;
         }
+        corporateRecords.push(gcRec);
+        gsAdded++;
       }
-      for (var sg = 0; sg < screenshotResult.gustomer.length; sg++) {
-        var sgRec = screenshotResult.gustomer[sg];
-        if (!emailKeys[sgRec.date + '|' + sgRec.account_name]) {
-          gustomerRecords.push(sgRec);
-          ssAdded++;
+      for (var gg = 0; gg < gsheetResult.gustomer.length; gg++) {
+        var ggRec = gsheetResult.gustomer[gg];
+        if (emailAccountNames[ggRec.account_name]) {
+          gsSkipped++;
+          continue;
         }
+        gustomerRecords.push(ggRec);
+        gsAdded++;
       }
-      Logger.log('SOURCE: Screenshots added ' + ssAdded + ' records (skipped duplicates with email data).');
-    } catch (ssErr) {
-      Logger.log('WARNING: Screenshot processing failed (non-fatal): ' + ssErr.message);
-    }
-
-    // GSheet fallback — if screenshots produced 0 records, try reading from Treasury Flash GSheet
-    var screenshotCount = (typeof ssAdded !== 'undefined') ? ssAdded : 0;
-    if (screenshotCount === 0) {
-      Logger.log('SOURCE: Screenshots produced 0 records — trying GSheet fallback...');
-      try {
-        var gsheetResult = readGSheetBalances_(todayStr);
-        var gsAdded = 0;
-        for (var gc = 0; gc < gsheetResult.corporate.length; gc++) {
-          var gcRec = gsheetResult.corporate[gc];
-          if (!emailKeys[gcRec.date + '|' + gcRec.account_name]) {
-            corporateRecords.push(gcRec);
-            gsAdded++;
-          }
-        }
-        for (var gg = 0; gg < gsheetResult.gustomer.length; gg++) {
-          var ggRec = gsheetResult.gustomer[gg];
-          if (!emailKeys[ggRec.date + '|' + ggRec.account_name]) {
-            gustomerRecords.push(ggRec);
-            gsAdded++;
-          }
-        }
-        Logger.log('SOURCE: GSheet fallback added ' + gsAdded + ' records (skipped duplicates with email data).');
-      } catch (gsErr) {
-        Logger.log('WARNING: GSheet fallback failed (non-fatal): ' + gsErr.message);
-      }
-    } else {
-      Logger.log('SOURCE: Screenshots produced records — skipping GSheet fallback.');
+      Logger.log('SOURCE: GSheet added ' + gsAdded + ' records (' + gsSkipped +
+                 ' skipped as duplicates of email-derived accounts).');
+    } catch (gsErr) {
+      Logger.log('WARNING: GSheet read failed (non-fatal): ' + gsErr.message);
     }
 
     Logger.log('Final totals - Corporate: ' + corporateRecords.length +
@@ -1139,312 +1117,27 @@ function convertXlsToDriveSheet_(xlsBlob, fileName) {
   }
 }
 
-// ============================================================================
-// SCREENSHOT OCR PROCESSING (Google Cloud Vision API)
-// ============================================================================
-
-/**
- * Scans the attachment folder for image files (PNG/JPG/JPEG) modified today,
- * runs OCR via Cloud Vision API, matches text against screenshot_account_map.json,
- * and returns parsed balance records.
- *
- * Requires VISION_API_KEY in Script Properties.
- *
- * @return {Object} { corporate: [...], gustomer: [...] }
- *                  Each entry: { date, account_name, value }
- */
-function processScreenshots_() {
-  var corporate = [];
-  var gustomer = [];
-
-  // Load the screenshot account map from the repo (committed as a data file)
-  var accountMap = loadScreenshotAccountMap_();
-  if (!accountMap || !accountMap.screenshots || accountMap.screenshots.length === 0) {
-    Logger.log('No screenshot account map found or empty. Skipping.');
-    return { corporate: corporate, gustomer: gustomer };
-  }
-
-  // Navigate subfolder hierarchy: {Month Year} -> {Month Day, Year} -> images
-  var now = new Date();
-  var monthYearName = Utilities.formatDate(now, 'America/New_York', 'MMMM yyyy');
-  var dayFolderName = Utilities.formatDate(now, 'America/New_York', 'MMMM d, yyyy');
-
-  var rootFolder;
-  if (PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID) {
-    rootFolder = DriveApp.getFolderById(PIPELINE_CONFIG.ATTACHMENT_FOLDER_ID);
-  } else {
-    rootFolder = DriveApp.getRootFolder();
-  }
-
-  // Step 1: Find the month/year subfolder (e.g., "June 2026")
-  var monthFolders = rootFolder.getFoldersByName(monthYearName);
-  if (!monthFolders.hasNext()) {
-    Logger.log('No month subfolder found: "' + monthYearName + '". Skipping screenshots.');
-    return { corporate: corporate, gustomer: gustomer };
-  }
-  var monthFolder = monthFolders.next();
-  Logger.log('Found month subfolder: ' + monthYearName);
-
-  // Step 2: Find today's date subfolder (e.g., "June 12, 2026")
-  var dayFolders = monthFolder.getFoldersByName(dayFolderName);
-  if (!dayFolders.hasNext()) {
-    Logger.log('No day subfolder found: "' + dayFolderName + '". Skipping screenshots.');
-    return { corporate: corporate, gustomer: gustomer };
-  }
-  var dayFolder = dayFolders.next();
-  Logger.log('Found day subfolder: ' + dayFolderName);
-
-  // Step 3: Scan the daily subfolder for image files and Google Docs (Drive auto-converts uploads)
-  var imageFiles = [];
-  var files = dayFolder.getFiles();
-  while (files.hasNext()) {
-    var file = files.next();
-    var mimeType = file.getMimeType();
-    if (mimeType === 'image/png' || mimeType === 'image/jpeg' ||
-        mimeType === 'application/vnd.google-apps.document') {
-      imageFiles.push(file);
-    }
-  }
-
-  Logger.log('Found ' + imageFiles.length + ' screenshot file(s) in ' + dayFolderName + ' subfolder.');
-  if (imageFiles.length === 0) {
-    return { corporate: corporate, gustomer: gustomer };
-  }
-
-  var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
-
-  for (var i = 0; i < imageFiles.length; i++) {
-    var imgFile = imageFiles[i];
-    var imgName = imgFile.getName();
-    var imgMime = imgFile.getMimeType();
-    Logger.log('OCR processing: "' + imgName + '" | mimeType: "' + imgMime + '"');
-
-    // Determine which screenshot source this matches
-    var matchedSource = null;
-    for (var s = 0; s < accountMap.screenshots.length; s++) {
-      if (imgName.indexOf(accountMap.screenshots[s].source) !== -1) {
-        matchedSource = accountMap.screenshots[s];
-        break;
-      }
-    }
-
-    if (!matchedSource) {
-      Logger.log('No account map match for image: ' + imgName + '. Skipping.');
-      continue;
-    }
-
-    // Run OCR via Drive's built-in OCR (converts image to Google Doc)
-    var ocrText = ocrImageViaDrive_(imgFile);
-    if (!ocrText) {
-      Logger.log('OCR returned no text for: ' + imgName);
-      continue;
-    }
-
-    // Parse balances for each account in this screenshot source
-    for (var a = 0; a < matchedSource.accounts.length; a++) {
-      var acct = matchedSource.accounts[a];
-      var balance = extractBalanceFromOcr_(ocrText, acct.identifier, acct.balanceField);
-
-      if (balance === null) {
-        Logger.log('Could not extract balance for "' + acct.dashboardName + '" from ' + imgName);
-        continue;
-      }
-
-      var record = {
-        date: todayStr,
-        account_name: acct.dashboardName,
-        value: balance
-      };
-
-      if (acct.file === 'corporate_cash.json') {
-        corporate.push(record);
-      } else {
-        gustomer.push(record);
-      }
-    }
-  }
-
-  Logger.log('Screenshot OCR complete: ' + corporate.length + ' corporate, ' +
-             gustomer.length + ' gustomer records.');
-  return { corporate: corporate, gustomer: gustomer };
-}
-
-/**
- * Loads the screenshot_account_map.json from GitHub.
- *
- * @return {Object|null} Parsed JSON or null on failure
- */
-function loadScreenshotAccountMap_() {
-  try {
-    var ghFile = readFileFromGitHub_(
-      'ming-treasury/treasury-flash-dashboard/data/screenshot_account_map.json'
-    );
-    return ghFile.content;
-  } catch (err) {
-    Logger.log('Failed to load screenshot_account_map.json from GitHub: ' + err.message);
-    return null;
-  }
-}
-
-/**
- * Extracts text from a screenshot PNG via Drive OCR.
- * Creates a clean copy of the blob with correct PNG metadata, then uses
- * Drive.Files.insert with OCR to convert to a Google Doc and read the text.
- *
- * @param  {File}   imageFile  Google Drive file object
- * @return {string|null}       Extracted text, or null on failure
- */
-function ocrImageViaDrive_(imageFile) {
-  var fileId = imageFile.getId();
-  var fileName = imageFile.getName();
-  Logger.log('ocrImageViaDrive_ called — file: "' + fileName + '", id: ' + fileId);
-
-  var tempFile = null;
-  var ocrDocId = null;
-
-  try {
-    // Get the raw blob and force correct PNG metadata
-    var blob = imageFile.getBlob();
-    blob.setContentType('image/png');
-    blob.setName('OCR_TEMP_' + fileName);
-
-    // Create a fresh Drive file with clean metadata
-    tempFile = DriveApp.createFile(blob);
-    Logger.log('Created clean temp PNG: ' + tempFile.getId() + ' (' + tempFile.getBlob().getBytes().length + ' bytes)');
-
-    // Convert the clean PNG to a Google Doc via OCR
-    var resource = {
-      title: 'OCR_DOC_' + fileName,
-      mimeType: 'application/vnd.google-apps.document'
-    };
-    var ocrDoc = Drive.Files.insert(resource, tempFile.getBlob(), { ocr: true, convert: true });
-    ocrDocId = ocrDoc.id;
-
-    // Read OCR text from the resulting Doc
-    var doc = DocumentApp.openById(ocrDocId);
-    var text = doc.getBody().getText();
-    Logger.log('CODE PATH: OCR via clean PNG copy succeeded — file: "' + fileName +
-               '", text length: ' + (text ? text.length : 0));
-
-    return text || null;
-
-  } catch (err) {
-    Logger.log('ocrImageViaDrive_ FAILED for "' + fileName + '": ' + err.message);
-    return null;
-
-  } finally {
-    // Always clean up temp files
-    if (tempFile) {
-      try { tempFile.setTrashed(true); } catch (e) {}
-    }
-    if (ocrDocId) {
-      try { DriveApp.getFileById(ocrDocId).setTrashed(true); } catch (e) {}
-    }
-  }
-}
-
-/**
- * Extracts a balance value from OCR text by finding the account identifier
- * and then locating the numeric value nearby.
- *
- * Strategy: find the line containing the identifier, then scan subsequent
- * lines for a dollar amount or large numeric value. The balanceField hint
- * is used to narrow the search when the OCR text contains labeled fields.
- *
- * @param  {string} ocrText       Full OCR text from the image
- * @param  {string} identifier    Text to search for (account identifier)
- * @param  {string} balanceField  Hint for which field contains the balance
- * @return {number|null}          Parsed balance value, or null if not found
- */
-function extractBalanceFromOcr_(ocrText, identifier, balanceField) {
-  var lines = ocrText.split(/\n/);
-
-  // Find the line index containing the identifier
-  var idxStart = -1;
-  for (var i = 0; i < lines.length; i++) {
-    if (lines[i].indexOf(identifier) !== -1) {
-      idxStart = i;
-      break;
-    }
-  }
-
-  if (idxStart === -1) {
-    // Try case-insensitive partial match
-    var identLower = identifier.toLowerCase();
-    for (var i2 = 0; i2 < lines.length; i2++) {
-      if (lines[i2].toLowerCase().indexOf(identLower) !== -1) {
-        idxStart = i2;
-        break;
-      }
-    }
-  }
-
-  if (idxStart === -1) return null;
-
-  // Search the identifier line and the next several lines for a balance value
-  // Look for the balanceField label first, then grab the number after it
-  var searchWindow = lines.slice(idxStart, Math.min(idxStart + 8, lines.length));
-  var searchText = searchWindow.join('\n');
-
-  // Try to find balanceField label followed by a number
-  var fieldPattern = new RegExp(escapeRegex_(balanceField) + '[:\\s]*([\\$]?[\\d,]+\\.?\\d*)', 'i');
-  var fieldMatch = searchText.match(fieldPattern);
-  if (fieldMatch) {
-    return parseOcrNumeric_(fieldMatch[1]);
-  }
-
-  // Fallback: find any dollar amount or large number on the same line as identifier
-  // or immediately following lines
-  var moneyPattern = /[\$]?\s*([\d,]{2,}\.?\d{0,2})/g;
-  for (var w = 0; w < searchWindow.length; w++) {
-    var matches = searchWindow[w].match(moneyPattern);
-    if (matches) {
-      for (var m = 0; m < matches.length; m++) {
-        var val = parseOcrNumeric_(matches[m]);
-        if (val !== null && val >= 1) {
-          return val;
-        }
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Parses a numeric string from OCR output (handles $, commas, spaces).
- *
- * @param  {string} str  Raw numeric string from OCR
- * @return {number|null} Parsed value or null
- */
-function parseOcrNumeric_(str) {
-  if (!str) return null;
-  var cleaned = str.replace(/[\$,\s]/g, '');
-  var val = parseFloat(cleaned);
-  if (isNaN(val)) return null;
-  return val;
-}
-
-/**
- * Escapes special regex characters in a string.
- *
- * @param  {string} str  Input string
- * @return {string}      Regex-safe string
- */
-function escapeRegex_(str) {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 // ============================================================================
-// GSHEET BALANCE FALLBACK
+// GSHEET BALANCE READER
 // ============================================================================
 
+var GSHEET_SKIP_LABELS = [
+  'Gusto Capital LLC Total',
+  'Zenpayroll Inc. Total',
+  'Zenpayroll Inc.',
+  'SVB Collateral Total',
+  'Total'
+];
+
 /**
- * Reads balances from the Treasury Flash GSheet as a fallback source.
+ * Reads balances from the Treasury Flash GSheet.
  * The sheet has tabs "Corporate Cash" and "Gustomer Cash" in matrix format:
  *   Row 1: date headers (e.g. "Wed 6/17/2026")
- *   Column A/B: account descriptions
- *   Cell values: balance amounts
+ *   Column B (index 1): account descriptions
+ *   Columns C+: balance values per date
+ *
+ * Skips subtotal/total rows and empty descriptions.
  *
  * @param  {string} todayStr  Date in yyyy-MM-dd format
  * @return {Object}           { corporate: [...], gustomer: [...] }
@@ -1464,10 +1157,10 @@ function readGSheetBalances_(todayStr) {
   var year = parseInt(dateParts[0], 10);
   var month = parseInt(dateParts[1], 10);
   var day = parseInt(dateParts[2], 10);
-  // Headers use format like "Wed 6/17/2026"
   var dateObj = new Date(year, month - 1, day);
   var dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var dayName = dayNames[dateObj.getDay()];
+  // Headers use format like "Wed 6/17/2026"
   var headerPattern1 = dayName + ' ' + month + '/' + day + '/' + year;
   var headerPattern2 = month + '/' + day + '/' + year;
 
@@ -1486,23 +1179,24 @@ function readGSheetBalances_(todayStr) {
     var data = sheet.getDataRange().getValues();
     if (data.length < 2) continue;
 
-    // Find today's date column in the header row
+    // Find today's date column in the header row (search from column C onward = index 2+)
     var headerRow = data[0];
     var dateCol = -1;
-    for (var c = 0; c < headerRow.length; c++) {
-      var cellVal = String(headerRow[c]).trim();
-      if (cellVal === headerPattern1 || cellVal === headerPattern2 ||
-          cellVal.indexOf(month + '/' + day + '/' + year) !== -1) {
-        dateCol = c;
-        break;
-      }
-      // Also handle Date objects in headers
-      if (headerRow[c] instanceof Date) {
-        var hd = headerRow[c];
-        if (hd.getFullYear() === year && (hd.getMonth() + 1) === month && hd.getDate() === day) {
+    for (var c = 2; c < headerRow.length; c++) {
+      var cellVal = headerRow[c];
+      // Handle Date objects in headers
+      if (cellVal instanceof Date) {
+        if (cellVal.getFullYear() === year && (cellVal.getMonth() + 1) === month && cellVal.getDate() === day) {
           dateCol = c;
           break;
         }
+        continue;
+      }
+      var cellStr = String(cellVal).trim();
+      if (cellStr === headerPattern1 || cellStr === headerPattern2 ||
+          cellStr.indexOf(month + '/' + day + '/' + year) !== -1) {
+        dateCol = c;
+        break;
       }
     }
 
@@ -1514,29 +1208,65 @@ function readGSheetBalances_(todayStr) {
 
     Logger.log('readGSheetBalances_: Found date column ' + dateCol + ' in "' + tabs[t].name + '"');
 
-    // Read account rows (skip header)
+    // Read account rows (skip header row 0)
+    var tabRecords = 0;
+    var skippedLabels = 0;
     for (var r = 1; r < data.length; r++) {
-      var accountName = String(data[r][0] || data[r][1] || '').trim();
-      if (!accountName) continue;
+      // Account description is in column B (index 1)
+      var desc = String(data[r][1] || '').trim();
+
+      // Skip empty descriptions
+      if (!desc) continue;
+
+      // Skip subtotal/total rows
+      if (isGSheetSkipRow_(desc)) {
+        skippedLabels++;
+        continue;
+      }
 
       var rawVal = data[r][dateCol];
       if (rawVal === '' || rawVal === null || rawVal === undefined) continue;
 
-      var balance = typeof rawVal === 'number' ? rawVal : parseFloat(String(rawVal).replace(/[\$,]/g, ''));
-      if (isNaN(balance)) continue;
+      // Parse numeric value (handle currency strings and negatives)
+      var balance;
+      if (typeof rawVal === 'number') {
+        balance = rawVal;
+      } else {
+        var str = String(rawVal).trim();
+        if (!str || str === '-' || str === '#REF!' || str === '#N/A') continue;
+        var negative = false;
+        if (str.charAt(0) === '(' && str.charAt(str.length - 1) === ')') {
+          negative = true;
+          str = str.substring(1, str.length - 1);
+        }
+        str = str.replace(/[\$,\s]/g, '');
+        balance = parseFloat(str);
+        if (isNaN(balance)) continue;
+        if (negative) balance = -balance;
+      }
 
       result[tabs[t].target].push({
         date: todayStr,
-        account_name: accountName,
+        account_name: desc,
         value: balance
       });
+      tabRecords++;
     }
 
-    Logger.log('readGSheetBalances_: Read ' + result[tabs[t].target].length +
-               ' records from "' + tabs[t].name + '"');
+    Logger.log('readGSheetBalances_: "' + tabs[t].name + '" — ' + tabRecords +
+               ' records read, ' + skippedLabels + ' subtotal rows skipped.');
   }
 
   return result;
+}
+
+function isGSheetSkipRow_(desc) {
+  for (var i = 0; i < GSHEET_SKIP_LABELS.length; i++) {
+    if (desc === GSHEET_SKIP_LABELS[i]) return true;
+  }
+  // Also skip any row ending with "Total" (catches entity subtotals)
+  if (desc.length > 5 && desc.substring(desc.length - 5) === 'Total') return true;
+  return false;
 }
 
 // ============================================================================
@@ -2036,116 +1766,27 @@ function testOneJPM() {
   }
 }
 
-function debugFileInfo() {
-  var fileId = '1KJ0MYzPGsu93oG3__Otj0zzcUBSJelrG';
-  Logger.log('=== DEBUG FILE INFO ===');
-  Logger.log('Target fileId: ' + fileId);
+function testGSheetRead() {
+  var todayStr = Utilities.formatDate(new Date(), 'America/New_York', 'yyyy-MM-dd');
+  Logger.log('=== testGSheetRead for ' + todayStr + ' ===');
 
-  var file;
-  try {
-    file = DriveApp.getFileById(fileId);
-  } catch (err) {
-    Logger.log('DriveApp.getFileById FAILED: ' + err.message);
-    return;
+  var result = readGSheetBalances_(todayStr);
+
+  Logger.log('Corporate records: ' + result.corporate.length);
+  var corpTotal = 0;
+  for (var i = 0; i < result.corporate.length; i++) {
+    corpTotal += result.corporate[i].value;
+    Logger.log('  CORP: ' + result.corporate[i].account_name + ' = ' + result.corporate[i].value);
   }
+  Logger.log('Corporate TOTAL: $' + corpTotal.toLocaleString());
 
-  Logger.log('file.getName(): ' + file.getName());
-  Logger.log('file.getMimeType(): ' + file.getMimeType());
-  Logger.log('file.getSize(): ' + file.getSize());
-  Logger.log('file.getUrl(): ' + file.getUrl());
-  Logger.log('file.getSharingAccess(): ' + file.getSharingAccess());
-
-  // Blob info
-  try {
-    var blob = file.getBlob();
-    Logger.log('file.getBlob().getContentType(): ' + blob.getContentType());
-    var bytes = blob.getBytes();
-    Logger.log('file.getBlob().getBytes().length: ' + bytes.length);
-    var hex = [];
-    for (var i = 0; i < Math.min(20, bytes.length); i++) {
-      var b = bytes[i] & 0xFF;
-      hex.push(('0' + b.toString(16)).slice(-2));
-    }
-    Logger.log('First 20 bytes (hex): ' + hex.join(' '));
-  } catch (blobErr) {
-    Logger.log('Blob operations FAILED: ' + blobErr.message);
+  Logger.log('Gustomer records: ' + result.gustomer.length);
+  var gustTotal = 0;
+  for (var j = 0; j < result.gustomer.length; j++) {
+    gustTotal += result.gustomer[j].value;
+    Logger.log('  GUST: ' + result.gustomer[j].account_name + ' = ' + result.gustomer[j].value);
   }
+  Logger.log('Gustomer TOTAL: $' + gustTotal.toLocaleString());
 
-  // Drive Advanced Service metadata
-  try {
-    var driveMeta = Drive.Files.get(fileId);
-    Logger.log('Drive.Files.get() SUCCEEDED:');
-    Logger.log('  mimeType: ' + driveMeta.mimeType);
-    Logger.log('  title: ' + driveMeta.title);
-    Logger.log('  fileSize: ' + driveMeta.fileSize);
-    Logger.log('  kind: ' + driveMeta.kind);
-    Logger.log('  alternateLink: ' + driveMeta.alternateLink);
-    Logger.log('  Full response: ' + JSON.stringify(driveMeta).substring(0, 2000));
-  } catch (driveErr) {
-    Logger.log('Drive.Files.get() FAILED: ' + driveErr.message);
-  }
-
-  // Try getAs image/png
-  try {
-    var pngBlob = file.getAs('image/png');
-    Logger.log('file.getAs("image/png") SUCCEEDED — size: ' + pngBlob.getBytes().length);
-  } catch (asErr) {
-    Logger.log('file.getAs("image/png") FAILED: ' + asErr.message);
-  }
-
-  // Check if shortcut
-  try {
-    var targetId = file.getTargetId();
-    Logger.log('file.getTargetId() SUCCEEDED — targetId: ' + targetId);
-    try {
-      var targetFile = DriveApp.getFileById(targetId);
-      Logger.log('  target getName(): ' + targetFile.getName());
-      Logger.log('  target getMimeType(): ' + targetFile.getMimeType());
-    } catch (tErr) {
-      Logger.log('  Could not open target file: ' + tErr.message);
-    }
-  } catch (shortcutErr) {
-    Logger.log('file.getTargetId() FAILED (not a shortcut): ' + shortcutErr.message);
-  }
-
-  // Try DocumentApp
-  try {
-    var doc = DocumentApp.openById(fileId);
-    var text = doc.getBody().getText();
-    Logger.log('DocumentApp.openById() SUCCEEDED — text length: ' + text.length);
-    Logger.log('First 500 chars: ' + text.substring(0, 500));
-  } catch (docErr) {
-    Logger.log('DocumentApp.openById() FAILED: ' + docErr.message);
-  }
-
-  Logger.log('=== END DEBUG ===');
-}
-
-function testScreenshotOcr() {
-  var fileId = '1KJ0MYzPGsu93oG3__Otj0zzcUBSJelrG';
-  Logger.log('=== testScreenshotOcr START ===');
-  Logger.log('Opening file: ' + fileId);
-
-  var file;
-  try {
-    file = DriveApp.getFileById(fileId);
-    Logger.log('File name: ' + file.getName());
-    Logger.log('File size: ' + file.getSize() + ' bytes');
-  } catch (err) {
-    Logger.log('FAILURE: Cannot open file — ' + err.message);
-    return;
-  }
-
-  var text = ocrImageViaDrive_(file);
-
-  if (text && text.length > 0) {
-    Logger.log('SUCCESS — OCR returned ' + text.length + ' characters');
-    Logger.log('=== FULL OCR TEXT START ===');
-    Logger.log(text);
-    Logger.log('=== FULL OCR TEXT END ===');
-  } else {
-    Logger.log('FAILURE — OCR returned no text');
-  }
-
-  Logger.log('=== testScreenshotOcr END ===');
+  Logger.log('=== END testGSheetRead ===');
 }
