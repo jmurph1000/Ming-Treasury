@@ -18,6 +18,11 @@
  * MANIFEST JSON STRUCTURE:
  *   { files: [ { originalName, driveFileId, mimeType, ... }, ... ] }
  *
+ * DATA SOURCES:
+ *   - Email (primary): JPM XLS and PNC CSV attachments from Gmail
+ *   - GSheet (secondary): Treasury Flash GSheet for non-email accounts
+ *     (Morgan Stanley, NBKC, BTC, etc.)
+ *
  * STORAGE:
  *   Two JSON files committed to GitHub:
  *     - ming-treasury/treasury-flash-dashboard/data/corporate_cash.json
@@ -449,9 +454,19 @@ function processDailyData() {
     Logger.log('SOURCE: Email — Corporate: ' + corporateRecords.length +
                ' records, Gustomer: ' + gustomerRecords.length + ' records.');
 
-    // Build a set of email-derived account names for dedup (GSheet must not
-    // duplicate accounts already obtained from email sources)
+    // Build a set of account names that should ONLY come from email sources.
+    // Include all mapped JPM/PNC dashboard names unconditionally so the GSheet
+    // never duplicates them even when email records are missing this run.
     var emailAccountNames = {};
+    var jpmKeys = Object.keys(JPM_ACCOUNT_MAP);
+    for (var mk = 0; mk < jpmKeys.length; mk++) {
+      emailAccountNames[JPM_ACCOUNT_MAP[jpmKeys[mk]].dashboardName] = true;
+    }
+    var pncKeys = Object.keys(PNC_ACCOUNT_MAP);
+    for (var pk = 0; pk < pncKeys.length; pk++) {
+      emailAccountNames[PNC_ACCOUNT_MAP[pncKeys[pk]].dashboardName] = true;
+    }
+    // Also include any actual email-derived records (covers edge cases)
     for (var ek = 0; ek < corporateRecords.length; ek++) {
       emailAccountNames[corporateRecords[ek].account_name] = true;
     }
@@ -615,11 +630,10 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
   }
 
   // Step 6: Carry forward accounts missing from the latest date.
-  //         Non-pipeline accounts (e.g. NBKC, Morgan Stanley, BTC) are only
-  //         updated via screenshots. When the pipeline adds a new date for
-  //         JPM/PNC, those other accounts would have no row for the new date
-  //         and disappear from the dashboard. Carry their last known balance
-  //         forward so they remain visible.
+  //         Non-pipeline accounts (e.g. NBKC, Morgan Stanley, BTC) may not
+  //         have data every day. Carry their last known balance forward so
+  //         they remain visible. But do NOT carry forward any account that
+  //         already has a record for today from any source (email or GSheet).
   var allDates = {};
   for (var cf = 0; cf < keptRecords.length; cf++) {
     allDates[keptRecords[cf].reporting_date] = true;
@@ -628,24 +642,38 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
   if (sortedDates.length >= 2) {
     var latestDate = sortedDates[sortedDates.length - 1];
     var prevDate = sortedDates[sortedDates.length - 2];
+
+    // Build set of accounts that already have a record for the latest date
     var latestAccts = {};
-    var prevAccts = {};
     for (var cf2 = 0; cf2 < keptRecords.length; cf2++) {
       if (keptRecords[cf2].reporting_date === latestDate) {
         latestAccts[keptRecords[cf2].account_description] = true;
       }
-      if (keptRecords[cf2].reporting_date === prevDate) {
-        prevAccts[keptRecords[cf2].account_description] = keptRecords[cf2].value;
+    }
+
+    // Also mark accounts from the NEW records being pushed (covers today's
+    // email + GSheet data even if not yet merged into keptRecords above)
+    for (var nr = 0; nr < newRecords.length; nr++) {
+      if (newRecords[nr].date === latestDate) {
+        latestAccts[newRecords[nr].account_name] = true;
+      }
+    }
+
+    // Carry forward only accounts that have NO record for the latest date
+    var prevAccts = {};
+    for (var cf3 = 0; cf3 < keptRecords.length; cf3++) {
+      if (keptRecords[cf3].reporting_date === prevDate) {
+        prevAccts[keptRecords[cf3].account_description] = keptRecords[cf3].value;
       }
     }
     var carried = 0;
     var prevKeys = Object.keys(prevAccts);
-    for (var cf3 = 0; cf3 < prevKeys.length; cf3++) {
-      if (!latestAccts[prevKeys[cf3]]) {
+    for (var cf4 = 0; cf4 < prevKeys.length; cf4++) {
+      if (!latestAccts[prevKeys[cf4]]) {
         keptRecords.push({
-          account_description: prevKeys[cf3],
+          account_description: prevKeys[cf4],
           reporting_date: latestDate,
-          value: prevAccts[prevKeys[cf3]]
+          value: prevAccts[prevKeys[cf4]]
         });
         carried++;
       }
@@ -1264,8 +1292,8 @@ function isGSheetSkipRow_(desc) {
   for (var i = 0; i < GSHEET_SKIP_LABELS.length; i++) {
     if (desc === GSHEET_SKIP_LABELS[i]) return true;
   }
-  // Also skip any row ending with "Total" (catches entity subtotals)
-  if (desc.length > 5 && desc.substring(desc.length - 5) === 'Total') return true;
+  // Skip any row containing "Total" (catches entity subtotals like "JPM Total")
+  if (desc.indexOf('Total') !== -1) return true;
   return false;
 }
 
