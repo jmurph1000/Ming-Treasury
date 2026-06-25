@@ -360,10 +360,8 @@ function writeFileToGitHub_(filePath, jsonContent, sha, commitMsg) {
 // ============================================================================
 
 /**
- * Main daily processing function. Searches Gmail directly for today's PNC
- * and JPM bank report emails, extracts attachments, saves them to Drive,
- * parses balances, merges with existing GitHub JSON data, and pushes the
- * updated files back to GitHub.
+ * Main daily processing function. Reads balances from the Treasury Flash
+ * GSheet (the single source of truth) and pushes to GitHub.
  *
  * Intended to run daily at ~11:00 AM ET via time-driven trigger.
  */
@@ -372,160 +370,56 @@ function processDailyData() {
     Logger.log('=== processDailyData: Starting ===');
     var startTime = new Date();
     var todayStr = Utilities.formatDate(startTime, 'America/New_York', 'yyyy-MM-dd');
-    var todaySearch = Utilities.formatDate(startTime, 'America/New_York', 'yyyy/MM/dd');
     Logger.log('Current time (ET): ' +
                Utilities.formatDate(startTime, 'America/New_York', 'yyyy-MM-dd HH:mm:ss'));
 
+    // Read the most recent completed date column from the GSheet
+    var gsheetResult = readGSheetBalances_(todayStr);
+
+    // Normalize whitespace in account names
     var corporateRecords = [];
+    for (var i = 0; i < gsheetResult.corporate.length; i++) {
+      var rec = gsheetResult.corporate[i];
+      rec.account_name = rec.account_name.replace(/\s+/g, ' ').trim();
+      corporateRecords.push(rec);
+    }
     var gustomerRecords = [];
-
-    // --- PNC: search Gmail for today's PNC Balance CSV ---
-    var pncQuery = 'from:PINACLE@pnc.com subject:"PNC Event: PNC Flash Data" after:' + todaySearch;
-    Logger.log('PNC Gmail query: ' + pncQuery);
-    var pncThreads = GmailApp.search(pncQuery, 0, 5);
-    Logger.log('PNC threads found: ' + pncThreads.length);
-
-    var pncFiles = [];
-    for (var pt = 0; pt < pncThreads.length; pt++) {
-      var pncMsgs = pncThreads[pt].getMessages();
-      for (var pm = pncMsgs.length - 1; pm >= 0; pm--) {
-        var pncAtts = pncMsgs[pm].getAttachments();
-        for (var pa = 0; pa < pncAtts.length; pa++) {
-          var pncName = pncAtts[pa].getName();
-          if (PIPELINE_CONFIG.PNC_BALANCE_PATTERN.test(pncName)) {
-            var pncBlob = pncAtts[pa].copyBlob();
-            var pncDriveFile = saveBlobToDrive_(pncBlob, pncName);
-            pncFiles.push({ id: pncDriveFile.getId(), name: pncName });
-            Logger.log('PNC attachment saved to Drive: ' + pncName);
-          }
-        }
-      }
+    for (var j = 0; j < gsheetResult.gustomer.length; j++) {
+      var rec2 = gsheetResult.gustomer[j];
+      rec2.account_name = rec2.account_name.replace(/\s+/g, ' ').trim();
+      gustomerRecords.push(rec2);
     }
 
-    // --- JPM: search Gmail for today's JPM XLS reports ---
-    var jpmQuery = 'from:jpmorganaccessalerts@jpmorgan.com subject:"Your J.P. Morgan Access Scheduled Report is Complete" after:' + todaySearch;
-    Logger.log('JPM Gmail query: ' + jpmQuery);
-    var jpmThreads = GmailApp.search(jpmQuery, 0, 10);
-    Logger.log('JPM threads found: ' + jpmThreads.length);
-
-    var jpmFiles = [];
-    var seenJpmFiles = {};
-    for (var jt = 0; jt < jpmThreads.length; jt++) {
-      var jpmMsgs = jpmThreads[jt].getMessages();
-      for (var jm = jpmMsgs.length - 1; jm >= 0; jm--) {
-        var jpmAtts = jpmMsgs[jm].getAttachments();
-        for (var ja = 0; ja < jpmAtts.length; ja++) {
-          var jpmName = jpmAtts[ja].getName();
-          if (PIPELINE_CONFIG.JPM_XLS_PATTERN.test(jpmName) && !seenJpmFiles[jpmName]) {
-            seenJpmFiles[jpmName] = true;
-            var jpmBlob = jpmAtts[ja].copyBlob();
-            var jpmDriveFile = saveBlobToDrive_(jpmBlob, jpmName);
-            jpmFiles.push({ id: jpmDriveFile.getId(), name: jpmName });
-            Logger.log('JPM attachment saved to Drive: ' + jpmName);
-          }
-        }
-      }
-    }
-
-    if (pncFiles.length === 0 && jpmFiles.length === 0) {
-      Logger.log('No PNC or JPM attachments found in Gmail for today. Will try GSheet source.');
-    }
-
-    // Sort files by name so later reports win during deduplication
-    jpmFiles.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-    pncFiles.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-
-    Logger.log('Processing ' + jpmFiles.length + ' JPM files and ' + pncFiles.length + ' PNC files.');
-
-    // Process PNC files
-    for (var p = 0; p < pncFiles.length; p++) {
-      var pncResult = processPncFile_(pncFiles[p].id, pncFiles[p].name);
-      corporateRecords = corporateRecords.concat(pncResult.corporate);
-      gustomerRecords = gustomerRecords.concat(pncResult.gustomer);
-    }
-
-    // Process JPM files
-    for (var j = 0; j < jpmFiles.length; j++) {
-      var jpmResult = processJpmFile_(jpmFiles[j].id, jpmFiles[j].name);
-      corporateRecords = corporateRecords.concat(jpmResult.corporate);
-      gustomerRecords = gustomerRecords.concat(jpmResult.gustomer);
-    }
-
-    Logger.log('SOURCE: Email — Corporate: ' + corporateRecords.length +
+    Logger.log('GSheet — Corporate: ' + corporateRecords.length +
                ' records, Gustomer: ' + gustomerRecords.length + ' records.');
 
-    // Build a set of account names that should ONLY come from email sources.
-    // Include all mapped JPM/PNC dashboard names unconditionally so the GSheet
-    // never duplicates them even when email records are missing this run.
-    var emailAccountNames = {};
-    var jpmKeys = Object.keys(JPM_ACCOUNT_MAP);
-    for (var mk = 0; mk < jpmKeys.length; mk++) {
-      emailAccountNames[JPM_ACCOUNT_MAP[jpmKeys[mk]].dashboardName] = true;
-    }
-    var pncKeys = Object.keys(PNC_ACCOUNT_MAP);
-    for (var pk = 0; pk < pncKeys.length; pk++) {
-      emailAccountNames[PNC_ACCOUNT_MAP[pncKeys[pk]].dashboardName] = true;
-    }
-    // Also include any actual email-derived records (covers edge cases)
-    for (var ek = 0; ek < corporateRecords.length; ek++) {
-      emailAccountNames[corporateRecords[ek].account_name] = true;
-    }
-    for (var ek2 = 0; ek2 < gustomerRecords.length; ek2++) {
-      emailAccountNames[gustomerRecords[ek2].account_name] = true;
+    if (corporateRecords.length === 0 && gustomerRecords.length === 0) {
+      Logger.log('No records found. Aborting.');
+      return;
     }
 
-    // GSheet — primary source for non-email accounts (Morgan Stanley, NBKC, BTC, etc.)
-    try {
-      var gsheetResult = readGSheetBalances_(todayStr);
-      var gsAdded = 0;
-      var gsSkipped = 0;
-      for (var gc = 0; gc < gsheetResult.corporate.length; gc++) {
-        var gcRec = gsheetResult.corporate[gc];
-        var gcNormName = gcRec.account_name.replace(/\s+/g, ' ').trim();
-        if (emailAccountNames[gcNormName] || emailAccountNames[gcRec.account_name]) {
-          gsSkipped++;
-          continue;
-        }
-        gcRec.account_name = gcNormName;
-        corporateRecords.push(gcRec);
-        gsAdded++;
-      }
-      for (var gg = 0; gg < gsheetResult.gustomer.length; gg++) {
-        var ggRec = gsheetResult.gustomer[gg];
-        var ggNormName = ggRec.account_name.replace(/\s+/g, ' ').trim();
-        if (emailAccountNames[ggNormName] || emailAccountNames[ggRec.account_name]) {
-          gsSkipped++;
-          continue;
-        }
-        ggRec.account_name = ggNormName;
-        gustomerRecords.push(ggRec);
-        gsAdded++;
-      }
-      Logger.log('SOURCE: GSheet added ' + gsAdded + ' records (' + gsSkipped +
-                 ' skipped as duplicates of email-derived accounts).');
-    } catch (gsErr) {
-      Logger.log('WARNING: GSheet read failed (non-fatal): ' + gsErr.message);
+    // Stamp all records with today's date
+    for (var ci = 0; ci < corporateRecords.length; ci++) {
+      corporateRecords[ci].date = todayStr;
+    }
+    for (var gi = 0; gi < gustomerRecords.length; gi++) {
+      gustomerRecords[gi].date = todayStr;
     }
 
-    Logger.log('Final totals - Corporate: ' + corporateRecords.length +
-               ' records, Gustomer: ' + gustomerRecords.length + ' records.');
-
-    // Merge with existing GitHub data and push updates
-    if (corporateRecords.length > 0 || gustomerRecords.length > 0) {
-      if (corporateRecords.length > 0) {
-        mergeAndPushToGitHub_(
-          PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
-          corporateRecords,
-          'Update corporate_cash.json for ' + todayStr
-        );
-      }
-      if (gustomerRecords.length > 0) {
-        mergeAndPushToGitHub_(
-          PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
-          gustomerRecords,
-          'Update gustomer_cash.json for ' + todayStr
-        );
-      }
+    // Push to GitHub
+    if (corporateRecords.length > 0) {
+      mergeAndPushToGitHub_(
+        PIPELINE_CONFIG.GITHUB_CORPORATE_PATH,
+        corporateRecords,
+        'Update corporate_cash.json for ' + todayStr
+      );
+    }
+    if (gustomerRecords.length > 0) {
+      mergeAndPushToGitHub_(
+        PIPELINE_CONFIG.GITHUB_GUSTOMER_PATH,
+        gustomerRecords,
+        'Update gustomer_cash.json for ' + todayStr
+      );
     }
 
     var elapsed = ((new Date().getTime()) - startTime.getTime()) / 1000;
@@ -561,10 +455,8 @@ function saveBlobToDrive_(blob, fileName) {
 // ============================================================================
 
 /**
- * Reads the current JSON from GitHub, upserts new records (replacing only
- * the specific accounts being updated, preserving other accounts on the
- * same date), carries forward non-pipeline accounts to the latest date,
- * and commits the result back to GitHub. Historical data is never trimmed.
+ * Reads existing GitHub JSON, removes any records for today's date,
+ * appends new records, and pushes the result back to GitHub.
  *
  * @param {string}   filePath    GitHub repo path to the JSON file
  * @param {Object[]} newRecords  Array of { date, account_name, value }
@@ -573,45 +465,27 @@ function saveBlobToDrive_(blob, fileName) {
 function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
   Logger.log('Merging data into GitHub: ' + filePath);
 
-  // Step 1: Read the current JSON from GitHub
   var ghFile = readFileFromGitHub_(filePath);
-  var existingData = ghFile.content; // Array of { account_description, reporting_date, value }
+  var existingData = ghFile.content;
   var sha = ghFile.sha;
 
   Logger.log('Existing records from GitHub: ' + existingData.length);
 
-  // Safety guard: if the file exists but returned far fewer records than
-  // expected, the read likely failed silently (e.g. GitHub API truncation
-  // or blob decode error). Abort rather than overwriting good data.
-  var MIN_EXPECTED_RECORDS = 50;
-  if (sha && existingData.length < MIN_EXPECTED_RECORDS && existingData.length < newRecords.length * 5) {
-    var errMsg = 'SAFETY ABORT: GitHub read returned only ' + existingData.length +
-                 ' records for ' + filePath + ' (expected 500+). ' +
-                 'This likely means the read failed. Refusing to overwrite to prevent data loss.';
-    Logger.log(errMsg);
-    sendPipelineErrorNotification_(new Error(errMsg), 'mergeAndPushToGitHub_');
-    return;
-  }
+  // Determine the date we're pushing (all new records have the same date)
+  var pushDate = newRecords[0].date;
 
-  // Step 2: Build a set of (date, normalized_account_name) keys being updated
-  var newKeys = {};
-  for (var i = 0; i < newRecords.length; i++) {
-    var nk = newRecords[i].date + '|' + newRecords[i].account_name.replace(/\s+/g, ' ').trim();
-    newKeys[nk] = true;
-  }
-
-  // Step 3: Keep existing records unless the pipeline has a new value for
-  //         the same (date, account).  Normalize whitespace in existing names
-  //         so stale duplicates with extra spaces get replaced.
+  // Remove any existing records for today's date
   var keptRecords = [];
   for (var j = 0; j < existingData.length; j++) {
-    var ek = existingData[j].reporting_date + '|' + existingData[j].account_description.replace(/\s+/g, ' ').trim();
-    if (!newKeys[ek]) {
+    if (existingData[j].reporting_date !== pushDate) {
       keptRecords.push(existingData[j]);
     }
   }
 
-  // Step 4: Convert new records to the JSON format and append
+  var removed = existingData.length - keptRecords.length;
+  Logger.log('Removed ' + removed + ' existing records for ' + pushDate);
+
+  // Append new records
   for (var k = 0; k < newRecords.length; k++) {
     keptRecords.push({
       account_description: newRecords[k].account_name,
@@ -620,76 +494,7 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     });
   }
 
-  // Step 5: Deduplicate — keep only one record per (account_description, reporting_date)
-  // If multiple reports contain the same account on the same date, keep the last value
-  // Normalize whitespace in names so variants collapse to one entry
-  var deduped = {};
-  for (var d = 0; d < keptRecords.length; d++) {
-    keptRecords[d].account_description = keptRecords[d].account_description.replace(/\s+/g, ' ').trim();
-    var key = keptRecords[d].reporting_date + '|' + keptRecords[d].account_description;
-    deduped[key] = keptRecords[d];
-  }
-  keptRecords = [];
-  var keys = Object.keys(deduped);
-  for (var dk = 0; dk < keys.length; dk++) {
-    keptRecords.push(deduped[keys[dk]]);
-  }
-
-  // Step 6: Carry forward accounts missing from the latest date.
-  //         Non-pipeline accounts (e.g. NBKC, Morgan Stanley, BTC) may not
-  //         have data every day. Carry their last known balance forward so
-  //         they remain visible. But do NOT carry forward any account that
-  //         already has a record for today from any source (email or GSheet).
-  var allDates = {};
-  for (var cf = 0; cf < keptRecords.length; cf++) {
-    allDates[keptRecords[cf].reporting_date] = true;
-  }
-  var sortedDates = Object.keys(allDates).sort();
-  if (sortedDates.length >= 2) {
-    var latestDate = sortedDates[sortedDates.length - 1];
-    var prevDate = sortedDates[sortedDates.length - 2];
-
-    // Build set of accounts that already have a record for the latest date
-    var latestAccts = {};
-    for (var cf2 = 0; cf2 < keptRecords.length; cf2++) {
-      if (keptRecords[cf2].reporting_date === latestDate) {
-        latestAccts[keptRecords[cf2].account_description] = true;
-      }
-    }
-
-    // Also mark accounts from the NEW records being pushed (covers today's
-    // email + GSheet data even if not yet merged into keptRecords above)
-    for (var nr = 0; nr < newRecords.length; nr++) {
-      if (newRecords[nr].date === latestDate) {
-        latestAccts[newRecords[nr].account_name] = true;
-      }
-    }
-
-    // Carry forward only accounts that have NO record for the latest date
-    var prevAccts = {};
-    for (var cf3 = 0; cf3 < keptRecords.length; cf3++) {
-      if (keptRecords[cf3].reporting_date === prevDate) {
-        prevAccts[keptRecords[cf3].account_description] = keptRecords[cf3].value;
-      }
-    }
-    var carried = 0;
-    var prevKeys = Object.keys(prevAccts);
-    for (var cf4 = 0; cf4 < prevKeys.length; cf4++) {
-      if (!latestAccts[prevKeys[cf4]]) {
-        keptRecords.push({
-          account_description: prevKeys[cf4],
-          reporting_date: latestDate,
-          value: prevAccts[prevKeys[cf4]]
-        });
-        carried++;
-      }
-    }
-    if (carried > 0) {
-      Logger.log('Carried forward ' + carried + ' accounts from ' + prevDate + ' to ' + latestDate);
-    }
-  }
-
-  // Step 7: Sort by date ascending, then by account_description
+  // Sort by date ascending, then by account_description
   keptRecords.sort(function(a, b) {
     if (a.reporting_date < b.reporting_date) return -1;
     if (a.reporting_date > b.reporting_date) return 1;
@@ -698,23 +503,9 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return 0;
   });
 
-  // Step 8: Trim to MAX_BUSINESS_DAYS unique dates (keep most recent)
-  keptRecords = trimToMaxBusinessDaysJson_(keptRecords);
+  Logger.log('Total records after merge: ' + keptRecords.length +
+             ' (added ' + newRecords.length + ' for ' + pushDate + ')');
 
-  Logger.log('Total records after merge: ' + keptRecords.length);
-
-  // Safety guard: never write fewer records than we started with.
-  // The pipeline only adds data — a decrease means something went wrong.
-  if (existingData.length > 0 && keptRecords.length < existingData.length * 0.9) {
-    var errMsg = 'SAFETY ABORT: Merge would reduce records from ' + existingData.length +
-                 ' to ' + keptRecords.length + ' in ' + filePath +
-                 '. This indicates data loss. Refusing to push.';
-    Logger.log(errMsg);
-    sendPipelineErrorNotification_(new Error(errMsg), 'mergeAndPushToGitHub_');
-    return;
-  }
-
-  // Step 9: Push the updated JSON back to GitHub
   writeFileToGitHub_(filePath, keptRecords, sha, commitMsg);
 }
 
