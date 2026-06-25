@@ -2085,12 +2085,12 @@
     "value": 0
   },
   {
-    "account_description": "PNC Corporate  (Gusto) - 6428",
+    "account_description": "PNC Corporate (Gusto) - 6428",
     "reporting_date": "2026-06-24",
     "value": 20.54
   },
   {
-    "account_description": "PNC Corporate  (Gusto) -0446",
+    "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-06-24",
     "value": 1552838.85
   },
@@ -2693,16 +2693,6 @@
     "account_description": "PNC CD Collateral **9059",
     "reporting_date": "2026-06-25",
     "value": 0
-  },
-  {
-    "account_description": "PNC Corporate  (Gusto) - 6428",
-    "reporting_date": "2026-06-25",
-    "value": 20.54
-  },
-  {
-    "account_description": "PNC Corporate  (Gusto) -0446",
-    "reporting_date": "2026-06-25",
-    "value": 1552838.85
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
