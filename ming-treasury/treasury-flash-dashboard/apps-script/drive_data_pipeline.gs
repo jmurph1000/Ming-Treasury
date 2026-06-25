@@ -1228,11 +1228,52 @@ function readGSheetBalances_(todayStr) {
       }
     }
 
+    var fallbackDateStr = '';
+
     if (dateCol === -1) {
       Logger.log('readGSheetBalances_: No column found for ' + todayStr + ' in "' + tabs[t].name +
-                 '". Tried: "' + headerPattern1 + '"');
-      continue;
+                 '". Tried: "' + headerPattern1 + '". Falling back to most recent date column...');
+
+      // Fallback: scan the last 10 date headers and use the most recent one
+      var startCol = Math.max(2, headerRow.length - 10);
+      var bestFallbackCol = -1;
+      var bestFallbackDate = null;
+
+      for (var fc = startCol; fc < headerRow.length; fc++) {
+        var fcVal = headerRow[fc];
+        var fcDate = null;
+
+        if (fcVal instanceof Date && !isNaN(fcVal.getTime())) {
+          fcDate = fcVal;
+        } else {
+          var fcStr = String(fcVal).trim();
+          // Try to extract M/D/YYYY from header like "Wed 6/17/2026" or "6/17/2026"
+          var fcMatch = fcStr.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (fcMatch) {
+            fcDate = new Date(parseInt(fcMatch[3], 10), parseInt(fcMatch[1], 10) - 1, parseInt(fcMatch[2], 10));
+          }
+        }
+
+        if (fcDate && !isNaN(fcDate.getTime())) {
+          if (!bestFallbackDate || fcDate > bestFallbackDate) {
+            bestFallbackDate = fcDate;
+            bestFallbackCol = fc;
+            fallbackDateStr = Utilities.formatDate(fcDate, 'America/New_York', 'yyyy-MM-dd');
+          }
+        }
+      }
+
+      if (bestFallbackCol === -1) {
+        Logger.log('readGSheetBalances_: No parseable date columns found in "' + tabs[t].name + '". Skipping tab.');
+        continue;
+      }
+
+      dateCol = bestFallbackCol;
+      Logger.log('readGSheetBalances_: FALLBACK — using column ' + dateCol + ' (date: ' + fallbackDateStr + ') in "' + tabs[t].name + '"');
     }
+
+    // Determine the date to use for records (fallback date or todayStr)
+    var recordDate = (fallbackDateStr && fallbackDateStr !== '') ? fallbackDateStr : todayStr;
 
     Logger.log('readGSheetBalances_: Found date column ' + dateCol + ' in "' + tabs[t].name + '"');
 
@@ -1274,7 +1315,7 @@ function readGSheetBalances_(todayStr) {
       }
 
       result[tabs[t].target].push({
-        date: todayStr,
+        date: recordDate,
         account_name: desc,
         value: balance
       });
