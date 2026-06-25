@@ -481,19 +481,23 @@ function processDailyData() {
       var gsSkipped = 0;
       for (var gc = 0; gc < gsheetResult.corporate.length; gc++) {
         var gcRec = gsheetResult.corporate[gc];
-        if (emailAccountNames[gcRec.account_name]) {
+        var gcNormName = gcRec.account_name.replace(/\s+/g, ' ').trim();
+        if (emailAccountNames[gcNormName] || emailAccountNames[gcRec.account_name]) {
           gsSkipped++;
           continue;
         }
+        gcRec.account_name = gcNormName;
         corporateRecords.push(gcRec);
         gsAdded++;
       }
       for (var gg = 0; gg < gsheetResult.gustomer.length; gg++) {
         var ggRec = gsheetResult.gustomer[gg];
-        if (emailAccountNames[ggRec.account_name]) {
+        var ggNormName = ggRec.account_name.replace(/\s+/g, ' ').trim();
+        if (emailAccountNames[ggNormName] || emailAccountNames[ggRec.account_name]) {
           gsSkipped++;
           continue;
         }
+        ggRec.account_name = ggNormName;
         gustomerRecords.push(ggRec);
         gsAdded++;
       }
@@ -589,19 +593,19 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
     return;
   }
 
-  // Step 2: Build a set of (date, account_name) keys being updated
+  // Step 2: Build a set of (date, normalized_account_name) keys being updated
   var newKeys = {};
   for (var i = 0; i < newRecords.length; i++) {
-    var nk = newRecords[i].date + '|' + newRecords[i].account_name;
+    var nk = newRecords[i].date + '|' + newRecords[i].account_name.replace(/\s+/g, ' ').trim();
     newKeys[nk] = true;
   }
 
   // Step 3: Keep existing records unless the pipeline has a new value for
-  //         the same (date, account).  Records from other sources (e.g. the
-  //         sheet backfill) on the same date are preserved.
+  //         the same (date, account).  Normalize whitespace in existing names
+  //         so stale duplicates with extra spaces get replaced.
   var keptRecords = [];
   for (var j = 0; j < existingData.length; j++) {
-    var ek = existingData[j].reporting_date + '|' + existingData[j].account_description;
+    var ek = existingData[j].reporting_date + '|' + existingData[j].account_description.replace(/\s+/g, ' ').trim();
     if (!newKeys[ek]) {
       keptRecords.push(existingData[j]);
     }
@@ -618,8 +622,10 @@ function mergeAndPushToGitHub_(filePath, newRecords, commitMsg) {
 
   // Step 5: Deduplicate — keep only one record per (account_description, reporting_date)
   // If multiple reports contain the same account on the same date, keep the last value
+  // Normalize whitespace in names so variants collapse to one entry
   var deduped = {};
   for (var d = 0; d < keptRecords.length; d++) {
+    keptRecords[d].account_description = keptRecords[d].account_description.replace(/\s+/g, ' ').trim();
     var key = keptRecords[d].reporting_date + '|' + keptRecords[d].account_description;
     deduped[key] = keptRecords[d];
   }
@@ -1313,6 +1319,9 @@ function readGSheetBalances_(todayStr) {
         if (isNaN(balance)) continue;
         if (negative) balance = -balance;
       }
+
+      // Skip zero/empty balances (inactive/closed accounts)
+      if (balance === 0) continue;
 
       result[tabs[t].target].push({
         date: recordDate,
