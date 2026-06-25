@@ -2250,79 +2250,54 @@
     "value": 13463.68
   },
   {
-    "account_description": "BRB 7739",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Corporate Master -6529 (Gusto)",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "BRB Corporate Outbound -4764 (Gusto)",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
     "account_description": "BRB Operating 3313",
     "reporting_date": "2026-06-25",
-    "value": 190384.58
+    "value": 167130.6
   },
   {
     "account_description": "BTC GDL 401K AUM FEE 102063000002",
     "reporting_date": "2026-06-25",
-    "value": 55513.8
+    "value": 259393.97
   },
   {
     "account_description": "BTC GDL 401K FLEX RE 109963000506",
     "reporting_date": "2026-06-25",
-    "value": 46614.58
+    "value": 51376.58
   },
   {
     "account_description": "BTC GDL ACNTS PASS 109963000501",
     "reporting_date": "2026-06-25",
-    "value": 16900
+    "value": 10950
   },
   {
     "account_description": "BTC GDL Client Plans 109963000001",
     "reporting_date": "2026-06-25",
-    "value": -2119.49
+    "value": 714
   },
   {
     "account_description": "BTC GDL DISMISS FEE 109963000500",
     "reporting_date": "2026-06-25",
-    "value": 11140.98
+    "value": 1768.76
   },
   {
     "account_description": "BTC GDL IRA AUM FEE 102063000003",
     "reporting_date": "2026-06-25",
-    "value": 29168.75
+    "value": 4695.42
   },
   {
     "account_description": "BTC GDL PASS-THRU 101063000000",
     "reporting_date": "2026-06-25",
-    "value": 112653.86
+    "value": 103892.22
   },
   {
     "account_description": "BTC IRA PASS-THRU 102063900000",
     "reporting_date": "2026-06-25",
-    "value": 8446.54
+    "value": 3824.9
   },
   {
     "account_description": "Bank Leumi 0065",
     "reporting_date": "2026-06-25",
     "value": 15130.130545784788
-  },
-  {
-    "account_description": "Benefits (PEO I) 8278",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Benefits (PEO II) 8299",
-    "reporting_date": "2026-06-25",
-    "value": 0
   },
   {
     "account_description": "BofA Operating Checking -8441 (RemoteTeam)",
@@ -2332,12 +2307,7 @@
   {
     "account_description": "Chase Accounts Payable 9329",
     "reporting_date": "2026-06-25",
-    "value": 1537951.78
-  },
-  {
-    "account_description": "Chase Ardius 0151",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 1432530.8
   },
   {
     "account_description": "Chase Ardius 0727",
@@ -2345,29 +2315,14 @@
     "value": 1167428.69
   },
   {
-    "account_description": "Chase Ardius 9012",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Ardius 9178",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Chase Ardius 9392",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
     "account_description": "Chase Billing/Collection 9378",
     "reporting_date": "2026-06-25",
-    "value": 444146.46
+    "value": 460972.43
   },
   {
     "account_description": "Chase Billings Gusto 9837",
     "reporting_date": "2026-06-25",
-    "value": 65.95
+    "value": 173.41
   },
   {
     "account_description": "Chase Checking - MoseyWorks, Inc. 5102",
@@ -2377,22 +2332,12 @@
   {
     "account_description": "Chase DDA 0195",
     "reporting_date": "2026-06-25",
-    "value": 529.29
-  },
-  {
-    "account_description": "Chase Dental Insurance 2245 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 531.87
   },
   {
     "account_description": "Chase Deposit 0226",
     "reporting_date": "2026-06-25",
-    "value": 750477.48
-  },
-  {
-    "account_description": "Chase FBO 0302 Gusto Capital LLC 0302",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 97909.38
   },
   {
     "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
@@ -2403,11 +2348,6 @@
     "account_description": "Chase Guideline Investments, LLC 1820",
     "reporting_date": "2026-06-25",
     "value": 117187.8
-  },
-  {
-    "account_description": "Chase Guideline NBT LLC 1861",
-    "reporting_date": "2026-06-25",
-    "value": 0
   },
   {
     "account_description": "Chase Guideline RK, LLC 1937",
@@ -2422,12 +2362,12 @@
   {
     "account_description": "Chase Guideline, Inc. 9176",
     "reporting_date": "2026-06-25",
-    "value": 1143726.14
+    "value": 1143354.25
   },
   {
     "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
     "reporting_date": "2026-06-25",
-    "value": 294246.89
+    "value": 216358.00735294117
   },
   {
     "account_description": "Chase Gusto Capital, LLC 3962",
@@ -2437,17 +2377,17 @@
   {
     "account_description": "Chase Internal Payroll 0566",
     "reporting_date": "2026-06-25",
-    "value": 2078627.3
+    "value": 4875347.01
   },
   {
     "account_description": "Chase Master Gusto 9811",
     "reporting_date": "2026-06-25",
-    "value": 49382574.27
+    "value": 49361812.72
   },
   {
     "account_description": "Chase Mexico (MXN) 6837",
     "reporting_date": "2026-06-25",
-    "value": 2772851.92
+    "value": 161212.32093023256
   },
   {
     "account_description": "Chase Tax 0269",
@@ -2462,32 +2402,17 @@
   {
     "account_description": "Chase ZP Insurance 0101",
     "reporting_date": "2026-06-25",
-    "value": -279.76
-  },
-  {
-    "account_description": "Chase ZP Insurance 5202",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": -165.83
   },
   {
     "account_description": "Chase ZP Insurance 8961",
     "reporting_date": "2026-06-25",
-    "value": 698538.85
+    "value": 592178.94
   },
   {
     "account_description": "Chase ZP Insurance 9657",
     "reporting_date": "2026-06-25",
-    "value": 117696.14
-  },
-  {
-    "account_description": "Chase ZP Insurance 9962",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Fee Account (Grasshopper) 3871",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 60663.98
   },
   {
     "account_description": "Guideline BNY",
@@ -2495,44 +2420,19 @@
     "value": 17583.63
   },
   {
-    "account_description": "Guideline Goldman Sachs (3113) Checking",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Guideline Money Market JP Morgan",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Guideline SVB - Checking (6691)",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
     "account_description": "Guideline Stripe Sales Receipts",
     "reporting_date": "2026-06-25",
-    "value": -0.75
+    "value": -0.5
   },
   {
     "account_description": "Gusto Corporate (Grasshopper) 7000",
     "reporting_date": "2026-06-25",
-    "value": 4523.22
+    "value": 4285.2
   },
   {
     "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
     "reporting_date": "2026-06-25",
-    "value": 41328.78
-  },
-  {
-    "account_description": "Gusto PEO I Benefits 8278",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Gusto PEO I Workers Comp 8291",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 30388.80882352941
   },
   {
     "account_description": "Gusto PEO I, LLC 6385",
@@ -2543,16 +2443,6 @@
     "account_description": "Gusto PEO I, LLC 7853",
     "reporting_date": "2026-06-25",
     "value": 150314.5
-  },
-  {
-    "account_description": "Gusto PEO II Benefits 8299",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Gusto PEO II Workers Comp 8306",
-    "reporting_date": "2026-06-25",
-    "value": 0
   },
   {
     "account_description": "Gusto PEO II, LLC 6502",
@@ -2567,7 +2457,7 @@
   {
     "account_description": "Gusto Stripe",
     "reporting_date": "2026-06-25",
-    "value": 24105.35
+    "value": 41513.66
   },
   {
     "account_description": "GustoHR, Inc. 6375",
@@ -2582,57 +2472,32 @@
   {
     "account_description": "JPM Collateral **8192",
     "reporting_date": "2026-06-25",
-    "value": 115332.35
-  },
-  {
-    "account_description": "MidFirst Bank 2-Way ZBA - 2868 (Symmetry)",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "MidFirst Bank 2-Way ZBA - 5782 (Symmetry LLC)",
-    "reporting_date": "2026-06-25",
-    "value": -8655.01
-  },
-  {
-    "account_description": "MidFirst Bank Customer Wires - 2876 (Symmetry)",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Midfirst Symmetry Customer Wires ZBA 5812",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 7880241.29
   },
   {
     "account_description": "Midfirst Symmetry Operating 2841",
     "reporting_date": "2026-06-25",
-    "value": 200000
+    "value": 211200.15
   },
   {
     "account_description": "Midfirst Symmetry Operating 5804",
     "reporting_date": "2026-06-25",
-    "value": 242850.91
+    "value": 275738.6
   },
   {
     "account_description": "Midfirst Symmetry Savings 4829",
     "reporting_date": "2026-06-25",
-    "value": 2755323.82
+    "value": 4054254.92
   },
   {
     "account_description": "Morgan Stanley Cash Citibank",
     "reporting_date": "2026-06-25",
-    "value": 286251251.72
+    "value": 247027297.13
   },
   {
     "account_description": "Mosey Stripe",
     "reporting_date": "2026-06-25",
     "value": 3787.42
-  },
-  {
-    "account_description": "Mosey Stripe 5102",
-    "reporting_date": "2026-06-25",
-    "value": 509338.25
   },
   {
     "account_description": "NBKC ACH Risk Reserve -7431",
@@ -2642,57 +2507,37 @@
   {
     "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
     "reporting_date": "2026-06-25",
-    "value": 539825.05
-  },
-  {
-    "account_description": "NBKC Card Settlement -4683 (Gusto Capital LLC)",
-    "reporting_date": "2026-06-25",
-    "value": 3321463.04
-  },
-  {
-    "account_description": "NBKC Corepro EVDP -9729 (Gusto Capital LLC)",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 573315.43
   },
   {
     "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
     "reporting_date": "2026-06-25",
-    "value": 4319.95
+    "value": 3839.95
   },
   {
     "account_description": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
     "reporting_date": "2026-06-25",
-    "value": 62742.64
+    "value": 52383.57
   },
   {
     "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
     "reporting_date": "2026-06-25",
-    "value": 1167038.53
-  },
-  {
-    "account_description": "NBKC Everyday Pay -9729 (Gusto Capital LLC)",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 1303817.88
   },
   {
     "account_description": "NBKC Rev Share (Inbound) -7432",
     "reporting_date": "2026-06-25",
-    "value": 944377.46
+    "value": 1860725.17
   },
   {
     "account_description": "NBKC Sunrise Reserve Account 4319",
     "reporting_date": "2026-06-25",
-    "value": 69.99
+    "value": 70
   },
   {
     "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
     "reporting_date": "2026-06-25",
     "value": 7500
-  },
-  {
-    "account_description": "PNC CD Collateral **9059",
-    "reporting_date": "2026-06-25",
-    "value": 0
   },
   {
     "account_description": "PNC Corporate (Gusto) - 6428",
@@ -2702,7 +2547,7 @@
   {
     "account_description": "PNC Corporate (Gusto) -0446",
     "reporting_date": "2026-06-25",
-    "value": 1203463.13
+    "value": 1552838.85
   },
   {
     "account_description": "Pathward Gusto Capital Operating 1720",
@@ -2715,56 +2560,6 @@
     "value": 750000
   },
   {
-    "account_description": "SVB AP Disbursement 6894 Gusto Capital LLC",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Billings 0976 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Billings 4862 ZPI",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Billings 4877 ZPI",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB CMMA 0578 SVB Payroll Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB CMMA 0868 Denver TR Park Central Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB CMMA 4904",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB CMMA 7374 Pier 70 SF Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB CMMA 8220 Denver Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB COLLATERAL MMA (***6257)⁽¹⁾",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
     "account_description": "SVB Checking 3354 - MoseyWorks, Inc.",
     "reporting_date": "2026-06-25",
     "value": 13.92
@@ -2775,78 +2570,13 @@
     "value": 207324.31
   },
   {
-    "account_description": "SVB Checking 6593 Gusto Capital LLC",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Checking 8147 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Cigna 7987 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Corporate 0118 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Customer Receipts 6875 Gusto Capital LLC",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Internal payroll checking 3612 ZPI",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB MMA 4527 UMR IBNR Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Master 4664 ZPI",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Master 8132 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "SVB Sweep 1169 Gusto",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
     "account_description": "Scotiabank 6812 (CAD)",
     "reporting_date": "2026-06-25",
-    "value": 365.48
-  },
-  {
-    "account_description": "Sunrise 6145",
-    "reporting_date": "2026-06-25",
-    "value": 0
+    "value": 1933.4779411764705
   },
   {
     "account_description": "Symmetry Petty Cash",
     "reporting_date": "2026-06-25",
     "value": 2964.76
-  },
-  {
-    "account_description": "Workers' Compensation (PEO I) 8291",
-    "reporting_date": "2026-06-25",
-    "value": 0
-  },
-  {
-    "account_description": "Workers' Compensation (PEO II) 8306",
-    "reporting_date": "2026-06-25",
-    "value": 0
   }
 ]
