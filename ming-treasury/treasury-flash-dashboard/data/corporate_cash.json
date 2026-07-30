@@ -2578,5 +2578,350 @@
     "account_description": "Symmetry Petty Cash",
     "reporting_date": "2026-06-25",
     "value": 2964.76
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 4638 (TRY)",
+    "reporting_date": "2026-07-30",
+    "value": 299399.7901459854
+  },
+  {
+    "account_description": "BBVA Gusto Turkiye 5947 USD",
+    "reporting_date": "2026-07-30",
+    "value": 23007.54
+  },
+  {
+    "account_description": "BRB Operating 3313",
+    "reporting_date": "2026-07-30",
+    "value": 1714094.06
+  },
+  {
+    "account_description": "BTC GDL 401K AUM FEE 108963000012",
+    "reporting_date": "2026-07-30",
+    "value": 99962.85
+  },
+  {
+    "account_description": "BTC GDL 401K FLEX RE 108963000010",
+    "reporting_date": "2026-07-30",
+    "value": 55658.57
+  },
+  {
+    "account_description": "BTC GDL ACNTS PASS 108963000005",
+    "reporting_date": "2026-07-30",
+    "value": -2100
+  },
+  {
+    "account_description": "BTC GDL CLIENT PLANS 109963000001",
+    "reporting_date": "2026-07-30",
+    "value": 1004.39
+  },
+  {
+    "account_description": "BTC GDL DISMISS FEE 108963000004",
+    "reporting_date": "2026-07-30",
+    "value": 17249.17
+  },
+  {
+    "account_description": "BTC GDL IRA AUM FEE 108963000014",
+    "reporting_date": "2026-07-30",
+    "value": 30247.43
+  },
+  {
+    "account_description": "BTC GDL PASS-THRU 101063000000",
+    "reporting_date": "2026-07-30",
+    "value": 22889.26
+  },
+  {
+    "account_description": "BTC IRA PASS-THRU 108963000015",
+    "reporting_date": "2026-07-30",
+    "value": 9414.72
+  },
+  {
+    "account_description": "Bank Leumi 0065",
+    "reporting_date": "2026-07-30",
+    "value": 15130.130545784788
+  },
+  {
+    "account_description": "BofA Operating Checking -8441 (RemoteTeam)",
+    "reporting_date": "2026-07-30",
+    "value": 92068.24
+  },
+  {
+    "account_description": "Chase Accounts Payable 9329",
+    "reporting_date": "2026-07-30",
+    "value": 1368653.89
+  },
+  {
+    "account_description": "Chase Ardius 0727",
+    "reporting_date": "2026-07-30",
+    "value": 173772.86
+  },
+  {
+    "account_description": "Chase Billing/Collection 9378",
+    "reporting_date": "2026-07-30",
+    "value": 3730893.78
+  },
+  {
+    "account_description": "Chase Billings Gusto 9837",
+    "reporting_date": "2026-07-30",
+    "value": 51.76
+  },
+  {
+    "account_description": "Chase Checking - MoseyWorks, Inc. 5102",
+    "reporting_date": "2026-07-30",
+    "value": 551091.13
+  },
+  {
+    "account_description": "Chase DDA 0195",
+    "reporting_date": "2026-07-30",
+    "value": 526.66
+  },
+  {
+    "account_description": "Chase Deposit 0226",
+    "reporting_date": "2026-07-30",
+    "value": 690024.75
+  },
+  {
+    "account_description": "Chase Flex Pay Revenue Gusto Capital LLC 0393",
+    "reporting_date": "2026-07-30",
+    "value": 1239917.81
+  },
+  {
+    "account_description": "Chase Guideline Investments, LLC 1820",
+    "reporting_date": "2026-07-30",
+    "value": 117491.2
+  },
+  {
+    "account_description": "Chase Guideline RK, LLC 1937",
+    "reporting_date": "2026-07-30",
+    "value": 737060.99
+  },
+  {
+    "account_description": "Chase Guideline Securities LLC 2018",
+    "reporting_date": "2026-07-30",
+    "value": 3738484.99
+  },
+  {
+    "account_description": "Chase Guideline, Inc. 9176",
+    "reporting_date": "2026-07-30",
+    "value": 1063984.91
+  },
+  {
+    "account_description": "Chase Gusto Canada ULC -(CAD) 1602",
+    "reporting_date": "2026-07-30",
+    "value": 249572.83088235292
+  },
+  {
+    "account_description": "Chase Gusto Capital, LLC 3962",
+    "reporting_date": "2026-07-30",
+    "value": 119398.47
+  },
+  {
+    "account_description": "Chase Internal Payroll 0566",
+    "reporting_date": "2026-07-30",
+    "value": 9148607.38
+  },
+  {
+    "account_description": "Chase Master Gusto 9811",
+    "reporting_date": "2026-07-30",
+    "value": 25745610.6
+  },
+  {
+    "account_description": "Chase Mexico (MXN) 6837",
+    "reporting_date": "2026-07-30",
+    "value": 123551.97383720931
+  },
+  {
+    "account_description": "Chase Tax 0269",
+    "reporting_date": "2026-07-30",
+    "value": 1174434.95
+  },
+  {
+    "account_description": "Chase Test Account 2378",
+    "reporting_date": "2026-07-30",
+    "value": 84.88
+  },
+  {
+    "account_description": "Chase ZP Insurance 0101",
+    "reporting_date": "2026-07-30",
+    "value": -638552.11
+  },
+  {
+    "account_description": "Chase ZP Insurance 8961",
+    "reporting_date": "2026-07-30",
+    "value": 4043765.75
+  },
+  {
+    "account_description": "Chase ZP Insurance 9657",
+    "reporting_date": "2026-07-30",
+    "value": 1398743.26
+  },
+  {
+    "account_description": "Chase ZP Insurance 9962",
+    "reporting_date": "2026-07-30",
+    "value": 103224.09
+  },
+  {
+    "account_description": "Guideline BNY",
+    "reporting_date": "2026-07-30",
+    "value": 77.24
+  },
+  {
+    "account_description": "Guideline Stripe Sales Receipts",
+    "reporting_date": "2026-07-30",
+    "value": 336.85
+  },
+  {
+    "account_description": "Gusto Corporate (Grasshopper) 7000",
+    "reporting_date": "2026-07-30",
+    "value": 431.74
+  },
+  {
+    "account_description": "Gusto Holding Company Inc. (JPM) (CAD) 5665",
+    "reporting_date": "2026-07-30",
+    "value": 13741.147058823528
+  },
+  {
+    "account_description": "Gusto PEO I, LLC 6385",
+    "reporting_date": "2026-07-30",
+    "value": 237882.74
+  },
+  {
+    "account_description": "Gusto PEO I, LLC 7853",
+    "reporting_date": "2026-07-30",
+    "value": 150419.48
+  },
+  {
+    "account_description": "Gusto PEO II, LLC 6502",
+    "reporting_date": "2026-07-30",
+    "value": 250827.24
+  },
+  {
+    "account_description": "Gusto PEO II, LLC 7872",
+    "reporting_date": "2026-07-30",
+    "value": 150419.48
+  },
+  {
+    "account_description": "Gusto Stripe",
+    "reporting_date": "2026-07-30",
+    "value": -70.59
+  },
+  {
+    "account_description": "GustoHR, Inc. 6375",
+    "reporting_date": "2026-07-30",
+    "value": 496.38
+  },
+  {
+    "account_description": "GustoHR, Inc. 7838",
+    "reporting_date": "2026-07-30",
+    "value": 2500075.75
+  },
+  {
+    "account_description": "JPM Collateral **8192",
+    "reporting_date": "2026-07-30",
+    "value": 7880241.29
+  },
+  {
+    "account_description": "Midfirst Symmetry Operating 2841",
+    "reporting_date": "2026-07-30",
+    "value": 200000
+  },
+  {
+    "account_description": "Midfirst Symmetry Operating 5804",
+    "reporting_date": "2026-07-30",
+    "value": 689756.06
+  },
+  {
+    "account_description": "Midfirst Symmetry Savings 4829",
+    "reporting_date": "2026-07-30",
+    "value": 493299.02
+  },
+  {
+    "account_description": "Morgan Stanley Cash Citibank",
+    "reporting_date": "2026-07-30",
+    "value": 207781693.52
+  },
+  {
+    "account_description": "Mosey Stripe",
+    "reporting_date": "2026-07-30",
+    "value": 495.68
+  },
+  {
+    "account_description": "NBKC ACH Risk Reserve -7431",
+    "reporting_date": "2026-07-30",
+    "value": 45000
+  },
+  {
+    "account_description": "NBKC ATM Reserve (Collateral) Account **0275",
+    "reporting_date": "2026-07-30",
+    "value": 523786.74
+  },
+  {
+    "account_description": "NBKC Corepro Incentives -6666 (Gusto Capital LLC)",
+    "reporting_date": "2026-07-30",
+    "value": 3739.95
+  },
+  {
+    "account_description": "NBKC Corepro Reserve -6131 (Gusto Capital LLC)",
+    "reporting_date": "2026-07-30",
+    "value": 60127.54
+  },
+  {
+    "account_description": "NBKC Corepro Tabapay -5431 (Gusto Capital LLC)",
+    "reporting_date": "2026-07-30",
+    "value": 1342370.74
+  },
+  {
+    "account_description": "NBKC Rev Share (Inbound) -7432",
+    "reporting_date": "2026-07-30",
+    "value": 2808001.7
+  },
+  {
+    "account_description": "NBKC Sunrise Reserve Account 4319",
+    "reporting_date": "2026-07-30",
+    "value": 70
+  },
+  {
+    "account_description": "NBKC Tabapay Reserve -2280 (Gusto Capital LLC)",
+    "reporting_date": "2026-07-30",
+    "value": 7500
+  },
+  {
+    "account_description": "PNC Corporate (Gusto) - 6428",
+    "reporting_date": "2026-07-30",
+    "value": 20.54
+  },
+  {
+    "account_description": "PNC Corporate (Gusto) -0446",
+    "reporting_date": "2026-07-30",
+    "value": 2187647.52
+  },
+  {
+    "account_description": "Pathward Gusto Capital Operating 1720",
+    "reporting_date": "2026-07-30",
+    "value": 499995
+  },
+  {
+    "account_description": "Reserve Account - Gusto MRB Processing 4973",
+    "reporting_date": "2026-07-30",
+    "value": 750000
+  },
+  {
+    "account_description": "SVB Checking 3354 - MoseyWorks, Inc.",
+    "reporting_date": "2026-07-30",
+    "value": 13.92
+  },
+  {
+    "account_description": "SVB Checking 3369 - MoseyWorks, Inc.",
+    "reporting_date": "2026-07-30",
+    "value": 207324.31
+  },
+  {
+    "account_description": "Scotiabank 6812 (CAD)",
+    "reporting_date": "2026-07-30",
+    "value": 1731.1249999999998
+  },
+  {
+    "account_description": "Symmetry Petty Cash",
+    "reporting_date": "2026-07-30",
+    "value": 2964.76
   }
 ]
